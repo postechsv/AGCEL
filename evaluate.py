@@ -26,4 +26,4 @@ def evaluate(num_samples, N, max_steps, Qtable):
     print('avg_qlmc:', avg_qlmc)
 
 Qtable = np.load('trained_abs_qtable.npy')
-evaluate(30, 6, 10000, Qtable)
+evaluate(30, 5, 10000, Qtable)
