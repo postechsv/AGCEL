@@ -1,0 +1,105 @@
+fmod DINING-PHILOSOPHERS-FUNCS is
+  protecting NAT .
+  sorts Status .    
+  ops think hungry single eat : -> Status [ctor] .
+
+  op #N : ~> Nat .  --- total number of philosophers
+  vars I J : Nat .  
+  
+  ops lc rc : Nat ~> Nat .    
+  eq lc(I) = I .    
+  ceq rc(I) = s(I) if (s(I) < #N) = true .
+  ceq rc(I) = 0 if (s(I) == #N) = true .
+
+  op adj : Nat Nat ~> Bool .
+  eq adj(I,J) = (J == lc(I)) or (J == rc(I)) .
+endfm
+
+mod DINING-PHILOSOPHERS is
+  including DINING-PHILOSOPHERS-FUNCS .
+
+  sorts Phil Chop Conf .
+  subsorts Phil Chop < Conf .   
+
+  op p : Nat Status -> Phil [ctor] .
+  op c : Nat -> Chop [ctor] .    
+  
+  op none : -> Conf [ctor] .
+  op _||_ : Conf Conf -> Conf [ctor comm assoc id: none] .
+
+  --- eq #N = s(s(s(0))) . 
+  
+  vars I J : Nat .	var C : Conf .	
+  
+  *** defining the system behavior with localized fairness
+  *** NOTE: rule attributes also declare the simplified version of
+  *** spatial action patterns, e.g., wake(I) = {'wake : 'I \ I}
+
+  rl [th]: p(I,think) => p(I,hungry) .
+
+ crl [hs]: p(I,hungry) || c(J) => p(I,single) 
+   if adj(I,J) = true .
+
+ crl [se]: p(I,single) || c(J) => p(I,eat) 
+   if adj(I,J) = true .
+
+  rl [et]: p(I,eat) => p(I,think) || c(lc(I)) || c(rc(I)) .
+endm
+
+mod AIDX-DP is --- abstraction by predicates
+  including DINING-PHILOSOPHERS .
+
+  sort AIdx .
+
+  ops hasThink hasHungry hasSingle hasEat : Conf -> Bool .
+  op aidx : Conf -> Nat .
+
+  var I : Nat . var C : Conf . var S : Status .
+
+  eq hasThink(p(I,think) || C) = true .
+  eq hasThink(p(I,S) || C) = hasThink(C) [owise] .
+  eq hasThink(c(I) || C) = hasThink(C) .
+  eq hasThink(none) = false .
+
+  eq hasHungry(p(I,hungry) || C) = true .
+  eq hasHungry(p(I,S) || C) = hasHungry(C) [owise] .
+  eq hasHungry(c(I) || C) = hasHungry(C) .
+  eq hasHungry(none) = false .
+
+  eq hasSingle(p(I,single) || C) = true .
+  eq hasSingle(p(I,S) || C) = hasSingle(C) [owise] .
+  eq hasSingle(c(I) || C) = hasSingle(C) .
+  eq hasSingle(none) = false .
+
+  eq hasEat(p(I,eat) || C) = true .
+  eq hasEat(p(I,S) || C) = hasEat(C) [owise] .
+  eq hasEat(c(I) || C) = hasEat(C) .
+  eq hasEat(none) = false .
+ 
+  eq aidx(C) = 8 * if hasThink(C) then 1 else 0 fi + 4 * if hasHungry(C) then 1 else 0 fi + 2 * if hasSingle(C) then 1 else 0 fi + 1 * if hasEat(C) then 1 else 0 fi .
+endm
+
+mod ACONF-DP is --- abstraction by formal patterns
+  including DINING-PHILOSOPHERS .
+
+  sort AConf . --- abstract Conf
+  op a : Conf -> AConf .
+  op -- : -> Nat . --- don't care
+
+  var I : Nat . var C : Conf . var S : Status .
+
+  ceq a(p(I, S) || C) = a(p(--, S) || C) if I =/= -- . --- TODO: is it ok when -- is not a constructor symbol?
+  eq a(p(--, S) || p(--, S) || C) = a(p(--, S) || C) .
+  eq a(c(I) || C) = a(C) .
+endm
+
+mod DP5 is
+  --- including AIDX-DP .
+  including ACONF-DP . 
+  eq #N = 5 .
+endm
+
+--- rew [3] p(0,think) || c(0) || p(s(0),think) || c(s(0)) || p(s(s(0)),think) || c(s(s(0))) .
+--- search p(0,think) || c(0) || p(s(0),think) || c(s(0)) || p(s(s(0)),think) || c(s(s(0))) =>! C .
+--- red hasEat(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))) .
+--- red aidx(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))) .
