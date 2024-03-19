@@ -1,0 +1,43 @@
+load data-structures/priority-queue.maude
+
+--- defining QItems
+
+fmod QUEUE-ITEM is
+    protecting SCORE .
+    protecting META-TERM .
+
+    sort QItem .
+    op [_,_] : Term Score -> QItem [ctor] .
+
+    var T : Term .
+    var S : Score .
+ 
+    op getScore : QItem -> Score .
+    eq getScore([T,S]) = S .
+endfm
+
+view QItem from TRIV to QUEUE-ITEM is
+  sort Elt to QItem .
+endv
+
+
+fmod QUEUE-ITEM<= is
+    protecting QUEUE-ITEM .
+
+    vars T T' : Term .
+    vars S S' : Score .
+
+    op _>_ : QItem QItem -> Bool .
+    eq [T, S] > [T', S'] = S gt S' .
+
+    op _<_ : QItem QItem -> Bool .
+    eq [T, S] < [T', S'] = S lt S' .
+
+    op _<=_ : QItem QItem -> Bool .
+    eq [T, S] <= [T', S'] = S le S' .
+endfm
+
+
+view QItem<= from TOSET<= to QUEUE-ITEM<= is
+  sort Elt to QItem .
+endv

@@ -1,0 +1,56 @@
+---load dp.maude
+load score.maude
+load q-item.maude
+
+---
+
+fmod SEARCH is
+  pr META-LEVEL .
+  pr SCORE .
+  pr LEFTIST-TREES{QItem<=} .
+  pr SET{QItem} .
+ --- sort TermSet .
+ --- subsort Term < TermSet .
+ --- op emp : -> TermSet [ctor] .
+ --- op _;;_ : TermSet TermSet -> TermSet [ctor assoc comm id: emp] .
+
+  vars M : Module .
+  vars T T' : Term .
+  vars N : Nat .
+  vars QUE : LTree{QItem<=} .
+  vars SC : Score .
+
+  op nbrs : Module Term -> Set{QItem} .
+  eq nbrs(M,T) = nbrs(M,T,0) .
+  
+  op nbrs : Module Term Nat -> Set{QItem} .
+ ceq nbrs(M,T,N) = empty if metaSearch(M, T, 'X:Conf, nil, '+, 1, N) == (failure).ResultTriple? .
+ ceq nbrs(M,T,N) = [T', SC] , nbrs(M,T,N + 1) 
+  if T' := getTerm(metaSearch(M, T, 'X:Conf, nil, '+, 1, N)) 
+  /\ SC := downTerm(getTerm(metaReduce(M, upTerm(score(aconf(downTerm(T,error)), aconf(downTerm(T',error)))))), sc0) [owise] .
+  ---/\ SC := downTerm(getTerm(metaReduce(M, score(aconf(downTerm(T,error)), aconf(downTerm(T',error))))), sc0) [owise] .
+
+  ---op search : Module Term -> Term .
+  ---eq search(M,T)
+
+endfm
+
+mod TEST is
+  pr SEARCH .
+  pr SCORED-DP5 .
+
+  op conf0 : -> Conf .
+  eq conf0 = p(0,hungry) || c(0) || p(1,hungry) || c(s(0)) || p(2,think) || c(s(s(0))) .
+
+endm
+
+red nbrs(upModule('SCORED-DP5, false), upTerm(conf0)) .
+
+--- red getTerm(metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 0)) .
+--- red downTerm(getTerm(metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 1)), X:Conf) .
+--- red downTerm(getTerm(metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 2)), X:Conf) .
+--- red downTerm(getTerm(metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 3)), X:Conf) .
+--- red metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 4) .
+--- red metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 5) == (failure).ResultTriple? .
+---red downTerm(getTerm(metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 5)), X:Conf) .
+---red score(aconf(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))), aconf(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0))))) .

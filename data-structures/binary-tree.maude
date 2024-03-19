@@ -1,0 +1,36 @@
+fmod BIN-TREE{X :: TRIV} is
+   protecting LIST{X} .
+   protecting NAT .
+
+   sorts NeBinTree{X} BinTree{X} .
+   subsort NeBinTree{X} < BinTree{X} .
+
+   op empty : -> BinTree{X} [ctor] .
+   op _`[_`]_ : BinTree{X} X$Elt BinTree{X} -> NeBinTree{X} [ctor] .
+   ops left right : NeBinTree{X} -> BinTree{X} .
+   op root : NeBinTree{X} -> X$Elt .
+   op depth : BinTree{X} -> Nat .
+   ops leaves preorder inorder postorder : BinTree{X} -> List{X} .
+   
+   var E : X$Elt .
+   vars L R : BinTree{X} .
+   vars NEL NER : NeBinTree{X} .
+
+   eq left(L [E] R) = L .
+   eq right(L [E] R) = R .
+   eq root(L [E] R) = E .
+   eq depth(empty) = 0 .
+   eq depth(L [E] R) = 1 + max(depth(L), depth(R)) .
+
+   eq leaves(empty) = nil .
+   eq leaves(empty [E] empty) = E .
+   eq leaves(NEL [E] R) = leaves(NEL) leaves(R) .
+   eq leaves(L [E] NER) = leaves(L) leaves(NER) .
+
+   eq preorder(empty) = nil .
+   eq preorder(L [E] R) = E preorder(L) preorder(R) .
+   eq inorder(empty) = nil .
+   eq inorder(L [E] R) = inorder(L) E inorder(R) .
+   eq postorder(empty) = nil .
+   eq postorder(L [E] R) = postorder(L) postorder(R) E .
+ endfm

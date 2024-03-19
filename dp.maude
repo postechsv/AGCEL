@@ -1,3 +1,9 @@
+fmod CONF is
+  sorts Conf AConf . --- concrete, abstract Conf
+  op aconf : Conf -> AConf .
+  op error : -> Conf . --- FIXME : for downTerm default
+endfm
+
 fmod DINING-PHILOSOPHERS-FUNCS is
   protecting NAT .
   sorts Status .    
@@ -16,9 +22,10 @@ fmod DINING-PHILOSOPHERS-FUNCS is
 endfm
 
 mod DINING-PHILOSOPHERS is
+  pr CONF .
   including DINING-PHILOSOPHERS-FUNCS .
 
-  sorts Phil Chop Conf .
+  sorts Phil Chop .
   subsorts Phil Chop < Conf .   
 
   op p : Nat Status -> Phil [ctor] .
@@ -79,27 +86,28 @@ mod AIDX-DP is --- abstraction by predicates
   eq aidx(C) = 8 * if hasThink(C) then 1 else 0 fi + 4 * if hasHungry(C) then 1 else 0 fi + 2 * if hasSingle(C) then 1 else 0 fi + 1 * if hasEat(C) then 1 else 0 fi .
 endm
 
-mod ACONF-DP is --- abstraction by formal patterns
-  including DINING-PHILOSOPHERS .
 
-  sort AConf . --- abstract Conf
-  op a : Conf -> AConf .
+
+mod ACONF-DP is --- abstraction by formal patterns
+  pr DINING-PHILOSOPHERS .
+
+  op aconf : Conf -> AConf .
   op -- : -> Nat . --- don't care
 
   var I : Nat . var C : Conf . var S : Status .
 
-  ceq a(p(I, S) || C) = a(p(--, S) || C) if I =/= -- . --- TODO: is it ok when -- is not a constructor symbol?
-  eq a(p(--, S) || p(--, S) || C) = a(p(--, S) || C) .
-  eq a(c(I) || C) = a(C) .
+  ceq aconf(p(I, S) || C) = aconf(p(--, S) || C) if I =/= -- . --- TODO: is it ok when -- is not a constructor symbol?
+  eq aconf(p(--, S) || p(--, S) || C) = aconf(p(--, S) || C) .
+  eq aconf(c(I) || C) = aconf(C) .
 endm
 
 mod DP5 is
   --- including AIDX-DP .
-  including ACONF-DP . 
+  inc ACONF-DP . 
   eq #N = 5 .
 endm
 
 --- rew [3] p(0,think) || c(0) || p(s(0),think) || c(s(0)) || p(s(s(0)),think) || c(s(s(0))) .
 --- search p(0,think) || c(0) || p(s(0),think) || c(s(0)) || p(s(s(0)),think) || c(s(s(0))) =>! C .
 --- red hasEat(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))) .
---- red aidx(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))) .
+---red aconf(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))) . --- result AConf: aconf(p(--, think) || p(--, hungry))

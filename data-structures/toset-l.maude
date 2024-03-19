@@ -1,0 +1,11 @@
+fth TOSET< is
+  including BOOL .
+  including TRIV .
+
+  op _<_ : Elt Elt -> Bool .
+  op _>_ : Elt Elt -> Bool .
+  vars E1 E2 E3 : Elt .
+  eq E1 < E1 = false .
+  ceq E1 < E3 = true if E1 < E2 and E2 < E3 [nonexec] .
+  eq E1 > E2 = E2 < E1 .
+endfth

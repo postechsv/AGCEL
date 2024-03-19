@@ -1,0 +1,8 @@
+load toset-l.maude
+
+fth TOSET<= is
+  including TOSET< .
+
+  op _<=_ : Elt Elt -> Bool .
+  vars E1 E2 : Elt .
+endfth

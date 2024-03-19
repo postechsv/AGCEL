@@ -1,0 +1,59 @@
+*** Data structure implementation in http://maude.sip.ucm.es/datastructures/ used.
+
+load binary-tree.maude
+load toset-le.maude
+
+fmod TREE-NODE{T :: TOSET<=} is
+   protecting NAT .
+   sort Node{T} .
+   op n : Nat T$Elt -> Node{T} [ctor] .
+endfm
+
+view Node{T :: TOSET<=} from TRIV to TREE-NODE{T} is
+   sort Elt to Node{T} .
+endv
+
+fmod LEFTIST-TREES{T :: TOSET<=} is
+   protecting BIN-TREE{Node{T}} .
+   sorts NeLTree{T} LTree{T} .
+   subsorts NeLTree{T} < LTree{T} < BinTree{Node{T}} .
+   subsorts NeLTree{T} < NeBinTree{Node{T}} .
+
+   op rank : BinTree{Node{T}} -> Nat .   
+   op rankL : LTree{T} -> Nat . 
+   op insert : T$Elt LTree{T} -> NeLTree{T} .
+   op deleteMin : NeLTree{T} -> LTree{T} .
+   op findMin : NeLTree{T} -> T$Elt .
+   op make : T$Elt LTree{T} LTree{T} -> LTree{T} .
+   op merge : LTree{T} LTree{T} -> LTree{T} .
+
+   vars NeTL NeTR : NeLTree{T} .               vars M N N1 N2 : Nat .
+   vars T TL TR TL1 TR1 TL2 TR2 : LTree{T} .   vars X X1 X2 : T$Elt .
+
+   mb empty : LTree{T} .
+   mb empty [n(1, X)] empty : NeLTree{T} .
+   cmb NeTL [n(1, X)] empty : NeLTree{T} if X <= findMin(NeTL) .
+   cmb NeTL [n(N, X)] NeTR : NeLTree{T} if rank(NeTL) >= rank(NeTR) /\
+                                           X <= findMin(NeTL) /\ 
+                                           X <= findMin(NeTR) /\
+                                           N = 1 + rank(NeTR) .
+   eq rank(empty) = 0 .
+   eq rank(TL [n(N, X)] TR) = 1 + rank(TR) .
+   eq rankL(empty) = 0 .
+   eq rankL(TL [n(N,X)] TR) = N . 
+   
+   eq merge(empty, T) = T .
+   eq merge(T, empty) = T .
+   eq merge(TL1 [n(N1, X1)] TR1, TL2 [n(N2, X2)] TR2) =
+        if X1 <= X2 then make(X1, TL1, merge(TR1, TL2 [n(N2,X2)] TR2))
+                   else make(X2, TL2, merge(TL1 [n(N1,X1)] TR1,TR2))
+        fi .
+        
+   eq make(X, TL, TR) = if rankL(TL) >= rankL(TR) 
+                        then TL [n(rankL(TR) + 1,X)] TR
+                        else TR [n(rankL(TL) + 1,X)] TL fi .
+                        
+   eq insert(X,T) = merge(empty [n(1,X)] empty, T) .
+   eq findMin(TL [n(N,X)] TR) = X .
+   eq deleteMin(TL [n(N,X)] TR) = merge(TL,TR) . 
+endfm
