@@ -6,6 +6,7 @@ fmod SCORE is
   op score : AConf AConf -> Score .
   op sc0 : -> Score . --- FIXME: for downterm in search
   ops _gt_ _lt_ _le_ : Score Score -> Bool .
+  op isGoal : Conf -> Bool . --- FIXME
 endfm
 
 mod SCORED-DP5 is
@@ -16,6 +17,8 @@ mod SCORED-DP5 is
   subsort Float < Score .
 
   vars S S' : Score .
+  vars C : Conf .
+  eq isGoal(C) = aconf(C) == aconf(p(--, single)) .
 
   eq S gt S' = S > S' .
   eq S lt S' = S < S' .
@@ -70,3 +73,6 @@ endm
 
 --- red score(aconf(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))),aconf(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0))))) .
 --- result FiniteFloat: 8.5737499999999989e-1
+
+--- red isGoal(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))) . --- false
+--- red isGoal(p(0,single) || p(1,single) || p(2,single) || p(3,single) || p(4,single)) . --- true
