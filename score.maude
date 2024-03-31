@@ -2,12 +2,39 @@ load dp.maude
 
 fmod SCORE is
   pr CONF .
+  pr NAT .
   sort Score .
   op score : AConf AConf -> Score .
   op sc0 : -> Score . --- FIXME: for downterm in search
   ops _gt_ _lt_ _le_ : Score Score -> Bool .
   op isGoal : Conf -> Bool . --- FIXME
+
+  op ns : Nat -> Score [ctor] . --- natural score
+  ---op succ : Score -> Score .
+  vars N N' : Nat .
+  ---eq succ(ns(N)) = ns(s(N)) .
+  eq ns(N) gt ns(N') = N > N' .
+  eq ns(N) lt ns(N') = N < N' .
+  eq ns(N) le ns(N') = N <= N' .
 endfm
+
+mod UNIFORM-DP5 is
+  ---pr META-LEVEL .
+  pr DP5 .
+  pr FLOAT .
+  inc SCORE .
+  subsort Float < Score .
+
+  vars S S' : Score .
+  vars C : Conf .
+  eq isGoal(C) = aconf(C) == aconf(p(--, single)) .
+
+  eq S gt S' = S > S' .
+  eq S lt S' = S < S' .
+  eq S le S' = S <= S' .
+
+  eq score(X:AConf, Y:AConf) = 0.0 .
+endm
 
 mod SCORED-DP5 is
   ---pr META-LEVEL .
@@ -24,55 +51,55 @@ mod SCORED-DP5 is
   eq S lt S' = S < S' .
   eq S le S' = S <= S' .
 
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, eat))) = 0.8145062499999999 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, eat)), aconf(p(--, hungry) || p(--, eat))) = 0.8145062499999999 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, hungry))) = 0.8573749999999999 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, hungry))) = 0.8573749999999999 .
-  eq score(aconf(p(--, hungry) || p(--, eat)), aconf(p(--, hungry) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, eat))) = 0.8145062499999999 .
-  eq score(aconf(p(--, think) || p(--, hungry)), aconf(p(--, hungry))) = 0.9025 .
-  eq score(aconf(p(--, think) || p(--, hungry)), aconf(p(--, think) || p(--, hungry))) = 0.8573749999999999 .
-  eq score(aconf(p(--, think) || p(--, hungry)), aconf(p(--, think) || p(--, hungry) || p(--, single))) = 0.9025 .
-  eq score(aconf(p(--, think) || p(--, hungry)), aconf(p(--, think) || p(--, single))) = 0.9025 .
-  eq score(aconf(p(--, hungry)), aconf(p(--, hungry) || p(--, single))) = 0.95 .
-  eq score(aconf(p(--, hungry) || p(--, single)), aconf(p(--, hungry) || p(--, single))) = 0.95 .
-  eq score(aconf(p(--, hungry) || p(--, single)), aconf(p(--, hungry) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, hungry) || p(--, single)), aconf(p(--, hungry) || p(--, eat))) = 0.8145062499999999 .
-  eq score(aconf(p(--, hungry) || p(--, single)), aconf(p(--, single))) = 1.0 .
-  eq score(aconf(p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single))) = 0.9025 .
-  eq score(aconf(p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, hungry) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, hungry) || p(--, eat))) = 0.8145062499999999 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single)), aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single)), aconf(p(--, think) || p(--, hungry) || p(--, single))) = 0.9025 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single)), aconf(p(--, think) || p(--, single))) = 0.9025 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single)), aconf(p(--, think) || p(--, hungry) || p(--, eat))) = 0.8145062499999999 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single)), aconf(p(--, hungry) || p(--, single))) = 0.95 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, eat))) = 0.8145062499999999 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, hungry) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single))) = 0.9025 .
-  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, think) || p(--, single)), aconf(p(--, think) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, think) || p(--, single)), aconf(p(--, think) || p(--, eat))) = 0.7737809374999999 .
-  eq score(aconf(p(--, think) || p(--, single)), aconf(p(--, think) || p(--, hungry) || p(--, single))) = 0.9025 .
-  eq score(aconf(p(--, think) || p(--, single)), aconf(p(--, hungry) || p(--, single))) = 0.95 .
-  eq score(aconf(p(--, think) || p(--, single) || p(--, eat)), aconf(p(--, hungry) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, think) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, think) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, single) || p(--, eat))) = 0.8573749999999999 .
-  eq score(aconf(p(--, think) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, single))) = 0.9025 .
-  eq score(aconf(p(--, think) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, eat))) = 0.7737809374999995 .
-  eq score(aconf(p(--, think) || p(--, eat)), aconf(p(--, think))) = 0.8145062499999999 .
-  eq score(aconf(p(--, think) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, eat))) = 0.8145062499999999 .
-  eq score(aconf(p(--, think) || p(--, eat)), aconf(p(--, think) || p(--, eat))) = 0.7737809365001294 .
-  eq score(aconf(p(--, think)), aconf(p(--, think) || p(--, hungry))) = 0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, eat))) = -0.8145062499999999 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, eat)), aconf(p(--, hungry) || p(--, eat))) = -0.8145062499999999 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, hungry))) = -0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, hungry))) = -0.8573749999999999 .
+  eq score(aconf(p(--, hungry) || p(--, eat)), aconf(p(--, hungry) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, hungry) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, eat))) = -0.8145062499999999 .
+  eq score(aconf(p(--, think) || p(--, hungry)), aconf(p(--, hungry))) = -0.9025 .
+  eq score(aconf(p(--, think) || p(--, hungry)), aconf(p(--, think) || p(--, hungry))) = -0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, hungry)), aconf(p(--, think) || p(--, hungry) || p(--, single))) = -0.9025 .
+  eq score(aconf(p(--, think) || p(--, hungry)), aconf(p(--, think) || p(--, single))) = -0.9025 .
+  eq score(aconf(p(--, hungry)), aconf(p(--, hungry) || p(--, single))) = -0.95 .
+  eq score(aconf(p(--, hungry) || p(--, single)), aconf(p(--, hungry) || p(--, single))) = -0.95 .
+  eq score(aconf(p(--, hungry) || p(--, single)), aconf(p(--, hungry) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, hungry) || p(--, single)), aconf(p(--, hungry) || p(--, eat))) = -0.8145062499999999 .
+  eq score(aconf(p(--, hungry) || p(--, single)), aconf(p(--, single))) = -1.0 .
+  eq score(aconf(p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single))) = -0.9025 .
+  eq score(aconf(p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, hungry) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, hungry) || p(--, eat))) = -0.8145062499999999 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single)), aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single)), aconf(p(--, think) || p(--, hungry) || p(--, single))) = -0.9025 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single)), aconf(p(--, think) || p(--, single))) = -0.9025 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single)), aconf(p(--, think) || p(--, hungry) || p(--, eat))) = -0.8145062499999999 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single)), aconf(p(--, hungry) || p(--, single))) = -0.95 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, eat))) = -0.8145062499999999 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, hungry) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single))) = -0.9025 .
+  eq score(aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, single)), aconf(p(--, think) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, single)), aconf(p(--, think) || p(--, eat))) = -0.7737809374999999 .
+  eq score(aconf(p(--, think) || p(--, single)), aconf(p(--, think) || p(--, hungry) || p(--, single))) = -0.9025 .
+  eq score(aconf(p(--, think) || p(--, single)), aconf(p(--, hungry) || p(--, single))) = -0.95 .
+  eq score(aconf(p(--, think) || p(--, single) || p(--, eat)), aconf(p(--, hungry) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, single) || p(--, eat))) = -0.8573749999999999 .
+  eq score(aconf(p(--, think) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, single))) = -0.9025 .
+  eq score(aconf(p(--, think) || p(--, single) || p(--, eat)), aconf(p(--, think) || p(--, eat))) = -0.7737809374999995 .
+  eq score(aconf(p(--, think) || p(--, eat)), aconf(p(--, think))) = -0.8145062499999999 .
+  eq score(aconf(p(--, think) || p(--, eat)), aconf(p(--, think) || p(--, hungry) || p(--, eat))) = -0.8145062499999999 .
+  eq score(aconf(p(--, think) || p(--, eat)), aconf(p(--, think) || p(--, eat))) = -0.7737809365001294 .
+  eq score(aconf(p(--, think)), aconf(p(--, think) || p(--, hungry))) = -0.8573749999999999 .
   eq score(X:AConf, Y:AConf) = 0.0 [owise] .
 endm
 
---- red score(aconf(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))),aconf(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0))))) .
---- result FiniteFloat: 8.5737499999999989e-1
+---red score(aconf(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))),aconf(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0))))) .
+---result FiniteFloat: 8.5737499999999989e-1
 
 --- red isGoal(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))) . --- false
 --- red isGoal(p(0,single) || p(1,single) || p(2,single) || p(3,single) || p(4,single)) . --- true

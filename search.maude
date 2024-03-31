@@ -11,7 +11,7 @@ fmod SEARCH is
 
   vars M : Module .
   vars T T' : Term .
-  vars N : Nat .
+  vars N N' : Nat .
   vars QUE : LTree{QItem<=} .
   vars NQUE : NeLTree{QItem<=} .
   vars SC : Score .
@@ -27,13 +27,37 @@ fmod SEARCH is
   if T' := getTerm(metaSearch(M, T, 'X:Conf, nil, '+, 1, N)) 
   /\ SC := downTerm(getTerm(metaReduce(M, upTerm(score(aconf(downTerm(T,error)), aconf(downTerm(T',error)))))), sc0) [owise] .
 
+  ----- TEST -----
+  op depth-nbrs : Module Term Nat -> Set{QItem} .
+  eq depth-nbrs(M,T,N) = depth-nbrs(M,T,N,0) .
+  
+  --- module, current term, current depth(N'), solution idx
+  op depth-nbrs : Module Term Nat Nat -> Set{QItem} .
+ ceq depth-nbrs(M,T,N',N) = empty if metaSearch(M, T, 'X:Conf, nil, '+, 1, N) == (failure).ResultTriple? .
+ ceq depth-nbrs(M,T,N',N) = [T', ns(N' + 1)] ; depth-nbrs(M,T,N',N + 1) 
+  if T' := getTerm(metaSearch(M, T, 'X:Conf, nil, '+, 1, N)) 
+  /\ SC := downTerm(getTerm(metaReduce(M, upTerm(score(aconf(downTerm(T,error)), aconf(downTerm(T',error)))))), sc0) [owise] .
+
+  op bfs : Module TermList LTree{QItem<=} Nat -> QHSResult .
+ ceq bfs(M, VIS, NQUE, N)
+    = if checkSol(M,T) then success(T,N)
+                     else bfs(M, (T , VIS), insertAll(ITEMS,deleteMin(NQUE)), N + 1)
+      fi
+    if [T,ns(N')] := findMin(NQUE)
+    /\ ITEMS := if T in VIS then empty else depth-nbrs(M,T,N') fi [print "current term item: " T " , " N'] . --- FIXME: what if nbrs contains visited terms?
+  eq bfs(M, VIS, QUE, N) = fail(N) [owise] .
+
+  op bfs : Module Term -> QHSResult .
+  eq bfs(M,T) = bfs(M, empty, insert([T, ns(0)],empty), 0) .
+  ----- END TEST ---
+
   op insertAll : Set{QItem} LTree{QItem<=} -> LTree{QItem<=} .
   eq insertAll(empty, QUE) = QUE .
   eq insertAll(ITEM ; ITEMS, QUE) = insertAll(ITEMS, insert(ITEM, QUE)) .
 
   sort QHSResult .
-  op success : Term -> QHSResult [ctor] .
-  op fail : -> QHSResult [ctor] .
+  op success : Term Nat -> QHSResult [ctor] .
+  op fail : Nat -> QHSResult [ctor] .
 
   vars VIS : TermList .
 
@@ -45,23 +69,24 @@ fmod SEARCH is
   eq T in (T , VIS) = true .
   eq T in (T' , VIS)  = T in VIS .
 
-  op qhs : Module TermList LTree{QItem<=} -> QHSResult .
- ceq qhs(M, VIS, NQUE)
-    = if checkSol(M,T) then success(T)
-                     else qhs(M, (T , VIS), insertAll(ITEMS,deleteMin(NQUE)))
+  op qhs : Module TermList LTree{QItem<=} Nat -> QHSResult .
+ ceq qhs(M, VIS, NQUE, N)
+    = if checkSol(M,T) then success(T,N)
+                     else qhs(M, (T , VIS), insertAll(ITEMS,deleteMin(NQUE)), N + 1)
       fi
     if [T,SC] := findMin(NQUE)
-    /\ ITEMS := if T in VIS then empty else nbrs(M,T) fi . --- FIXME: what if nbrs contains visited terms?
-  eq qhs(M, VIS, QUE) = fail [owise] .
+    /\ ITEMS := if T in VIS then empty else nbrs(M,T) fi [print "current term item: " T " , " SC] . --- FIXME: what if nbrs contains visited terms?
+  eq qhs(M, VIS, QUE, N) = fail(N) [owise] .
 
   op qhs : Module Term -> QHSResult .
-  eq qhs(M,T) = qhs(M, empty, insert([T, sc0],empty)) .
+  eq qhs(M,T) = qhs(M, empty, insert([T, sc0],empty), 0) .
 
 endfm
 
 mod TEST is
   pr SEARCH .
   pr SCORED-DP5 .
+  pr UNIFORM-DP5 .
 
   op conf0 : -> Conf .
   eq conf0 = p(0,hungry) || c(0) || p(1,hungry) || c(s(0)) || p(2,think) || c(s(s(0))) .
@@ -72,13 +97,23 @@ mod TEST is
   op conf2 : -> Conf .
   eq conf2 = p(0,single) || p(1,single) || p(2,single) || p(3,single) || p(4,single) .
 
-  op dp5 : -> Module .
-  eq dp5 = upModule('SCORED-DP5, false) .
+  op conf3 : -> Conf .
+  eq conf3 = p(0,single) || p(1,think) || c(1) || p(2,hungry) || c(2) || p(3,hungry) || p(4,single) || c(4) .
+
+  op qdp5 : -> Module .
+  eq qdp5 = upModule('SCORED-DP5, false) .
+
+  op udp5 : -> Module . --- uniform
+  eq udp5 = upModule('UNIFORM-DP5, false) .
 
 endm
 
+---set print attribute on .
+---set trace on .
+
 --- test for qhs
-red qhs(dp5, upTerm(conf1)) .
+red bfs(qdp5, upTerm(conf3)) .
+red qhs(qdp5, upTerm(conf3)) .
 
 
 --- test for nbrs
