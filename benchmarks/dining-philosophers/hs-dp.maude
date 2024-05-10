@@ -1,0 +1,57 @@
+load dining-philosophers .
+load ../../heuristic-search .
+
+mod DP3 is
+  inc N-DINING-PHILOSOPHERS .
+  eq #N = 3 .
+endm
+
+mod DP5 is
+  inc N-DINING-PHILOSOPHERS .
+  eq #N = 5 .
+endm
+
+fmod ABST-DP is
+  pr DINING-PHILOSOPHERS-BASE .
+  inc HEURISTIC-SEARCH .
+  --- define abstractions
+  subsort Conf < State .
+  sort APid .
+  op -- : -> APid [ctor] .
+
+  sort APhil . --- abstract philosopher
+  subsort APhil < AState .
+  op p : APid Status -> APhil .
+  op none : -> AState [ctor] .
+  op _||_ : AState AState -> AState [ctor comm assoc id: none] .
+
+  var I : Nat .
+  var S : Status .
+  var C : Conf . var AS : AState .
+
+  eq abst(p(I, S) || C) = p(--, S) || abst(C) .
+  eq abst(c(I) || C) = abst(C) .
+  eq abst(none) = none .
+  eq p(--, S) || p(--, S) || AS = p(--, S) || AS .
+endfm
+
+mod HEURISTIC-SEARCH-DP is
+  pr DP5 . inc ABST-DP . inc HEURISTIC-SEARCH .
+  subsort Conf < State .
+
+  var I : Nat .
+  var C : Conf .
+  var S : Status .
+
+  op allSingle : Conf -> Bool .
+  eq allSingle(p(I,single) || C) = allSingle(C) .
+  eq allSingle(p(I,S) || C) = false [owise] .
+  eq allSingle(c(I) || C) = allSingle(C) .
+  eq allSingle(none) = true .
+
+  --- define goals
+  ops deadlock : -> Prop [ctor] .
+  eq C |= deadlock = allSingle(C) .
+endm
+
+red abst(p(0,single) || p(1,single) || p(2,hungry)) .

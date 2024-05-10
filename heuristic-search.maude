@@ -1,0 +1,15 @@
+fmod HEURISTIC-SEARCH is
+  pr BOOL .
+
+  --- for states
+  sorts State AState .
+  --- for actions
+  sorts Subs ASubs .
+  sorts Ctx ACtx .
+  --- for goals
+  sorts Prop .
+
+  op abst : State -> AState .
+  op _|=_ : State Prop -> Bool [frozen] .
+  --- op _|->_ : QID AUniv -> ASubs . (TODO)
+endfm

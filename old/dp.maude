@@ -91,7 +91,13 @@ endm
 mod ACONF-DP is --- abstraction by formal patterns
   pr DINING-PHILOSOPHERS .
 
+  sort One .
+  op unit : -> One [ctor] .
+  op alpha-Nat : Nat -> One .
+  eq alpha-Nat(I) = unit .
+
   op aconf : Conf -> AConf .
+
   op -- : -> Nat . --- don't care
 
   var I : Nat . var C : Conf . var S : Status .

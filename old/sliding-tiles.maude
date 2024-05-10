@@ -12,6 +12,9 @@ fmod SLIDER-FUNCS is
   op none : -> Conf [ctor] .
   op tile : Nat Nat Nat -> Conf [ctor] . --- num, row, col
   op __ : Conf Conf -> Conf [ctor comm assoc id: none] .
+
+  vars N I J : Nat .
+  eq tile(N,I,J) tile(N,I,J) = tile(N,I,J) . --- ASSUMPTION: Conf should be as Set!
 endfm
 
 fmod SLIDER-ACONF is
