@@ -16,7 +16,9 @@ fmod ABST-DP is
   inc HEURISTIC-SEARCH .
   --- define abstractions
   subsort Conf < State .
+  subsort Nat < Data .
   sort APid .
+  subsort APid < AData .
   op -- : -> APid [ctor] .
 
   sort APhil . --- abstract philosopher
@@ -29,9 +31,15 @@ fmod ABST-DP is
   var S : Status .
   var C : Conf . var AS : AState .
 
+  --- data abstraction (= action abstraction)
+  eq abst(I) = -- .
+
+  --- state abstraction
   eq abst(p(I, S) || C) = p(--, S) || abst(C) .
   eq abst(c(I) || C) = abst(C) .
   eq abst(none) = none .
+
+  --- equations for AState
   eq p(--, S) || p(--, S) || AS = p(--, S) || AS .
 endfm
 

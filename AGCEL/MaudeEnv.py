@@ -1,4 +1,5 @@
 import random
+from AGCEL.common import Action
 
 class MaudeEnv():
     def __init__(self, m, goal, initializer):
@@ -16,18 +17,20 @@ class MaudeEnv():
             self.state = self.m.parseTerm(self.init())
         else:
             self.state = init_state
-        self.actions = [rl for rl in self.rules if any(True for _ in self.state.apply(rl))]
+        # nbrs = (rhs,action) where rhs is the result of applying action on the current state
+        self.nbrs = [(rhs, Action(label, self.abst_subs(sb))) for label in self.rules for rhs, sb, _, _ in self.state.apply(label)]
         return self.get_obs() 
     
     def get_obs(self):
         return {
             'state' : self.state, # Maude.Term
             'astate' : self.abst(self.state), # Maude.Term
-            'actions' : self.actions, # List of Strings
+            'actions' : [a for s,a in self.nbrs] # List of (available) action objects
         }
 
+    # action = Action obj = <rule label, abstract subs>
     def step(self, action):
-        next_states = [next_state for next_state, _, _, _ in self.state.apply(action)]
+        next_states = [s for s,a in self.nbrs if a == action]
         if next_states == []:
             raise Exception("invalid action")
         obs = self.reset(random.choice(next_states))
@@ -35,10 +38,20 @@ class MaudeEnv():
         done = True if reward == 1.0 else False # TODO: +done if no rewrite possible
         return obs, reward, done
     
-    def abst(self, state):
-        astate = self.m.parseTerm('abst(' + state.prettyPrint(0) + ')')
-        astate.reduce()
-        return astate
+    # input: Maude.Term, output: Maude.Term
+    def abst(self, term):
+        term = self.m.parseTerm('abst(' + term.prettyPrint(0) + ')')
+        term.reduce()
+        return term
+
+    # input: Maude.Substitution, output: dict
+    def abst_subs(self, subs):
+        asubs = dict()
+        for var, val in subs:
+            val = self.m.parseTerm(f'abst({val.prettyPrint(0)})')
+            val.reduce()
+            asubs[var] = val
+        return asubs
     
     def is_goal(self):
         t = self.m.parseTerm(f'{self.state.prettyPrint(0)} |= {self.goal.prettyPrint(0)}')

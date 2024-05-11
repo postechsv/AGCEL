@@ -13,10 +13,6 @@ class HeuristicSearch(MaudeEnv):
         MaudeEnv.__init__(self, m, goal, initializer)
         self.qt = qt
         self.last_init = self.state
-        
-    def get_nbrs(self):
-        #returns (next state, action) where action is applied to the current state to produce next state
-        return [(t, path()[1].getLabel()) for t, subs, path, nrew in self.state.search(1, self.m.parseTerm('X:State'), depth = 1)]
     
     def score(self, s, a):
         astate = self.abst(s)
@@ -37,15 +33,11 @@ class HeuristicSearch(MaudeEnv):
             visited.add(state)
             s = obs['astate']
             if self.is_goal():
-                print('goal reached!')
-                #print('t:', t)
-                #print('num steps:', i)
                 break
-            # nbrs = [(v, av) for (a, v, av) in env.next_actions if not v in visited] # unvisited next vecs
             if mode == 'bfs': # bfs
-                q_items = [(i, TermWrapper(next_state)) for (next_state, a) in self.get_nbrs()]
+                q_items = [(i, TermWrapper(next_state)) for (next_state, a) in self.nbrs]
             elif mode == 'qhs': # qhs
-                q_items = [(-self.score(state, a), TermWrapper(next_state)) for (next_state, a) in self.get_nbrs()] # prioritized nbrs
+                q_items = [(-self.score(state, a), TermWrapper(next_state)) for (next_state, a) in self.nbrs] # prioritized nbrs
             for item in q_items:
                 heapq.heappush(queue, item) # queue,item
         return i
