@@ -1,0 +1,122 @@
+load ./onethirdrule-base.maude
+
+mod ONETHIRDRULE-NO-MSG-LOSS is
+    including GLOBAL .
+    including FUNCTIONS .
+    protecting MULTICAST .
+
+    vars O O' : Oid . vars CF : Configuration . var C : Cid .
+    vars OS OS' : OidSet . 
+    var R TH N VA : Nat .
+    var VS : ValueSet .
+    var Z : Zero .
+    vars V V' : Value .
+    var VM : VoteMap .
+    var VOTE : Vote .
+    var ATTS : AttributeSet .
+
+    rl [vote] : 
+    {TH, V ; VS, O ; OS,
+        < O : Node | status : [R, init], value : V, decision : nil, votes : VOTE, ATTS > 
+        CF
+    }
+    =>
+    {TH, V ; VS, O ; OS,
+        < O : Node | status : [R, wait], value : V, decision : nil, votes : update(VOTE, V), ATTS > 
+        (multicast vote(V, R) from O to OS)
+        CF
+    } .
+
+
+    rl [receive] :
+    {TH, V ; VS, OS,
+        < O : Node | status : [R, wait], decision : nil, votes : VOTE, ATTS > 
+        (multicast vote(V, R) from O' to (O ; OS'))
+        CF
+    } =>
+    {TH, V ; VS, OS,
+        < O : Node | status : [R, wait], decision : nil, votes : update(VOTE, V), ATTS > 
+        (multicast vote(V, R) from O' to OS')  
+        CF
+    } .
+
+
+    crl [decide] :
+    {TH, VS, OS,
+        < O : Node | status : [R, wait], decision : nil, votes : [(V |-> N ; VM), VA], ATTS > 
+        CF
+    }
+    =>
+    {TH, VS, OS,
+        < O : Node | status : [R, done], decision : V, votes : [(V |-> N ; VM), VA], ATTS >
+        CF
+    } if TH <= N .
+
+
+    crl [update] : 
+    {TH, V ; VS, OS,
+        < O : Node | status : [R, wait], value : V', decision : nil, votes : [V |-> N ; VM, VA], ATTS >
+        CF
+    }
+    =>
+    {TH, V ; VS, OS,
+        < O : Node | status : [s R, init], value : V, decision : nil, votes : [initVotes(V ; VS), 0], ATTS >
+        CF
+    } if (N < TH) and (TH <= VA) and genConst(V, N, VM, VS) .
+endm
+
+
+mod ONETHIRDRULE is
+    including ONETHIRDRULE-NO-MSG-LOSS .
+    vars TH NV : Nat .
+    var OS : OidSet . 
+    var CF : Configuration . 
+    var MSG : Msg .
+    var VS : ValueSet .
+
+    rl [loss] : 
+    {TH, VS, OS, MSG CF}
+    =>
+    {TH, VS, OS, CF} .
+endm
+
+
+mod ONETHIRDRULE-NML-ANALYSIS is
+    protecting ONETHIRDRULE . ---NO-MSG-LOSS .
+    protecting ONETHIRDRULE-CONST .
+    ---including STATE .
+    ---subsort Global < State .
+    ---eq inv(S:State) = true .
+    protecting STRING .
+    subsort String < Oid .
+
+    ops obA obB obC obD obE obF : -> InitObject .
+    ops init3 init6 : -> Global .
+
+    eq obA = < "A" : Node | status : [1, init], value : 0, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obB = < "B" : Node | status : [1, init], value : 1, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obC = < "C" : Node | status : [1, init], value : 1, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obD = < "D" : Node | status : [1, init], value : 0, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obE = < "E" : Node | status : [1, init], value : 1, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obF = < "F" : Node | status : [1, init], value : 1, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+
+    eq init3 = {2, (0 ; 1), ("A" ; "B" ; "C"), (obA obB obC) } .
+    eq init6 = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } .
+endm
+
+---set trace on .
+
+---search [1] init3 =>* { TH:Nat, VS:ValueSet, OS:OidSet, < O:Oid : Node | status : [R:Nat, done], decision : 0, ATTR:AttributeSet > < O':Oid : Node | status : [R':Nat, done], decision : 1, ATTR':AttributeSet > CONF:Configuration } .
+search [1] init6 =>* { TH:Nat, VS:ValueSet, OS:OidSet, < O:Oid : Node | status : [R:Nat, done], decision : 0, ATTR:AttributeSet > < O':Oid : Node | status : [R':Nat, done], decision : 1, ATTR':AttributeSet > CONF:Configuration } .
+
+
+
+---search [1] init0 =>* { 2, (0 ; 1), ("A" ; "B" ; "C"), < O:Oid : Node | decision : 0, ATTR:AttributeSet > CONF:Configuration } .
+
+---mod ONETHIRDRULE-ANALYSIS is
+---    protecting ONETHIRDRULE .
+---    protecting ONETHIRDRULE-CONST .
+---    including STATE .
+---    subsort Global < State .
+---    eq inv(S:State) = true .
+---endm

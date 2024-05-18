@@ -1,0 +1,240 @@
+fmod VALUE is
+    protecting NAT .
+
+    sorts Value InitValue? Value? .
+    subsort  Value < Value? .
+    subsort InitValue? < Value? .
+
+    subsort Nat < Value .
+
+    op nil : -> InitValue? [ctor] .
+
+    sort ValueSet .
+    subsort Value < ValueSet .
+    op emptyVs : -> ValueSet [ctor] .
+    op _;_ : ValueSet ValueSet -> ValueSet [ctor assoc comm id: emptyVs] .
+endfm
+
+
+fmod STEP is --- a.k.a program counter (pc)
+    sorts Step InitStep .
+    subsort InitStep < Step .
+    op init : -> InitStep [ctor] .
+    ops wait done : -> Step [ctor] .
+endfm
+
+
+fmod NODE is
+    sorts Node Cid  .
+    subsort Node < Cid .
+    op Node : -> Cid [ctor] .
+endfm
+
+
+fmod STATUS is
+    protecting NAT .
+    protecting STEP .
+
+    sorts Status InitStatus .
+    subsort InitStatus < Status .
+    sort InitialRound .
+
+    op [_,_] : Nat Step -> Status [ctor format (d d d s d d)] . 
+    op [_,_] : Nat InitStep -> InitStatus [ctor ditto] . 
+endfm
+
+
+fmod VOTE-MAP is
+    protecting NAT .
+    protecting VALUE .
+
+    sorts  VoteMap InitVoteMap Entry InitEntry .
+    subsort InitEntry < Entry InitVoteMap < VoteMap .
+
+    op  _|->_ : Value Nat -> Entry [ctor prec 50] .
+    op  _|->_ : Value Zero -> InitEntry [ctor prec 50] .
+
+    op none : -> InitEntry [ctor] .
+    op _;_ : VoteMap VoteMap -> VoteMap [ctor assoc comm id: none prec 60] .
+    op _;_ : InitVoteMap InitVoteMap -> InitVoteMap [ctor assoc comm id: none prec 60] .
+endfm
+
+view VoteMap from TRIV to VOTE-MAP is
+    sort Elt to VoteMap .
+endv
+
+fmod VOTE is
+    protecting VOTE-MAP .
+
+    sort Vote .
+    op [_,_] : VoteMap Nat -> Vote [ctor prec 70] .
+
+    sort InitVote .
+    subsort InitVote < Vote .
+
+    op [_,_] : InitVoteMap Zero -> InitVote [ctor prec 70] .
+endfm
+
+
+mod OID-SET is
+    protecting CONFIGURATION .
+    sort OidSet .
+    subsort Oid < OidSet .
+    op none : -> OidSet [ctor] .
+    op _;_ : OidSet OidSet -> OidSet [ctor assoc comm id: none] .
+endm
+
+---------------------------------------------------------------------------------------
+mod ALT-CFIGURATION is
+    ---protecting NODE .
+    ---protecting INITIAL-SORTS .
+    including STATUS .
+    including VOTE .
+    including STEP .
+    including VALUE .
+    including OID-SET .
+
+    ---sorts None Object Msg ObjectSet Configuration InitObject InitConfiguration .
+    sorts InitObject InitConfiguration .
+    subsort InitObject < Object InitConfiguration < Configuration .
+    subsort Msg < Configuration .
+
+    sort Node .
+    subsort Node < Cid .
+    op Node : -> Cid [ctor] .
+
+    op status`:_ : Status -> Attribute [ctor prec 15 gather (&)] .
+    op value`:_ : Value -> Attribute [ctor prec 15 gather (&)] .
+    op decision`:_ : Value? -> Attribute [ctor prec 15 gather (&)] .
+    op votes`:_ : Vote -> Attribute [ctor prec 15 gather (&)] .
+    op neighbors`:_ : OidSet -> Attribute [ctor prec 15 gather (&)] .
+
+    op none : -> InitConfiguration [ctor ditto] .
+    op __ : InitConfiguration InitConfiguration -> InitConfiguration [ctor ditto] .
+
+    op <_:_|_> : Oid Cid AttributeSet -> InitObject [ctor ditto] .
+endm
+
+
+fmod MESSAGE-CONTENT is
+    protecting NAT .
+    protecting VALUE .
+
+    sort MsgContent . 
+    op vote : Value Nat -> MsgContent [ctor] .
+endfm
+
+
+mod MULTICAST is 
+  including ALT-CFIGURATION .
+  including MESSAGE-CONTENT .
+
+  op multicast_from_to_ : MsgContent Oid OidSet -> Msg [ctor] .
+
+  var MC : MsgContent . 
+  var SENDER : Oid .
+
+  eq multicast MC from SENDER to none = none .
+endm
+
+
+mod GLOBAL is
+    protecting ALT-CFIGURATION .
+    protecting NAT .
+
+    sort Global .
+    op {_,_,_,_} : Nat ValueSet OidSet Configuration -> Global [ctor format (d d d d d s d s d d)] .
+    op decide? :  Value Bool Nat ValueSet OidSet Object Configuration -> Global [ctor] .
+    op update? :  Value Bool Nat ValueSet OidSet Object Configuration -> Global [ctor] .
+endm
+
+
+fmod FUNCTIONS is
+    protecting VOTE .
+
+    vars N N' NA N1 N2 TH : Nat .
+    var VM : VoteMap .
+    var VS : ValueSet .
+    vars V V' : Value .
+
+    op update : Vote Value -> Vote .
+    eq update([V |-> N ; VM, NA], V) = [V |-> incr(N) ; VM, incr(NA)] .  
+
+    op incr : Nat -> Nat .
+    eq incr(Z:Zero) = 1 .
+    eq incr(NZ:NzNat) = s NZ:NzNat .
+
+    op genConst : Value Nat VoteMap ValueSet -> Bool .
+    eq genConst(V, N, none, emptyVs) = true .
+    eq genConst(V, N, (V' |-> N') ; VM, (V' ; VS))
+     = ((N' < N) or ((N' <= N) and (V < V'))) and genConst(V, N, VM, VS) .
+
+    op initVotes : ValueSet -> VoteMap .
+    eq initVotes(V ; VS) = (V |-> 0) ; initVotes(VS) .
+    eq initVotes(emptyVs) = none .
+endfm
+
+
+mod ONETHIRDRULE-CONST is
+    protecting ALT-CFIGURATION .
+    protecting SET{Nat} .
+    protecting SET{VoteMap} .
+    protecting BOOL .
+
+    vars N N' R N1 N2 N3 : Nat . 
+    vars V V1 V2 V3 : Value .
+    var Z : Zero .  
+    var S : Step .
+    var CF : Configuration . 
+    var MSG : Msg . 
+    var O : Oid . 
+    var OS : OidSet .
+    var NS : Set{Nat} .
+    var VM : VoteMap .
+    var VMS : Set{VoteMap} .
+    var VS : ValueSet .
+
+    op noDupl : OidSet -> Bool .
+    eq noDupl(O ; O ; OS) = false .
+
+    op sameRound : Set{Nat} -> Bool .
+    ceq sameRound((R, N, NS)) = false if R =/= N .
+    eq sameRound((R, R, NS)) = sameRound((R, NS)) .
+    eq sameRound(R) = true .
+    eq sameRound(empty) = true .
+
+    op getOids : Configuration -> OidSet [memo] .
+    eq getOids(< O : Node | ATTS:AttributeSet > CF) = O ; getOids(CF) .
+    eq getOids(MSG CF) =  getOids(CF) .
+    eq getOids(none) =  none .
+
+    op numObjs : Configuration -> Nat .
+    eq numObjs(< O : Node | ATTS:AttributeSet > CF) = s numObjs(CF) .
+    eq numObjs(MSG CF) = numObjs(CF) .
+    eq numObjs(none) = 0 .
+
+    op getRounds : Configuration -> Set{Nat} .
+    eq getRounds(< O : Node | status : [R, S], ATTS:AttributeSet > CF) = R, getRounds(CF) .
+    eq getRounds(MSG CF) = getRounds(CF) .
+    eq getRounds(none) = 0 .
+
+    op valid1/2 : Nat Nat -> Bool .
+    ---eq valid1/2(s s N', s N) = valid1/2(N', N) .
+    ---eq valid1/2(N, Z) = false .
+    ---eq valid1/2(s N, s N N') = true .
+
+    op getVoteMaps : Configuration -> Set{VoteMap} .
+    eq getVoteMaps(< O : Node | votes : [VM, N], ATTS:AttributeSet > CF) = VM, getVoteMaps(CF) .
+    eq getVoteMaps(MSG CF) = getVoteMaps(CF) .
+    eq getVoteMaps(none) = empty .
+
+    op validVM : ValueSet VoteMap -> Bool .
+    eq validVM(V ; VS, (V |-> N) ; VM) = validVM(VS, VM) .
+    eq validVM(emptyVs, (V |-> N) ; VM) = false .
+    eq validVM(V ; VS, none) = false .
+    eq validVM(emptyVs, none) = true .
+
+    op validVMS : ValueSet Set{VoteMap} -> Bool .
+    eq validVMS(VS, (VM, VMS)) = validVM(VS, VM) and validVMS(VS, VMS) .
+    eq validVMS(VS, empty) = true .
+endm
