@@ -91,7 +91,7 @@ mod ONETHIRDRULE-NML-ANALYSIS is
     subsort String < Oid .
 
     ops obA obB obC obD obE obF : -> InitObject .
-    ops init3 init6 : -> Global .
+    ops init3 init4 init5a init5b init6 : -> Global .
 
     eq obA = < "A" : Node | status : [1, init], value : 0, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
     eq obB = < "B" : Node | status : [1, init], value : 1, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
@@ -101,13 +101,15 @@ mod ONETHIRDRULE-NML-ANALYSIS is
     eq obF = < "F" : Node | status : [1, init], value : 1, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
 
     eq init3 = {2, (0 ; 1), ("A" ; "B" ; "C"), (obA obB obC) } .
+    eq init4 = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .
+    eq init5a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } . --- 2 (least) vs 3 (rest)
+    eq init5b = {3, (0 ; 1), ("A" ; "B" ; "C" ; "E" ; "F"), (obA obB obC obE obF) } . --- 1 (least) vs 4 (rest)
     eq init6 = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } .
 endm
 
 ---set trace on .
 
----search [1] init3 =>* { TH:Nat, VS:ValueSet, OS:OidSet, < O:Oid : Node | status : [R:Nat, done], decision : 0, ATTR:AttributeSet > < O':Oid : Node | status : [R':Nat, done], decision : 1, ATTR':AttributeSet > CONF:Configuration } .
-search [1] init6 =>* { TH:Nat, VS:ValueSet, OS:OidSet, < O:Oid : Node | status : [R:Nat, done], decision : 0, ATTR:AttributeSet > < O':Oid : Node | status : [R':Nat, done], decision : 1, ATTR':AttributeSet > CONF:Configuration } .
+---search [1] init5b =>* { TH:Nat, VS:ValueSet, OS:OidSet, < O:Oid : Node | status : [R:Nat, done], decision : 0, ATTR:AttributeSet > < O':Oid : Node | status : [R':Nat, done], decision : 1, ATTR':AttributeSet > CONF:Configuration } .
 
 
 

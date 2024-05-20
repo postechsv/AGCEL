@@ -9,8 +9,8 @@ class TermWrapper():
         return 0
 
 class HeuristicSearch(MaudeEnv):
-    def __init__(self, m, goal, initializer, qt):
-        MaudeEnv.__init__(self, m, goal, initializer)
+    def __init__(self, m, goal, initializer, qt, abst_mode='full'):
+        MaudeEnv.__init__(self, m, goal, initializer, abst_mode=abst_mode)
         self.qt = qt
         self.last_init = self.state
     

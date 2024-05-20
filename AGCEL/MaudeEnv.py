@@ -2,10 +2,14 @@ import random
 from AGCEL.common import Action
 
 class MaudeEnv():
-    def __init__(self, m, goal, initializer):
+    def __init__(self, m, goal, initializer, abst_mode='full'):
+        '''
+        abst_mode : {label, full}
+        '''
         self.m = m # Maude module
         self.goal = m.parseTerm(goal) # Maude Term
         self.init = initializer # () -> String
+        self.abst_mode = abst_mode
         self.rules = []
         for rl in m.getRules():
             if not rl.getLabel() == None:
@@ -46,6 +50,8 @@ class MaudeEnv():
 
     # input: Maude.Substitution, output: dict
     def abst_subs(self, subs):
+        if self.abst_mode == 'label':
+            return None
         asubs = dict()
         for var, val in subs:
             val = self.m.parseTerm(f'abst({val.prettyPrint(0)})')

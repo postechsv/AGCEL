@@ -1,0 +1,81 @@
+load onethirdrule .
+load ../../heuristic-search .
+
+fmod AVALUE is
+    sorts AValue AValue? .
+    subsort AValue < AValue? .
+    op nil : -> AValue? .
+    ops least rest : -> AValue .
+endfm
+
+fmod AOBJ is
+    pr STEP .
+    pr AVALUE .
+    sort AObj .
+    op aobj : Step AValue AValue? -> AObj [ctor] .
+endfm
+
+fmod ACONF is
+    pr AOBJ .
+    sort AConf .
+    subsort AObj < AConf .
+    op none : -> AConf [ctor] .
+    op __ : AConf AConf -> AConf [ctor assoc comm id: none] .
+    var O : AObj .
+    eq O O = O .
+endfm
+
+mod ONETHIRDRULE-ABS is
+    pr ONETHIRDRULE .
+    inc ACONF .
+    inc HEURISTIC-SEARCH .
+
+    subsort Global < State .
+    subsort AConf < AState .
+
+    vars O O' : Oid . vars CF : Configuration . var C : Cid .
+    vars OS OS' : OidSet . 
+    var R TH N VA : Nat .
+    var VS : ValueSet .
+    vars V V' : Value .
+    var D : Value? .
+    var VM : VoteMap .
+    var VOTE : Vote .
+    var ATTS : AttributeSet .
+    var ST : Step .
+    var MSG : Msg .
+
+    op aconf : Configuration Value -> AConf .
+    op aval : Value? Value -> AValue .
+
+    eq abst({TH, VS, OS, CF}) = aconf(CF, 0) . --- 0 is given as the least element
+
+    eq aval(nil, V) = nil .
+    eq aval(V, V) = least .
+    eq aval(V, V') = rest [owise] .
+
+    eq aconf(< O : Node | status : [R, ST], value : V, decision : D, ATTS > CF, V')
+      = aobj(ST, aval(V, V'), aval(D, V')) aconf(CF, V') .
+    eq aconf(MSG CF, V') = aconf(CF, V') .
+    eq aconf(none, V') = none .
+
+    ---subsort OidSet ValueSet Configuration Vote VoteMap AttributeSet < Data .
+    var DATA : Data .
+    op unit : -> AData [ctor] .
+    eq abst(DATA) = unit .
+endm
+
+mod MAIN is
+    pr ONETHIRDRULE-NML-ANALYSIS . --- for test
+    pr ONETHIRDRULE-ABS .
+    ops disagree : -> Prop [ctor] .
+    eq { TH:Nat, VS:ValueSet, OS:OidSet, 
+        < O:Oid : Node | status : [R:Nat, done], decision : 0, ATTR:AttributeSet >
+        < O':Oid : Node | status : [R':Nat, done], decision : 1, ATTR':AttributeSet > 
+        CONF:Configuration } |= disagree = true .
+    eq S:State |= disagree  = false [owise] .
+endm
+
+---red {2,0 ; 1, "A" ; "B" ; "C", < "A" : Node | status : [2, done],value : 0,decision : 0,votes : [0 |-> 2 ; 1 |-> 0,2] > < "B" : Node | status : [2, wait],value : 0,
+---    decision : nil,votes : [0 |-> 1 ; 1 |-> 0,1] > < "C" : Node | status : [1, done],value : 1,decision : 1,votes : [0 |-> 0 ; 1 |-> 2,2] > (multicast vote(0, 1) from "A" to "C") (
+---    multicast vote(0, 2) from "A" to "B" ; "C") (multicast vote(0, 2) from "B" to "C") multicast vote(1, 1) from "C" to "A" ; "B"} |= disagree . --- true
