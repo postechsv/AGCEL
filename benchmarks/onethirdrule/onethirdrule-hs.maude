@@ -4,7 +4,7 @@ load ../../heuristic-search .
 fmod AVALUE is
     sorts AValue AValue? .
     subsort AValue < AValue? .
-    op nil : -> AValue? .
+    op nilAValue : -> AValue? .
     ops least rest : -> AValue .
 endfm
 
@@ -50,7 +50,7 @@ mod ONETHIRDRULE-ABS is
 
     eq abst({TH, VS, OS, CF}) = aconf(CF, 0) . --- 0 is given as the least element
 
-    eq aval(nil, V) = nil .
+    eq aval(nilValue, V) = nilAValue .
     eq aval(V, V) = least .
     eq aval(V, V') = rest [owise] .
 
@@ -63,11 +63,8 @@ mod ONETHIRDRULE-ABS is
     var DATA : Data .
     op unit : -> AData [ctor] .
     eq abst(DATA) = unit .
-endm
 
-mod MAIN is
-    pr ONETHIRDRULE-NML-ANALYSIS . --- for test
-    pr ONETHIRDRULE-ABS .
+    --- prop def
     ops disagree : -> Prop [ctor] .
     eq { TH:Nat, VS:ValueSet, OS:OidSet, 
         < O:Oid : Node | status : [R:Nat, done], decision : 0, ATTR:AttributeSet >
@@ -75,6 +72,34 @@ mod MAIN is
         CONF:Configuration } |= disagree = true .
     eq S:State |= disagree  = false [owise] .
 endm
+
+mod ONETHIRDRULE-ANALYSIS is
+    pr ONETHIRDRULE-ABS . ---NO-MSG-LOSS .
+
+    protecting STRING .
+    subsort String < Oid .
+
+    ops obA obB obC obD obE obF : -> InitObject .
+    ops init3 init4 init5a init5b init6 : -> Global .
+
+    eq obA = < "A" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obB = < "B" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obC = < "C" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obD = < "D" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obE = < "E" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obF = < "F" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+
+    eq init3 = {2, (0 ; 1), ("A" ; "B" ; "C"), (obA obB obC) } .
+    eq init4 = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .
+    eq init5a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } . --- 2 (least) vs 3 (rest)
+    eq init5b = {3, (0 ; 1), ("A" ; "B" ; "C" ; "E" ; "F"), (obA obB obC obE obF) } . --- 1 (least) vs 4 (rest)
+    eq init6 = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } .
+endm
+
+---search [1] init3 =>* { TH:Nat, VS:ValueSet, OS:OidSet, < O:Oid : Node | status : [R:Nat, done], decision : 0, ATTR:AttributeSet > < O':Oid : Node | status : [R':Nat, done], decision : 1, ATTR':AttributeSet > CONF:Configuration } .
+---search [1] init3 =>* X:State such that X:State |= disagree .
+
+
 
 ---red {2,0 ; 1, "A" ; "B" ; "C", < "A" : Node | status : [2, done],value : 0,decision : 0,votes : [0 |-> 2 ; 1 |-> 0,2] > < "B" : Node | status : [2, wait],value : 0,
 ---    decision : nil,votes : [0 |-> 1 ; 1 |-> 0,1] > < "C" : Node | status : [1, done],value : 1,decision : 1,votes : [0 |-> 0 ; 1 |-> 2,2] > (multicast vote(0, 1) from "A" to "C") (

@@ -1,133 +1,98 @@
----load dp.maude
-load score.maude
+---load heuristic-search.maude
 load q-item.maude
+
+fmod TERM-SET is
+  pr META-TERM .
+  sort TermSet .
+
+  var T : Term . var TS : TermSet .
+
+  op termElt : Term -> TermSet [ctor] .
+  op mtTerm : -> TermSet [ctor] .
+  op _;_ : TermSet TermSet -> TermSet [ctor assoc comm id: mtTerm] .
+  eq termElt(T) ; termElt(T) = termElt(T) .
+
+  op _in_ : Term TermSet -> Bool .
+  eq T in (termElt(T) ; TS) = true .
+  eq T in TS = false [owise] .
+endfm
+
+
+fmod LABEL-LIST is
+  pr QID .
+  sort Label LabelList .
+  subsort Label < LabelList .
+  op labelElt : Qid -> Label [ctor] .
+  op nilLabel : -> LabelList [ctor] .
+  op __ : LabelList LabelList -> LabelList [ctor assoc id: nilLabel] .
+endfm
+
 
 fmod SEARCH is
   pr META-LEVEL .
   pr SCORE .
+  pr TERM-SET .
   pr LEFTIST-TREES{QItem<=} .
   pr SET{QItem} *
     (op _,_ : Set{QItem} Set{QItem} -> Set{QItem} to _;_) .
+  pr LABEL-LIST .
 
   vars M : Module .
   vars T T' : Term .
+  var P : Prop .
   vars N N' : Nat .
   vars QUE : LTree{QItem<=} .
   vars NQUE : NeLTree{QItem<=} .
   vars SC : Score .
   vars ITEM : QItem .
   vars ITEMS : Set{QItem} .
+  var VIS : TermSet .
+  var Q : Qid . var ATTS : AttrSet . var RS : RuleSet . var COND : Condition .
+  var L : Label . var LL : LabelList .
+  var CTX : SearchCtx .
 
-  op nbrs : Module Term -> Set{QItem} .
-  eq nbrs(M,T) = nbrs(M,T,0) .
-  
-  op nbrs : Module Term Nat -> Set{QItem} .
- ceq nbrs(M,T,N) = empty if metaSearch(M, T, 'X:Conf, nil, '+, 1, N) == (failure).ResultTriple? .
- ceq nbrs(M,T,N) = [T', SC] ; nbrs(M,T,N + 1) 
-  if T' := getTerm(metaSearch(M, T, 'X:Conf, nil, '+, 1, N)) 
-  /\ SC := downTerm(getTerm(metaReduce(M, upTerm(score(aconf(downTerm(T,error)), aconf(downTerm(T',error)))))), sc0) [owise] .
+  --- TODO : move to LABEL-LIST
+  op getLabels : RuleSet -> LabelList .
+  eq getLabels(rl T => T' [label(Q) ATTS] . RS) = labelElt(Q) getLabels(RS) .
+  eq getLabels(crl T => T' if COND [label(Q) ATTS] . RS) = labelElt(Q) getLabels(RS) .
+  eq getLabels(none) = nilLabel .
 
-  ----- TEST -----
-  op depth-nbrs : Module Term Nat -> Set{QItem} .
-  eq depth-nbrs(M,T,N) = depth-nbrs(M,T,N,0) .
-  
-  --- module, current term, current depth(N'), solution idx
-  op depth-nbrs : Module Term Nat Nat -> Set{QItem} .
- ceq depth-nbrs(M,T,N',N) = empty if metaSearch(M, T, 'X:Conf, nil, '+, 1, N) == (failure).ResultTriple? .
- ceq depth-nbrs(M,T,N',N) = [T', ns(N' + 1)] ; depth-nbrs(M,T,N',N + 1) 
-  if T' := getTerm(metaSearch(M, T, 'X:Conf, nil, '+, 1, N)) 
-  /\ SC := downTerm(getTerm(metaReduce(M, upTerm(score(aconf(downTerm(T,error)), aconf(downTerm(T',error)))))), sc0) [owise] .
+  op nbrs : Module Term LabelList SearchCtx Nat -> Set{QItem} .
+  eq nbrs(M, T, nilLabel, CTX, N) = empty .
+ ceq nbrs(M, T, (labelElt(Q) LL), CTX, N) = nbrs(M, T, LL, CTX, 0)
+    if metaApply(M, T, Q, none, N) == failure .
+ ceq nbrs(M, T, (labelElt(Q) LL), CTX, N)
+   = [T', SC] ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1) 
+    if T' := getTerm(metaApply(M, T, Q, none, N))
+    /\ SC := score(downTerm(T,error), CTX) [owise] . --- FIXME: metaApply is called twice everytime! TODO: metaXApply
 
-  op bfs : Module TermList LTree{QItem<=} Nat -> QHSResult .
- ceq bfs(M, VIS, NQUE, N)
-    = if checkSol(M,T) then success(T,N)
-                     else bfs(M, (T , VIS), insertAll(ITEMS,deleteMin(NQUE)), N + 1)
-      fi
-    if [T,ns(N')] := findMin(NQUE)
-    /\ ITEMS := if T in VIS then empty else depth-nbrs(M,T,N') fi [print "current term item: " T " , " N'] . --- FIXME: what if nbrs contains visited terms?
-  eq bfs(M, VIS, QUE, N) = fail(N) [owise] .
-
-  op bfs : Module Term -> QHSResult .
-  eq bfs(M,T) = bfs(M, empty, insert([T, ns(0)],empty), 0) .
-  ----- END TEST ---
+  op nbrs : Module Term SearchCtx -> Set{QItem} .
+  eq nbrs(M,T,CTX) = nbrs(M, T, getLabels(getRls(M)), CTX, 0) .
 
   op insertAll : Set{QItem} LTree{QItem<=} -> LTree{QItem<=} .
   eq insertAll(empty, QUE) = QUE .
   eq insertAll(ITEM ; ITEMS, QUE) = insertAll(ITEMS, insert(ITEM, QUE)) .
 
-  sort QHSResult .
-  op success : Term Nat -> QHSResult [ctor] .
-  op fail : Nat -> QHSResult [ctor] .
+  op checkSAT : Term Prop -> Bool .
+  eq checkSAT(T,P) = downTerm(T,error) |= P .
 
-  vars VIS : TermList .
-
-  op checkSol : Module Term -> Bool .
-  eq checkSol(M,T) = downTerm(getTerm(metaReduce(M, upTerm(isGoal(downTerm(T,error))))), false) .
-
-  op _in_ : Term TermList -> Bool .
-  eq T in empty = false .
-  eq T in (T , VIS) = true .
-  eq T in (T' , VIS)  = T in VIS .
-
-  op qhs : Module TermList LTree{QItem<=} Nat -> QHSResult .
- ceq qhs(M, VIS, NQUE, N)
-    = if checkSol(M,T) then success(T,N)
-                     else qhs(M, (T , VIS), insertAll(ITEMS,deleteMin(NQUE)), N + 1)
+  op search : Module Prop NeLTree{QItem<=} TermSet SearchCtx -> SearchResult .
+ ceq search(M, P, NQUE, VIS, N)
+    = if T in VIS
+        then search(M, P, deleteMin(NQUE), VIS, N)
+        else
+          if checkSAT(T,P)
+            then some(T,N)
+            else search(M, P, insertAll(nbrs(M,T,N),deleteMin(NQUE)), (termElt(T) ; VIS), N + 1) --- FIXME: nbrs(M,T,ctx(N))
+          fi
       fi
-    if [T,SC] := findMin(NQUE)
-    /\ ITEMS := if T in VIS then empty else nbrs(M,T) fi [print "current term item: " T " , " SC] . --- FIXME: what if nbrs contains visited terms?
-  eq qhs(M, VIS, QUE, N) = fail(N) [owise] .
+    if [T,SC] := findMin(NQUE) .
+  eq search(M, P, QUE, VIS, N) = none(N) [owise] .
 
-  op qhs : Module Term -> QHSResult .
-  eq qhs(M,T) = qhs(M, empty, insert([T, sc0],empty), 0) .
+  op search : Module Term Prop -> SearchResult .
+  eq search(M,T,P) = search(M, P, insert([T, default],empty), mtTerm, 0) .
 
+  op getState : SearchResult -> [State] .
+  eq getState(some(T,N)) = downTerm(T, error) .
+  eq getState(none(N)) = error .
 endfm
-
-mod TEST is
-  pr SEARCH .
-  pr SCORED-DP5 .
-  pr UNIFORM-DP5 .
-
-  op conf0 : -> Conf .
-  eq conf0 = p(0,hungry) || c(0) || p(1,hungry) || c(s(0)) || p(2,think) || c(s(s(0))) .
-
-  op conf1 : -> Conf .
-  eq conf1 = p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0))) .
-
-  op conf2 : -> Conf .
-  eq conf2 = p(0,single) || p(1,single) || p(2,single) || p(3,single) || p(4,single) .
-
-  op conf3 : -> Conf .
-  eq conf3 = p(0,single) || p(1,think) || c(1) || p(2,hungry) || c(2) || p(3,hungry) || p(4,single) || c(4) .
-
-  op qdp5 : -> Module .
-  eq qdp5 = upModule('SCORED-DP5, false) .
-
-  op udp5 : -> Module . --- uniform
-  eq udp5 = upModule('UNIFORM-DP5, false) .
-
-endm
-
----set print attribute on .
----set trace on .
-
---- test for qhs
-red bfs(qdp5, upTerm(conf3)) .
-red qhs(qdp5, upTerm(conf3)) .
-
-
---- test for nbrs
----red nbrs(upModule('SCORED-DP5, false), upTerm(conf0)) .
-
---- test for checkSol
---- red checkSol(upModule('SCORED-DP5, false), upTerm(conf1)) . --- false
---- red checkSol(upModule('SCORED-DP5, false), upTerm(conf2)) . --- true
-
---- red getTerm(metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 0)) .
---- red downTerm(getTerm(metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 1)), X:Conf) .
---- red downTerm(getTerm(metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 2)), X:Conf) .
---- red downTerm(getTerm(metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 3)), X:Conf) .
---- red metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 4) .
---- red metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 5) == (failure).ResultTriple? .
----red downTerm(getTerm(metaSearch(upModule('DP5, false), upTerm(conf0), upTerm(X:Conf), nil, '+, 1, 5)), X:Conf) .
----red score(aconf(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0)))), aconf(p(0,hungry) || c(0) || p(s(0),hungry) || c(s(0)) || p(s(s(0)),think) || c(s(s(0))))) .

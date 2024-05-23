@@ -3,13 +3,55 @@ fmod HEURISTIC-SEARCH is
 
   --- state abstraction
   sorts State AState .
+  op error : -> [State] .
   op abst : State -> AState .
 
   --- action abstraction
+  sorts Act AAct .
   sorts Data AData .
   op abst : Data -> AData .
 
   --- for goals
   sorts Prop .
   op _|=_ : State Prop -> Bool [frozen] .
+endfm
+
+
+fmod SEARCH-BASE is
+  pr META-TERM .
+
+  sort SearchCtx . --- e.g. timestamp, depth, etc. for each term
+  subsort Nat < SearchCtx .
+  --- TODO: getNStates, getDepth, etc
+  var N : Nat .
+  op getNStates : SearchCtx -> Nat .
+  eq getNStates(N) = N .
+
+  sort SearchResult .
+  op some : Term SearchCtx -> SearchResult [ctor] . --- c.e. found with ctx
+  op none : SearchCtx -> SearchResult [ctor] . --- c.e. not found with ctx
+endfm
+
+
+fmod SCORE is
+  pr SEARCH-BASE .
+  pr HEURISTIC-SEARCH .
+  sort Score .
+  op default : -> Score .
+  op score : State Act SearchCtx -> Score .
+  op score : AState AAct SearchCtx -> Score .
+  ops _gt_ _lt_ _le_ : Score Score -> Bool .
+  op score : State SearchCtx -> Score . --- for test
+endfm
+
+
+fmod BFS-SCORE is
+  pr SCORE . pr NAT .
+  subsort Nat < Score .
+  var S : State . var CTX : SearchCtx .
+  vars N N' : Nat .
+  eq score(S, CTX) = getNStates(CTX) .
+  eq N gt N' = N > N' .
+  eq N lt N' = N < N' .
+  eq N le N' = N <= N' .
 endfm

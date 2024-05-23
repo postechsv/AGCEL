@@ -1,0 +1,12 @@
+load benchmarks/onethirdrule/onethirdrule-hs.maude
+load search.maude
+
+mod TEST is
+  pr SEARCH .
+  pr ONETHIRDRULE-ANALYSIS .
+  pr BFS-SCORE .
+  op M : -> Module .
+  eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
+endm
+
+red getState(search(M, upTerm(init3), disagree)) .

@@ -7,7 +7,7 @@ fmod VALUE is
 
     subsort Nat < Value .
 
-    op nil : -> InitValue? [ctor] .
+    op nilValue : -> InitValue? [ctor] .
 
     sort ValueSet .
     subsort Value < ValueSet .

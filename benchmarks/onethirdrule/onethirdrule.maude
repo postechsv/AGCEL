@@ -17,12 +17,12 @@ mod ONETHIRDRULE-NO-MSG-LOSS is
 
     rl [vote] : 
     {TH, V ; VS, O ; OS,
-        < O : Node | status : [R, init], value : V, decision : nil, votes : VOTE, ATTS > 
+        < O : Node | status : [R, init], value : V, decision : nilValue, votes : VOTE, ATTS > 
         CF
     }
     =>
     {TH, V ; VS, O ; OS,
-        < O : Node | status : [R, wait], value : V, decision : nil, votes : update(VOTE, V), ATTS > 
+        < O : Node | status : [R, wait], value : V, decision : nilValue, votes : update(VOTE, V), ATTS > 
         (multicast vote(V, R) from O to OS)
         CF
     } .
@@ -30,12 +30,12 @@ mod ONETHIRDRULE-NO-MSG-LOSS is
 
     rl [receive] :
     {TH, V ; VS, OS,
-        < O : Node | status : [R, wait], decision : nil, votes : VOTE, ATTS > 
+        < O : Node | status : [R, wait], decision : nilValue, votes : VOTE, ATTS > 
         (multicast vote(V, R) from O' to (O ; OS'))
         CF
     } =>
     {TH, V ; VS, OS,
-        < O : Node | status : [R, wait], decision : nil, votes : update(VOTE, V), ATTS > 
+        < O : Node | status : [R, wait], decision : nilValue, votes : update(VOTE, V), ATTS > 
         (multicast vote(V, R) from O' to OS')  
         CF
     } .
@@ -43,7 +43,7 @@ mod ONETHIRDRULE-NO-MSG-LOSS is
 
     crl [decide] :
     {TH, VS, OS,
-        < O : Node | status : [R, wait], decision : nil, votes : [(V |-> N ; VM), VA], ATTS > 
+        < O : Node | status : [R, wait], decision : nilValue, votes : [(V |-> N ; VM), VA], ATTS > 
         CF
     }
     =>
@@ -55,12 +55,12 @@ mod ONETHIRDRULE-NO-MSG-LOSS is
 
     crl [update] : 
     {TH, V ; VS, OS,
-        < O : Node | status : [R, wait], value : V', decision : nil, votes : [V |-> N ; VM, VA], ATTS >
+        < O : Node | status : [R, wait], value : V', decision : nilValue, votes : [V |-> N ; VM, VA], ATTS >
         CF
     }
     =>
     {TH, V ; VS, OS,
-        < O : Node | status : [s R, init], value : V, decision : nil, votes : [initVotes(V ; VS), 0], ATTS >
+        < O : Node | status : [s R, init], value : V, decision : nilValue, votes : [initVotes(V ; VS), 0], ATTS >
         CF
     } if (N < TH) and (TH <= VA) and genConst(V, N, VM, VS) .
 endm
@@ -81,31 +81,7 @@ mod ONETHIRDRULE is
 endm
 
 
-mod ONETHIRDRULE-NML-ANALYSIS is
-    protecting ONETHIRDRULE . ---NO-MSG-LOSS .
-    protecting ONETHIRDRULE-CONST .
-    ---including STATE .
-    ---subsort Global < State .
-    ---eq inv(S:State) = true .
-    protecting STRING .
-    subsort String < Oid .
 
-    ops obA obB obC obD obE obF : -> InitObject .
-    ops init3 init4 init5a init5b init6 : -> Global .
-
-    eq obA = < "A" : Node | status : [1, init], value : 0, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obB = < "B" : Node | status : [1, init], value : 1, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obC = < "C" : Node | status : [1, init], value : 1, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obD = < "D" : Node | status : [1, init], value : 0, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obE = < "E" : Node | status : [1, init], value : 1, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obF = < "F" : Node | status : [1, init], value : 1, decision : nil, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-
-    eq init3 = {2, (0 ; 1), ("A" ; "B" ; "C"), (obA obB obC) } .
-    eq init4 = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .
-    eq init5a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } . --- 2 (least) vs 3 (rest)
-    eq init5b = {3, (0 ; 1), ("A" ; "B" ; "C" ; "E" ; "F"), (obA obB obC obE obF) } . --- 1 (least) vs 4 (rest)
-    eq init6 = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } .
-endm
 
 ---set trace on .
 
