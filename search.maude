@@ -19,12 +19,21 @@ endfm
 
 
 fmod LABEL-LIST is
-  pr QID .
+  pr META-MODULE .
   sort Label LabelList .
   subsort Label < LabelList .
+
+  vars T T' : Term . var Q : Qid .
+  var ATTS : AttrSet . var RS : RuleSet . var COND : Condition .
+
   op labelElt : Qid -> Label [ctor] .
   op nilLabel : -> LabelList [ctor] .
   op __ : LabelList LabelList -> LabelList [ctor assoc id: nilLabel] .
+
+  op getLabels : RuleSet -> LabelList .
+  eq getLabels(rl T => T' [label(Q) ATTS] . RS) = labelElt(Q) getLabels(RS) .
+  eq getLabels(crl T => T' if COND [label(Q) ATTS] . RS) = labelElt(Q) getLabels(RS) .
+  eq getLabels(none) = nilLabel .
 endfm
 
 
@@ -41,30 +50,21 @@ fmod SEARCH is
   vars T T' : Term .
   var P : Prop .
   vars N N' : Nat .
-  vars QUE : LTree{QItem<=} .
-  vars NQUE : NeLTree{QItem<=} .
+  vars QUE : LTree{QItem<=} . vars NQUE : NeLTree{QItem<=} .
   vars SC : Score .
-  vars ITEM : QItem .
-  vars ITEMS : Set{QItem} .
+  vars ITEM : QItem . vars ITEMS : Set{QItem} .
   var VIS : TermSet .
-  var Q : Qid . var ATTS : AttrSet . var RS : RuleSet . var COND : Condition .
-  var L : Label . var LL : LabelList .
-  var CTX : SearchCtx .
-
-  --- TODO : move to LABEL-LIST
-  op getLabels : RuleSet -> LabelList .
-  eq getLabels(rl T => T' [label(Q) ATTS] . RS) = labelElt(Q) getLabels(RS) .
-  eq getLabels(crl T => T' if COND [label(Q) ATTS] . RS) = labelElt(Q) getLabels(RS) .
-  eq getLabels(none) = nilLabel .
+  var Q : Qid . var L : Label . var LL : LabelList .
+  var CTX : SearchCtx . var RT : ResultTriple? .
 
   op nbrs : Module Term LabelList SearchCtx Nat -> Set{QItem} .
   eq nbrs(M, T, nilLabel, CTX, N) = empty .
- ceq nbrs(M, T, (labelElt(Q) LL), CTX, N) = nbrs(M, T, LL, CTX, 0)
-    if metaApply(M, T, Q, none, N) == failure .
  ceq nbrs(M, T, (labelElt(Q) LL), CTX, N)
-   = [T', SC] ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1) 
-    if T' := getTerm(metaApply(M, T, Q, none, N))
-    /\ SC := score(downTerm(T,error), CTX) [owise] . --- FIXME: metaApply is called twice everytime! TODO: metaXApply
+    = if RT == failure
+        then nbrs(M, T, LL, CTX, 0)
+        else [getTerm(RT), score(downTerm(T,error), CTX)] ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
+      fi
+    if RT := metaApply(M, T, Q, none, N) .
 
   op nbrs : Module Term SearchCtx -> Set{QItem} .
   eq nbrs(M,T,CTX) = nbrs(M, T, getLabels(getRls(M)), CTX, 0) .
