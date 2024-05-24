@@ -1,5 +1,5 @@
 fmod HEURISTIC-SEARCH is
-  pr BOOL .
+  pr QID .
 
   --- state abstraction
   sorts State AState .
@@ -8,6 +8,12 @@ fmod HEURISTIC-SEARCH is
 
   --- action abstraction
   sorts Act AAct .
+  subsort Qid < Act .
+  op act : Qid -> AAct [ctor] .
+  op abst : Act -> AAct .
+  var Q : Qid .
+  eq abst(Q) = act(Q) .
+
   sorts Data AData .
   op abst : Data -> AData .
 
@@ -41,17 +47,63 @@ fmod SCORE is
   op score : State Act SearchCtx -> Score .
   op score : AState AAct SearchCtx -> Score .
   ops _gt_ _lt_ _le_ : Score Score -> Bool .
-  op score : State SearchCtx -> Score . --- for test
+  ---op score : State SearchCtx -> Score . --- for test
+  
+  eq default gt default = false .
+  eq default lt default = false .
+  eq default le default = true . 
 endfm
 
 
 fmod BFS-SCORE is
   pr SCORE . pr NAT .
   subsort Nat < Score .
-  var S : State . var CTX : SearchCtx .
+  var S : State . var A : Act .
+  var CTX : SearchCtx .
   vars N N' : Nat .
-  eq score(S, CTX) = getNStates(CTX) .
+  eq score(S, A, CTX) = getNStates(CTX) .
   eq N gt N' = N > N' .
   eq N lt N' = N < N' .
   eq N le N' = N <= N' .
+endfm
+
+
+fmod DFS-SCORE is
+  pr SCORE . pr NAT .
+  subsort Nat < Score .
+  var S : State . var A : Act .
+  var CTX : SearchCtx .
+  vars N N' : Nat .
+  eq score(S, A, CTX) = getNStates(CTX) .
+
+  eq N gt N' = N < N' .
+  eq N lt N' = N > N' .
+  eq N le N' = N >= N' .  
+endfm
+
+
+fmod QHS-SCORE-BASE is
+  inc SCORE . pr FLOAT .
+  subsort Float < Score .
+
+  var S : State . var A : Act .
+  var AS : AState . var AA : AAct .
+  var CTX : SearchCtx .
+  vars F F' : Float .
+
+  op qtable : AState AAct -> Float .
+  eq score(S, A, CTX) = qtable(abst(S), abst(A)) .
+  --- negation
+  eq F gt F' = F < F' .
+  eq F lt F' = F > F' .
+  eq F le F' = F >= F' .
+endfm
+
+
+fmod CONST-SCORE is
+  pr SCORE . pr NAT .
+  subsort Nat < Score .
+  var S : State . var A : Act .
+  var CTX : SearchCtx .
+  eq score(S, A, CTX) = default .
 endfm

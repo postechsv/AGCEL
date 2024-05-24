@@ -12,7 +12,8 @@ class Action():
         return hash(self.label)
 
     def __str__(self):
-        return f'<label: {self.label}, asubs: {self.asubs}>'
+        return f"act('{self.label})" # to be dumped
 
     def __repr__(self):
-        return f'<label: {self.label}, asubs: {self.asubs}>'
+        #return f'<label: {self.label}, asubs: {self.asubs}>'
+        return f"act('{self.label})"

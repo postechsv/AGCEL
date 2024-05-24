@@ -34,10 +34,14 @@ class HeuristicSearch(MaudeEnv):
             s = obs['astate']
             if self.is_goal():
                 break
-            if mode == 'bfs': # bfs
+            if mode == 'bfs':
                 q_items = [(i, TermWrapper(next_state)) for (next_state, a) in self.nbrs]
-            elif mode == 'qhs': # qhs
+            elif mode == 'dfs':
+                q_items = [(-i, TermWrapper(next_state)) for (next_state, a) in self.nbrs]
+            elif mode == 'qhs':
                 q_items = [(-self.score(state, a), TermWrapper(next_state)) for (next_state, a) in self.nbrs] # prioritized nbrs
+            elif mode == 'const':
+                q_items = [(0, TermWrapper(next_state)) for (next_state, a) in self.nbrs] # prioritized nbrs
             for item in q_items:
                 heapq.heappush(queue, item) # queue,item
         return i

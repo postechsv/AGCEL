@@ -1,7 +1,8 @@
 load benchmarks/onethirdrule/onethirdrule-hs.maude
 load search.maude
+---load qtable.maude
 
-mod TEST is
+mod TEST-BFS is
   pr SEARCH .
   pr ONETHIRDRULE-ANALYSIS .
   pr BFS-SCORE .
@@ -9,4 +10,34 @@ mod TEST is
   eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
 endm
 
-red getState(search(M, upTerm(init3), disagree)) .
+
+mod TEST-DFS is
+  pr SEARCH .
+  pr ONETHIRDRULE-ANALYSIS .
+  pr DFS-SCORE .
+  op M : -> Module .
+  eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
+endm
+
+
+---mod TEST-QHS is
+---  pr SEARCH .
+---  pr ONETHIRDRULE-ANALYSIS .
+---  pr QHS-SCORE .
+---  op M : -> Module .
+---  eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
+---endm
+
+
+mod TEST-CONST is
+  pr SEARCH .
+  pr ONETHIRDRULE-ANALYSIS .
+  pr CONST-SCORE .
+  op M : -> Module .
+  eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
+endm
+
+---red in TEST-QHS : search(M, upTerm(init4), disagree) .
+---red in TEST-BFS : search(M, upTerm(init4), disagree) .
+---red in TEST-DFS : search(M, upTerm(init4), disagree) .
+---red in TEST-CONST : search(M, upTerm(init4), disagree) .

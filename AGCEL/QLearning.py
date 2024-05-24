@@ -62,18 +62,12 @@ class QLearner():
         print(f'  eq score(X) = {self.q_init} [owise] .')
         print(f'endfm')        
     
-    def print_q(self):
+    def dump(self):
         q_dict = self.q_dict
-        print('load dp.maude')
-        print('mod SCORE is')
-        print('  pr DP5 .')
-        print('  pr FLOAT .')
-        print('  op score : AConf AConf -> Float .')
-        for t1, d in q_dict.items():
-            for t2, q in d.items():
-                print(f'  eq score({t1}, {t2}) = {q} .')
-        print(f'  eq score(X:AConf, Y:AConf) = {self.q_init} [owise] .') # TODO: 0 should be printed 0.0
-        print(f'endm')
+        for s, d in q_dict.items():
+            for a, q in d.items():
+                print(f'  eq qtable({s}, {a}) = {q} .')
+        print(f'  eq qtable(AS, AA) = {self.q_init} [owise] .') # TODO: 0 should be printed 0.0
         
     def greedy_policy(self, obs):
         # returns -1 for error

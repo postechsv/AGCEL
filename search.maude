@@ -62,7 +62,7 @@ fmod SEARCH is
  ceq nbrs(M, T, (labelElt(Q) LL), CTX, N)
     = if RT == failure
         then nbrs(M, T, LL, CTX, 0)
-        else [getTerm(RT), score(downTerm(T,error), CTX)] ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
+        else [getTerm(RT), score(downTerm(T,error), Q, CTX)] ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
       fi
     if RT := metaApply(M, T, Q, none, N) .
 
@@ -95,4 +95,8 @@ fmod SEARCH is
   op getState : SearchResult -> [State] .
   eq getState(some(T,N)) = downTerm(T, error) .
   eq getState(none(N)) = error .
+
+  ---op getNStates : SearchResult -> Nat .
+  ---eq getNStates(some(T,N)) = N .
+  ---eq getNStates(none(N)) = N . (multiple distinct parses for statement)
 endfm
