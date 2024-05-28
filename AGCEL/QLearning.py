@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import datetime
 
 # Training parameters
 learning_rate = 0.7  # Learning rate
@@ -62,12 +63,19 @@ class QLearner():
         print(f'  eq score(X) = {self.q_init} [owise] .')
         print(f'endfm')        
     
-    def dump(self):
+    def dump(self, filename, module_name):
+        f = open(filename, 'w')
+        f.write(f'--- automatically generated at {datetime.datetime.now()}\n')
+        f.write('mod QHS-SCORE is\n')
+        f.write(f'  pr QHS-SCORE-BASE . pr {module_name} .\n')
+        f.write('  var AS : AState . var AA : AAct .\n')
         q_dict = self.q_dict
         for s, d in q_dict.items():
             for a, q in d.items():
-                print(f'  eq qtable({s}, {a}) = {q} .')
-        print(f'  eq qtable(AS, AA) = {self.q_init} [owise] .') # TODO: 0 should be printed 0.0
+                f.write(f'  eq qtable({s}, {a}) = {q} .\n')
+        f.write(f'  eq qtable(AS, AA) = {self.q_init} [owise] .\n') # TODO: 0 should be printed 0.0
+        f.write('endm\n')
+        f.close()
         
     def greedy_policy(self, obs):
         # returns -1 for error
