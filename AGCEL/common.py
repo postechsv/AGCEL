@@ -11,8 +11,15 @@ class Action():
     def __hash__(self):
         return hash(self.label)
 
+    def get_str_asubs(self):
+        entries = []
+        for var, val in self.asubs.items():
+            entries.append(f"('{var.getVarName()} <- {val.prettyPrint(0)})")
+        return ' ; '.join(entries)
+
     def __str__(self):
-        return f"act('{self.label})" # to be dumped
+        # to be dumped
+        return f"aact('{self.label}, {self.get_str_asubs()})"
 
     def __repr__(self):
         #return f'<label: {self.label}, asubs: {self.asubs}>'

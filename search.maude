@@ -55,16 +55,16 @@ fmod SEARCH is
   vars ITEM : QItem . vars ITEMS : Set{QItem} .
   var VIS : TermSet .
   var Q : Qid . var L : Label . var LL : LabelList .
-  var CTX : SearchCtx . var RT : ResultTriple? .
+  var CTX : SearchCtx . var RT : Result4Tuple? .
 
   op nbrs : Module Term LabelList SearchCtx Nat -> Set{QItem} .
   eq nbrs(M, T, nilLabel, CTX, N) = empty .
  ceq nbrs(M, T, (labelElt(Q) LL), CTX, N)
     = if RT == failure
         then nbrs(M, T, LL, CTX, 0)
-        else [getTerm(RT), score(downTerm(T,error), Q, CTX)] ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
+        else [getTerm(RT), score(downTerm(T,error), act(Q,getSubstitution(RT)), CTX)] ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
       fi
-    if RT := metaApply(M, T, Q, none, N) .
+    if RT := metaXapply(M, T, Q, none, 0, unbounded, N) .
 
   op nbrs : Module Term SearchCtx -> Set{QItem} .
   eq nbrs(M,T,CTX) = nbrs(M, T, getLabels(getRls(M)), CTX, 0) .

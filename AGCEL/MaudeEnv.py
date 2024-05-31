@@ -22,7 +22,7 @@ class MaudeEnv():
         else:
             self.state = init_state
         # nbrs = (rhs,action) where rhs is the result of applying action on the current state
-        self.nbrs = [(rhs, Action(label, self.abst_subs(sb))) for label in self.rules for rhs, sb, _, _ in self.state.apply(label)]
+        self.nbrs = [(rhs, Action(label, self.abst_subs(label,sb))) for label in self.rules for rhs, sb, _, _ in self.state.apply(label)]
         return self.get_obs() 
     
     def get_obs(self):
@@ -49,12 +49,12 @@ class MaudeEnv():
         return term
 
     # input: Maude.Substitution, output: dict
-    def abst_subs(self, subs):
+    def abst_subs(self, label, subs):
         if self.abst_mode == 'label':
             return None
         asubs = dict()
         for var, val in subs:
-            val = self.m.parseTerm(f'abst({val.prettyPrint(0)})')
+            val = self.m.parseTerm(f"abst('{label},'{var.getVarName()},data({val.prettyPrint(0)}))")
             val.reduce()
             asubs[var] = val
         return asubs

@@ -1,21 +1,42 @@
 fmod HEURISTIC-SEARCH is
   pr QID .
+  pr META-LEVEL .
 
-  --- state abstraction
+  var Q : Qid . var X : Variable .
+  var T : Term . var SUBS : Substitution .
+
+  --- STATE ABSTRACTION
   sorts State AState .
   op error : -> [State] .
   op abst : State -> AState .
 
-  --- action abstraction
-  sorts Act AAct .
-  subsort Qid < Act .
-  op act : Qid -> AAct [ctor] .
-  op abst : Act -> AAct .
-  var Q : Qid .
-  eq abst(Q) = act(Q) .
-
+  --- DATA ABSTRACTION
   sorts Data AData .
-  op abst : Data -> AData .
+  op data : Universal -> Data [ctor poly (1)] .
+  op error : -> Data .
+  op -- : -> AData [ctor] . --- symbol for don't care
+  --- Label x Var Name x Data -> AData
+  op abst : Qid Variable Data -> AData . --- data abstraction
+
+  --- SUBSTITUTION ABSTRACTION
+  sort ASubs .
+  op none : -> ASubs [ctor] .
+  op _<-_ : Qid AData -> ASubs [ctor] . --- TODO: maybe replace Qid -> Variable
+  op _;_ : ASubs ASubs -> ASubs [ctor assoc comm id: none] .
+  --- defined as the natural extension of data abstraction
+  --- Label x Subs -> ASubs
+  op abst : Qid Substitution -> ASubs . --- substitution abstraction
+  eq abst(Q, (X <- T) ; SUBS)
+    = (getName(X) <- abst(Q, X, downTerm('data[T], (error).Data))) ; abst(Q, SUBS) .
+  eq abst(Q, none) = none .
+
+  --- ACTION ABSTRACTION
+  sorts Act AAct .
+  op act : Qid Substitution -> Act [ctor] .
+  op aact : Qid ASubs -> AAct [ctor] .
+  op abst : Act -> AAct . --- action abstraction
+  eq abst(act(Q, SUBS))
+    = aact(Q, abst(Q, SUBS)) .
 
   --- for goals
   sorts Prop .

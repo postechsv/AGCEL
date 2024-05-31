@@ -59,10 +59,15 @@ mod ONETHIRDRULE-ABS is
     eq aconf(MSG CF, V') = aconf(CF, V') .
     eq aconf(none, V') = none .
 
-    ---subsort OidSet ValueSet Configuration Vote VoteMap AttributeSet < Data .
-    var DATA : Data .
-    op unit : -> AData [ctor] .
-    eq abst(DATA) = unit .
+    --- action abstraction
+    vars Q Q' : Qid . var DATA : Data .
+    subsort AValue < AData .
+    eq abst('vote, 'V, data(V)) = aval(V,0) .
+    eq abst('receive, 'V, data(V)) = aval(V,0) .
+    eq abst('decide, 'V, data(V)) = aval(V,0) .
+    eq abst('update, 'V', data(V)) = aval(V,0) . --- old value
+    eq abst('update, 'V, data(V)) = aval(V,0) . --- new value
+    eq abst(Q, Q', DATA) = -- [owise] .
 
     --- prop def
     ops disagree : -> Prop [ctor] .
