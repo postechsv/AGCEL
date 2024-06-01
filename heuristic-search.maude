@@ -45,26 +45,46 @@ endfm
 
 
 fmod SEARCH-BASE is
-  pr META-TERM .
+  pr HEURISTIC-SEARCH .
 
   sort SearchCtx . --- e.g. timestamp, depth, etc. for each term
-  op ctx : Nat -> SearchCtx [ctor] .
-  --- TODO: getNStates, getDepth, etc
-  var N : Nat .
+  --- # of States Explored, depth, parent ID in VIS
+  op ctx : Nat Nat Nat -> SearchCtx [ctor] .
+  op initCtx : -> SearchCtx .
+  eq initCtx = ctx(0,0,0) .
+  --- TODO: previous action, etc (for debugging purposes)
+  vars N D P : Nat . var T : Term .
+  var CTX : SearchCtx .
+
   op getNStates : SearchCtx -> Nat .
-  eq getNStates(ctx(N)) = N .
-  op incNStates : SearchCtx -> SearchCtx .
-  eq incNStates(ctx(N)) = ctx(N + 1) .
+  eq getNStates(ctx(N,D,P)) = N .
+  op getDepth : SearchCtx -> Nat .
+  eq getDepth(ctx(N,D,P)) = D .
+
+  op next : SearchCtx -> SearchCtx .
+  eq next(ctx(N,D,P)) = ctx(N + 1,D + 1,P) .
+
+  ---op incNStates : SearchCtx -> SearchCtx .
+  ---eq incNStates(ctx(N,D,P)) = ctx(N + 1,D,P) .
+  ---op incDepth : SearchCtx -> SearchCtx .
+  ---eq incDepth(ctx(N,D,P)) = ctx(N,D + 1,P) .
 
   sort SearchResult .
-  op some : Term SearchCtx -> SearchResult [ctor] . --- c.e. found with ctx
-  op none : SearchCtx -> SearchResult [ctor] . --- c.e. not found with ctx
+  op some : Term SearchCtx Nat -> SearchResult [ctor] . --- c.e. found with ctx
+  op none : -> SearchResult [ctor] . --- c.e. not found with ctx
+
+  op getState : SearchResult -> [State] .
+  eq getState(some(T,CTX,N)) = downTerm(T, error) .
+  eq getState(none) = error .
+
+  op getNStates : SearchResult -> Nat .
+  eq getNStates(some(T,CTX,N)) = N .
+  --- TODO: for none? maybe SearchResult? option type
 endfm
 
 
 fmod SCORE is
   pr SEARCH-BASE .
-  pr HEURISTIC-SEARCH .
   sort Score .
   op default : -> Score .
   op score : State Act SearchCtx -> Score .

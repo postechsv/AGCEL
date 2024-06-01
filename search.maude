@@ -62,7 +62,8 @@ fmod SEARCH is
  ceq nbrs(M, T, (labelElt(Q) LL), CTX, N)
     = if RT == failure
         then nbrs(M, T, LL, CTX, 0)
-        else [getTerm(RT), score(downTerm(T,error), act(Q,getSubstitution(RT)), CTX)] ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
+        else [getTerm(RT), next(CTX), score(downTerm(T,error), act(Q,getSubstitution(RT)), CTX)]
+             ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
       fi
     if RT := metaXapply(M, T, Q, none, 0, unbounded, N) .
 
@@ -76,29 +77,21 @@ fmod SEARCH is
   op checkSAT : Term Prop -> Bool .
   eq checkSAT(T,P) = downTerm(T,error) |= P .
 
-  op search : Module Prop NeLTree{QItem<=} TermSet SearchCtx -> SearchResult .
- ceq search(M, P, NQUE, VIS, CTX)
+  op search : Module Prop NeLTree{QItem<=} TermSet Nat -> SearchResult .
+ ceq search(M, P, NQUE, VIS, N)
     = if T in VIS
-        then search(M, P, deleteMin(NQUE), VIS, CTX)
+        then search(M, P, deleteMin(NQUE), VIS, N)
         else
           if checkSAT(T,P)
-            then some(T,CTX)
-            else search(M, P, insertAll(nbrs(M,T,CTX),deleteMin(NQUE)), (termElt(T) ; VIS), incNStates(CTX))
+            then some(T,CTX,N)
+            else search(M, P, insertAll(nbrs(M,T,CTX),deleteMin(NQUE)), (termElt(T) ; VIS), N + 1)
           fi
       fi
-    if [T,SC] := findMin(NQUE)
+    if [T,CTX,SC] := findMin(NQUE)
     /\ ST:[State] := downTerm(T, error)
     [print "pop " CTX ": " ST:[State]] .
-  eq search(M, P, QUE, VIS, CTX) = none(CTX) [owise] .
+  eq search(M, P, QUE, VIS, N) = none [owise] .
 
   op search : Module Term Prop -> SearchResult .
-  eq search(M,T,P) = search(M, P, insert([T, default],empty), mtTerm, ctx(0)) .
-
-  op getState : SearchResult -> [State] .
-  eq getState(some(T,CTX)) = downTerm(T, error) .
-  eq getState(none(CTX)) = error .
-
-  op getCtx : SearchResult -> SearchCtx .
-  eq getCtx(some(T,CTX)) = CTX .
-  eq getCtx(none(CTX)) = CTX .
+  eq search(M,T,P) = search(M, P, insert([T, initCtx, default],empty), mtTerm, 0) .
 endfm

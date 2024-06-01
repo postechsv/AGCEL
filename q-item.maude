@@ -7,13 +7,14 @@ fmod QUEUE-ITEM is
     protecting META-TERM .
 
     sort QItem .
-    op [_,_] : Term Score -> QItem [ctor] .
+    op [_,_,_] : Term SearchCtx Score -> QItem [ctor] .
 
     var T : Term .
     var S : Score .
+    var C : SearchCtx .
  
     op getScore : QItem -> Score .
-    eq getScore([T,S]) = S .
+    eq getScore([T,C,S]) = S .
 endfm
 
 view QItem from TRIV to QUEUE-ITEM is
@@ -26,15 +27,16 @@ fmod QUEUE-ITEM<= is
 
     vars T T' : Term .
     vars S S' : Score .
+    vars C C' : SearchCtx .
 
     op _>_ : QItem QItem -> Bool .
-    eq [T, S] > [T', S'] = S gt S' .
+    eq [T, C, S] > [T', C', S'] = S gt S' .
 
     op _<_ : QItem QItem -> Bool .
-    eq [T, S] < [T', S'] = S lt S' .
+    eq [T, C, S] < [T', C', S'] = S lt S' .
 
     op _<=_ : QItem QItem -> Bool .
-    eq [T, S] <= [T', S'] = S le S' .
+    eq [T, C, S] <= [T', C', S'] = S le S' .
 endfm
 
 
