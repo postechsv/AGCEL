@@ -77,26 +77,28 @@ fmod SEARCH is
   eq checkSAT(T,P) = downTerm(T,error) |= P .
 
   op search : Module Prop NeLTree{QItem<=} TermSet SearchCtx -> SearchResult .
- ceq search(M, P, NQUE, VIS, N)
+ ceq search(M, P, NQUE, VIS, CTX)
     = if T in VIS
-        then search(M, P, deleteMin(NQUE), VIS, N)
+        then search(M, P, deleteMin(NQUE), VIS, CTX)
         else
           if checkSAT(T,P)
-            then some(T,N)
-            else search(M, P, insertAll(nbrs(M,T,N),deleteMin(NQUE)), (termElt(T) ; VIS), N + 1) --- FIXME: nbrs(M,T,ctx(N))
+            then some(T,CTX)
+            else search(M, P, insertAll(nbrs(M,T,CTX),deleteMin(NQUE)), (termElt(T) ; VIS), incNStates(CTX))
           fi
       fi
-    if [T,SC] := findMin(NQUE) .
-  eq search(M, P, QUE, VIS, N) = none(N) [owise] .
+    if [T,SC] := findMin(NQUE)
+    /\ ST:[State] := downTerm(T, error)
+    [print "pop " CTX ": " ST:[State]] .
+  eq search(M, P, QUE, VIS, CTX) = none(CTX) [owise] .
 
   op search : Module Term Prop -> SearchResult .
-  eq search(M,T,P) = search(M, P, insert([T, default],empty), mtTerm, 0) .
+  eq search(M,T,P) = search(M, P, insert([T, default],empty), mtTerm, ctx(0)) .
 
   op getState : SearchResult -> [State] .
-  eq getState(some(T,N)) = downTerm(T, error) .
-  eq getState(none(N)) = error .
+  eq getState(some(T,CTX)) = downTerm(T, error) .
+  eq getState(none(CTX)) = error .
 
-  ---op getNStates : SearchResult -> Nat .
-  ---eq getNStates(some(T,N)) = N .
-  ---eq getNStates(none(N)) = N . (multiple distinct parses for statement)
+  op getCtx : SearchResult -> SearchCtx .
+  eq getCtx(some(T,CTX)) = CTX .
+  eq getCtx(none(CTX)) = CTX .
 endfm

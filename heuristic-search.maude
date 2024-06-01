@@ -48,11 +48,13 @@ fmod SEARCH-BASE is
   pr META-TERM .
 
   sort SearchCtx . --- e.g. timestamp, depth, etc. for each term
-  subsort Nat < SearchCtx .
+  op ctx : Nat -> SearchCtx [ctor] .
   --- TODO: getNStates, getDepth, etc
   var N : Nat .
   op getNStates : SearchCtx -> Nat .
-  eq getNStates(N) = N .
+  eq getNStates(ctx(N)) = N .
+  op incNStates : SearchCtx -> SearchCtx .
+  eq incNStates(ctx(N)) = ctx(N + 1) .
 
   sort SearchResult .
   op some : Term SearchCtx -> SearchResult [ctor] . --- c.e. found with ctx
