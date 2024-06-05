@@ -55,24 +55,27 @@ fmod SEARCH is
   vars ITEM : QItem . vars ITEMS : Set{QItem} .
   var VIS : TermSet .
   var Q : Qid . var L : Label . var LL : LabelList .
-  var CTX : SearchCtx . var RT : Result4Tuple? .
+  vars CTX CTX' : SearchCtx . var RT : Result4Tuple .
+  var ACT : Act .
 
+  ---  module, current state, action label, ctx, sol num
   op nbrs : Module Term LabelList SearchCtx Nat -> Set{QItem} .
   eq nbrs(M, T, nilLabel, CTX, N) = empty .
+  eq nbrs(M, T, (labelElt(Q) LL), CTX, N) = nbrs(M, T, LL, CTX, 0) [owise] . --- metaXapply returns failure
  ceq nbrs(M, T, (labelElt(Q) LL), CTX, N)
-    = if RT == failure
-        then nbrs(M, T, LL, CTX, 0)
-        else [getTerm(RT), next(CTX), score(downTerm(T,error), act(Q,getSubstitution(RT)), CTX)]
-             ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
-      fi
-    if RT := metaXapply(M, T, Q, none, 0, unbounded, N) .
+    = [getTerm(RT), CTX', score(downTerm(T,error), act(Q,getSubstitution(RT)), CTX')]
+      ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
+    if RT := metaXapply(M, T, Q, none, 0, unbounded, N) /\
+       ACT := act(Q,getSubstitution(RT)) /\
+       CTX' := updateCtx(CTX,T,ACT) .
 
+  ---  module, current state, ctx
   op nbrs : Module Term SearchCtx -> Set{QItem} .
   eq nbrs(M,T,CTX) = nbrs(M, T, getLabels(getRls(M)), CTX, 0) .
 
   op insertAll : Set{QItem} LTree{QItem<=} -> LTree{QItem<=} .
   eq insertAll(empty, QUE) = QUE .
-  eq insertAll(ITEM ; ITEMS, QUE) = insertAll(ITEMS, insert(ITEM, QUE)) .
+  eq insertAll(ITEM ; ITEMS, QUE) = insertAll(ITEMS, insert(ITEM, QUE)) . ---[print "push"] .
 
   op checkSAT : Term Prop -> Bool .
   eq checkSAT(T,P) = downTerm(T,error) |= P .
@@ -84,14 +87,17 @@ fmod SEARCH is
         else
           if checkSAT(T,P)
             then some(T,CTX,N)
-            else search(M, P, insertAll(nbrs(M,T,CTX),deleteMin(NQUE)), (termElt(T) ; VIS), N + 1)
+            else search(M, P, insertAll(ITEMS,deleteMin(NQUE)), (termElt(T) ; VIS), N + | ITEMS |)
           fi
       fi
-    if [T,CTX,SC] := findMin(NQUE)
-    /\ ST:[State] := downTerm(T, error)
-    [print "pop " CTX ": " ST:[State]] .
+    if [T,CTX,SC] := findMin(NQUE) /\
+       ITEMS := nbrs(M,T,CTX) /\
+       ST:[State] := downTerm(T, error) 
+       [print "pop " CTX "\n" ST:[State]] .
   eq search(M, P, QUE, VIS, N) = none [owise] .
 
   op search : Module Term Prop -> SearchResult .
   eq search(M,T,P) = search(M, P, insert([T, initCtx, default],empty), mtTerm, 0) .
+
+  --- op getTrace : SearchResult Set{QItem} -> ...
 endfm

@@ -7,6 +7,7 @@ fmod HEURISTIC-SEARCH is
 
   --- STATE ABSTRACTION
   sorts State AState .
+  op init : -> State .
   op error : -> [State] .
   op abst : State -> AState .
 
@@ -32,6 +33,7 @@ fmod HEURISTIC-SEARCH is
 
   --- ACTION ABSTRACTION
   sorts Act AAct .
+  op eps : -> Act [ctor] .
   op act : Qid Substitution -> Act [ctor] .
   op aact : Qid ASubs -> AAct [ctor] .
   op abst : Act -> AAct . --- action abstraction
@@ -48,21 +50,21 @@ fmod SEARCH-BASE is
   pr HEURISTIC-SEARCH .
 
   sort SearchCtx . --- e.g. timestamp, depth, etc. for each term
-  --- # of States Explored, depth, parent ID in VIS
-  op ctx : Nat Nat Nat -> SearchCtx [ctor] .
+  --- # of States Explored, depth, parent state, applied action 
+  op ctx : Nat Nat Term Act -> SearchCtx [ctor] .
   op initCtx : -> SearchCtx .
-  eq initCtx = ctx(0,0,0) .
+  eq initCtx = ctx(0,0,upTerm(init),eps) .
   --- TODO: previous action, etc (for debugging purposes)
-  vars N D P : Nat . var T : Term .
+  vars N D P : Nat . vars T T' : Term . vars A A' : Act .
   var CTX : SearchCtx .
 
   op getNStates : SearchCtx -> Nat .
-  eq getNStates(ctx(N,D,P)) = N .
-  op getDepth : SearchCtx -> Nat .
-  eq getDepth(ctx(N,D,P)) = D .
+  eq getNStates(ctx(N,D,T,A)) = N .
+---  op getDepth : SearchCtx -> Nat .
+---  eq getDepth(ctx(N,D,P)) = D .
 
-  op next : SearchCtx -> SearchCtx .
-  eq next(ctx(N,D,P)) = ctx(N + 1,D + 1,P) .
+  op updateCtx : SearchCtx Term Act -> SearchCtx .
+  eq updateCtx(ctx(N,D,T,A),T',A') = ctx(N + 1,D + 1,T',A') . --- TODO : Fix N + 1
 
   ---op incNStates : SearchCtx -> SearchCtx .
   ---eq incNStates(ctx(N,D,P)) = ctx(N + 1,D,P) .
