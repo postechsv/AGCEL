@@ -46,8 +46,18 @@ fmod HEURISTIC-SEARCH is
 endfm
 
 
+fmod TRACE is
+  pr HEURISTIC-SEARCH .
+  sort ResultTrace .
+  op nil : -> ResultTrace [ctor] .
+  op state : State -> ResultTrace [ctor] .
+  op _===>_ : ResultTrace ResultTrace -> ResultTrace [ctor assoc id: nil] .
+endfm
+
+
 fmod SEARCH-BASE is
   pr HEURISTIC-SEARCH .
+  pr TRACE .
 
   sort SearchCtx . --- e.g. timestamp, depth, etc. for each term
   --- # of States Explored, depth, parent state, applied action 
@@ -60,28 +70,19 @@ fmod SEARCH-BASE is
 
   op getNStates : SearchCtx -> Nat .
   eq getNStates(ctx(N,D,T,A)) = N .
----  op getDepth : SearchCtx -> Nat .
----  eq getDepth(ctx(N,D,P)) = D .
+  op getDepth : SearchCtx -> Nat .
+  eq getDepth(ctx(N,D,T,A)) = D .
+  op getParent : SearchCtx -> Term .
+  eq getParent(ctx(N,D,T,A)) = T .
+  op getAction : SearchCtx -> Act .
+  eq getAction(ctx(N,D,T,A)) = A .
 
   op updateCtx : SearchCtx Term Act -> SearchCtx .
   eq updateCtx(ctx(N,D,T,A),T',A') = ctx(N + 1,D + 1,T',A') . --- TODO : Fix N + 1
 
-  ---op incNStates : SearchCtx -> SearchCtx .
-  ---eq incNStates(ctx(N,D,P)) = ctx(N + 1,D,P) .
-  ---op incDepth : SearchCtx -> SearchCtx .
-  ---eq incDepth(ctx(N,D,P)) = ctx(N,D + 1,P) .
-
   sort SearchResult .
-  op some : Term SearchCtx Nat -> SearchResult [ctor] . --- c.e. found with ctx
+  op some : ResultTrace Nat -> SearchResult [ctor] . --- c.e. found with ctx
   op none : -> SearchResult [ctor] . --- c.e. not found with ctx
-
-  op getState : SearchResult -> [State] .
-  eq getState(some(T,CTX,N)) = downTerm(T, error) .
-  eq getState(none) = error .
-
-  op getNStates : SearchResult -> Nat .
-  eq getNStates(some(T,CTX,N)) = N .
-  --- TODO: for none? maybe SearchResult? option type
 endfm
 
 
@@ -92,7 +93,6 @@ fmod SCORE is
   op score : State Act SearchCtx -> Score .
   op score : AState AAct SearchCtx -> Score .
   ops _gt_ _lt_ _le_ : Score Score -> Bool .
-  ---op score : State SearchCtx -> Score . --- for test
   
   eq default gt default = false .
   eq default lt default = false .

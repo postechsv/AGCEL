@@ -42,8 +42,8 @@ fmod SEARCH is
   pr SCORE .
   pr TERM-SET .
   pr LEFTIST-TREES{QItem<=} .
-  pr SET{QItem} *
-    (op _,_ : Set{QItem} Set{QItem} -> Set{QItem} to _;_) .
+  pr LIST{QItem} *
+    (op __ : List{QItem} List{QItem} -> List{QItem} to _;_) .
   pr LABEL-LIST .
 
   vars M : Module .
@@ -51,53 +51,61 @@ fmod SEARCH is
   var P : Prop .
   vars N N' : Nat .
   vars QUE : LTree{QItem<=} . vars NQUE : NeLTree{QItem<=} .
-  vars SC : Score .
-  vars ITEM : QItem . vars ITEMS : Set{QItem} .
-  var VIS : TermSet .
+  vars SC SC' : Score .
+  vars ITEM : QItem . vars ITEMS ITEMS' VIS : List{QItem} .
+  ---var VIS : TermSet .
   var Q : Qid . var L : Label . var LL : LabelList .
   vars CTX CTX' : SearchCtx . var RT : Result4Tuple .
   var ACT : Act .
 
   ---  module, current state, action label, ctx, sol num
-  op nbrs : Module Term LabelList SearchCtx Nat -> Set{QItem} .
-  eq nbrs(M, T, nilLabel, CTX, N) = empty .
+  op nbrs : Module Term LabelList SearchCtx Nat -> List{QItem} .
+  eq nbrs(M, T, nilLabel, CTX, N) = nil .
   eq nbrs(M, T, (labelElt(Q) LL), CTX, N) = nbrs(M, T, LL, CTX, 0) [owise] . --- metaXapply returns failure
  ceq nbrs(M, T, (labelElt(Q) LL), CTX, N)
     = [getTerm(RT), CTX', score(downTerm(T,error), act(Q,getSubstitution(RT)), CTX')]
       ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
     if RT := metaXapply(M, T, Q, none, 0, unbounded, N) /\
        ACT := act(Q,getSubstitution(RT)) /\
-       CTX' := updateCtx(CTX,T,ACT) .
+       CTX' := updateCtx(CTX,T,act(Q,none)) .
 
   ---  module, current state, ctx
-  op nbrs : Module Term SearchCtx -> Set{QItem} .
+  op nbrs : Module Term SearchCtx -> List{QItem} .
   eq nbrs(M,T,CTX) = nbrs(M, T, getLabels(getRls(M)), CTX, 0) .
 
-  op insertAll : Set{QItem} LTree{QItem<=} -> LTree{QItem<=} .
-  eq insertAll(empty, QUE) = QUE .
+  op insertAll : List{QItem} LTree{QItem<=} -> LTree{QItem<=} .
+  eq insertAll(nil, QUE) = QUE .
   eq insertAll(ITEM ; ITEMS, QUE) = insertAll(ITEMS, insert(ITEM, QUE)) . ---[print "push"] .
 
   op checkSAT : Term Prop -> Bool .
   eq checkSAT(T,P) = downTerm(T,error) |= P .
 
-  op search : Module Prop NeLTree{QItem<=} TermSet Nat -> SearchResult .
- ceq search(M, P, NQUE, VIS, N)
-    = if T in VIS
-        then search(M, P, deleteMin(NQUE), VIS, N)
+  op visited : Term List{QItem} -> Bool .
+  eq visited(T, ITEMS ; [T,CTX,SC] ; ITEMS') = true .
+  eq visited(T, ITEMS) = false [owise] .
+
+  op search : Module Prop NeLTree{QItem<=} List{QItem} -> SearchResult .
+ ceq search(M, P, NQUE, VIS)
+    = if visited(T, VIS)
+        then search(M, P, deleteMin(NQUE), VIS)
         else
-          if checkSAT(T,P)
-            then some(T,CTX,N)
-            else search(M, P, insertAll(ITEMS,deleteMin(NQUE)), (termElt(T) ; VIS), N + | ITEMS |)
+          if checkSAT(T, P)
+            then some(getTrace([T,CTX,SC], VIS), size(VIS) + 1)
+            else search(M, P, insertAll(ITEMS,deleteMin(NQUE)), ([T,CTX,SC] ; VIS))
           fi
       fi
     if [T,CTX,SC] := findMin(NQUE) /\
        ITEMS := nbrs(M,T,CTX) /\
-       ST:[State] := downTerm(T, error) 
-       [print "pop " CTX "\n" ST:[State]] .
-  eq search(M, P, QUE, VIS, N) = none [owise] .
+       ST:[State] := downTerm(T, error) .
+  eq search(M, P, QUE, VIS) = none [owise] .
 
   op search : Module Term Prop -> SearchResult .
-  eq search(M,T,P) = search(M, P, insert([T, initCtx, default],empty), mtTerm, 0) .
+  eq search(M,T,P) = search(M, P, insert([T, initCtx, default],empty), nil) .
 
-  --- op getTrace : SearchResult Set{QItem} -> ...
+  --- traceBack function
+  op getTrace : QItem List{QItem} -> ResultTrace .
+ ceq getTrace([T,CTX,SC], ITEMS ; [T', CTX', SC'] ; ITEMS')
+    = getTrace([getParent(CTX), CTX', SC'], ITEMS') ===> state(downTerm(T,error)) 
+    if T' = getParent(CTX) .
+  eq getTrace(ITEM, ITEMS) = nil [owise] . 
 endfm
