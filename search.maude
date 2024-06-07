@@ -57,6 +57,7 @@ fmod SEARCH is
   var Q : Qid . var L : Label . var LL : LabelList .
   vars CTX CTX' : SearchCtx . var RT : Result4Tuple .
   var ACT : Act .
+  var RES : SearchResult? .
 
   ---  module, current state, action label, ctx, sol num
   op nbrs : Module Term LabelList SearchCtx Nat -> List{QItem} .
@@ -84,28 +85,48 @@ fmod SEARCH is
   eq visited(T, ITEMS ; [T,CTX,SC] ; ITEMS') = true .
   eq visited(T, ITEMS) = false [owise] .
 
-  op search : Module Prop NeLTree{QItem<=} List{QItem} -> SearchResult .
+  sorts SearchResult SearchResult? .
+  subsort SearchResult < SearchResult? .
+  op some : QItem List{QItem} -> SearchResult [ctor] . --- c.e. found with ctx
+  op none : List{QItem} -> SearchResult? [ctor] . --- c.e. not found with ctx
+
+  op search : Module Prop NeLTree{QItem<=} List{QItem} -> SearchResult? .
  ceq search(M, P, NQUE, VIS)
     = if visited(T, VIS)
         then search(M, P, deleteMin(NQUE), VIS)
         else
           if checkSAT(T, P)
-            then some(getTrace([T,CTX,SC], VIS), size(VIS) + 1)
+            then some([T,CTX,SC], VIS)
             else search(M, P, insertAll(ITEMS,deleteMin(NQUE)), ([T,CTX,SC] ; VIS))
           fi
       fi
     if [T,CTX,SC] := findMin(NQUE) /\
        ITEMS := nbrs(M,T,CTX) /\
        ST:[State] := downTerm(T, error) .
-  eq search(M, P, QUE, VIS) = none [owise] .
+  eq search(M, P, QUE, VIS) = none(VIS) [owise] .
 
-  op search : Module Term Prop -> SearchResult .
+  op search : Module Term Prop -> SearchResult? .
   eq search(M,T,P) = search(M, P, insert([T, initCtx, default],empty), nil) .
 
-  --- traceBack function
-  op getTrace : QItem List{QItem} -> ResultTrace .
- ceq getTrace([T,CTX,SC], ITEMS ; [T', CTX', SC'] ; ITEMS')
-    = getTrace([getParent(CTX), CTX', SC'], ITEMS') ===> state(downTerm(T,error)) 
+  --- projection functions on SearchResult
+  op $getTrace : QItem List{QItem} -> ResultTrace .
+ ceq $getTrace([T,CTX,SC], ITEMS ; [T', CTX', SC'] ; ITEMS')
+    = $getTrace([getParent(CTX), CTX', SC'], ITEMS') ===> state(downTerm(T,error)) 
     if T' = getParent(CTX) .
-  eq getTrace(ITEM, ITEMS) = nil [owise] . 
+  eq $getTrace(ITEM, ITEMS) = nil [owise] . 
+
+  op getTrace : SearchResult -> ResultTrace .
+  eq getTrace(some(ITEM, ITEMS)) = $getTrace(ITEM, ITEMS) .
+
+  op getNStates : SearchResult? -> Nat .
+  eq getNStates(RES) = size(getVisited(RES)) .
+
+  op getVisited : SearchResult? -> List{QItem} .
+  eq getVisited(some(ITEM, ITEMS)) = ITEM ; ITEMS .
+  eq getVisited(none(ITEMS)) = ITEMS .
+
+  --- for debug
+  op printSC : List{QItem} -> Bool .
+  eq printSC([T, CTX, SC] ; ITEMS) = printSC(ITEMS) [print "score:" SC] .
+  eq printSC(nil) = true .
 endfm

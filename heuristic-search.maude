@@ -79,10 +79,6 @@ fmod SEARCH-BASE is
 
   op updateCtx : SearchCtx Term Act -> SearchCtx .
   eq updateCtx(ctx(N,D,T,A),T',A') = ctx(N + 1,D + 1,T',A') . --- TODO : Fix N + 1
-
-  sort SearchResult .
-  op some : ResultTrace Nat -> SearchResult [ctor] . --- c.e. found with ctx
-  op none : -> SearchResult [ctor] . --- c.e. not found with ctx
 endfm
 
 
