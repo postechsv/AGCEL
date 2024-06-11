@@ -87,8 +87,8 @@ fmod SEARCH is
 
   sorts SearchResult SearchResult? .
   subsort SearchResult < SearchResult? .
-  op some : QItem List{QItem} -> SearchResult [ctor] . --- c.e. found with ctx
-  op none : List{QItem} -> SearchResult? [ctor] . --- c.e. not found with ctx
+  op some : QItem List{QItem} -> SearchResult [ctor] . --- TODO: some : NeQItem -> SearchResult
+  op none : List{QItem} -> SearchResult? [ctor] .
 
   op search : Module Prop NeLTree{QItem<=} List{QItem} -> SearchResult? .
  ceq search(M, P, NQUE, VIS)
@@ -125,8 +125,26 @@ fmod SEARCH is
   eq getVisited(some(ITEM, ITEMS)) = ITEM ; ITEMS .
   eq getVisited(none(ITEMS)) = ITEMS .
 
-  --- for debug
-  op printSC : List{QItem} -> Bool .
-  eq printSC([T, CTX, SC] ; ITEMS) = printSC(ITEMS) [print "score:" SC] .
-  eq printSC(nil) = true .
+  op getState : SearchResult -> [State] .
+  eq getState(some([T,CTX,SC], ITEMS)) = downTerm(T,error) .
+
+  --- for debugging
+  op printScore : List{QItem} -> Bool .
+  eq printScore([T, CTX, SC] ; ITEMS) = printScore(ITEMS) [print "(score) " SC] .
+  eq printScore(nil) = true .
+
+  op printDepth : List{QItem} -> Bool .
+ ceq printDepth(ITEMS ; [T, CTX, SC]) = printDepth(ITEMS)
+    if N := getDepth(CTX) [print "(depth) " N] .
+  eq printDepth(nil) = true .
+
+  --- for logging
+  var ST : [State] .
+  op printResult : SearchResult? -> Bool .
+ ceq printResult(RES) = printDepth(VIS) if
+    some(ITEM, ITEMS) := RES /\
+    VIS := getVisited(RES) /\
+    N := getNStates(RES) /\
+    ST := getState(RES)
+    [print "(state) " ST "\n(# states) " N] .
 endfm

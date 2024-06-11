@@ -70,13 +70,31 @@ mod ONETHIRDRULE-ABS is
     eq abst(Q, Q', DATA) = -- [owise] .
 
     --- prop def
-    ops disagree : -> Prop [ctor] .
+    op disagree : -> Prop [ctor] .
     eq { TH:Nat, VS:ValueSet, OS:OidSet, 
         < O:Oid : Node | status : [R:Nat, done], decision : 0, ATTR:AttributeSet >
         < O':Oid : Node | status : [R':Nat, done], decision : 1, ATTR':AttributeSet > 
         CONF:Configuration } |= disagree = true .
     eq S:State |= disagree  = false [owise] .
+
+    op hasNil : -> Prop [ctor] .
+    eq { TH:Nat, VS:ValueSet, OS:OidSet, 
+        < O:Oid : Node | decision : nilValue, ATTR:AttributeSet >
+        CONF:Configuration } |= hasNil = true .
+    eq S:State |= hasNil  = false [owise] .
+
+    op hasMsg : -> Prop [ctor] .
+    eq { TH:Nat, VS:ValueSet, OS:OidSet,
+        MSG CONF:Configuration } |= hasMsg = true .
+    eq S:State |= hasMsg  = false [owise] .
+
+    op decisionOf : Value Oid -> Prop .
+    eq { TH:Nat, VS:ValueSet, OS:OidSet, 
+        < O:Oid : Node | decision : D, ATTR:AttributeSet >
+        CONF:Configuration } |= decisionOf(D,O) = true .
+    eq S:State |= decisionOf(D,O) = false [owise] .
 endm
+
 
 mod ONETHIRDRULE-ANALYSIS is
     pr ONETHIRDRULE-ABS . ---NO-MSG-LOSS .

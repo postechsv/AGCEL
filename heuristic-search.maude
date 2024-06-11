@@ -40,9 +40,15 @@ fmod HEURISTIC-SEARCH is
   eq abst(act(Q, SUBS))
     = aact(Q, abst(Q, SUBS)) .
 
-  --- for goals
+  --- for goals TODO : integrate with model-checker.maude
   sorts Prop .
   op _|=_ : State Prop -> Bool [frozen] .
+  op _/\_ : Prop Prop -> Prop [ctor assoc] .
+  op ~_ : Prop -> Prop [ctor] .
+
+  var S : State . vars P P1 P2 : Prop .
+  eq S |= P1 /\ P2 = S |= P1 and S |= P2 .
+  eq S |= ~ P = not S |= P .
 endfm
 
 
