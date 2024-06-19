@@ -22,13 +22,15 @@ class MaudeEnv():
         else:
             self.state = init_state
         # nbrs = (rhs,action) where rhs is the result of applying action on the current state
-        self.nbrs = [(rhs, Action(label, self.abst_subs(label,sb))) for label in self.rules for rhs, sb, _, _ in self.state.apply(label)]
+        #self.nbrs = [(rhs, Action(label, self.abst_subs(label,sb))) for label in self.rules for rhs, sb, _, _ in self.state.apply(label)]
+        self.nbrs = [(rhs, Action(label, self.abst_subs2(rhs))) for label in self.rules for rhs, sb, _, _ in self.state.apply(label)]
         return self.get_obs() 
     
     def get_obs(self):
         return {
             'state' : self.state, # Maude.Term
-            'astate' : self.abst(self.state), # Maude.Term
+            #'astate' : self.abst(self.state), # Maude.Term
+            'astate' : self.heur(self.state), # Maude.Term
             'actions' : [a for s,a in self.nbrs] # List of (available) action objects
         }
 
@@ -38,13 +40,23 @@ class MaudeEnv():
         if next_states == []:
             raise Exception("invalid action")
         obs = self.reset(random.choice(next_states))
-        reward = 1.0 if self.is_goal() else 0.0
-        done = True if reward == 1.0 else False # TODO: +done if no rewrite possible
+        reward, done = -1.0, False
+        if self.nbrs == []:
+            done = True
+        if self.is_goal():
+            reward = 1.0
+            done = True
         return obs, reward, done
     
     # input: Maude.Term, output: Maude.Term
     def abst(self, term):
         term = self.m.parseTerm('abst(' + term.prettyPrint(0) + ')')
+        term.reduce()
+        return term
+
+    # input: Maude.Term, output: Maude.Term
+    def heur(self, term):
+        term = self.m.parseTerm('heur(' + term.prettyPrint(0) + ')')
         term.reduce()
         return term
 
@@ -58,7 +70,13 @@ class MaudeEnv():
             val.reduce()
             asubs[var] = val
         return asubs
-    
+
+    # TEST
+    def abst_subs2(self, rhs):
+        term = self.m.parseTerm(f'getASubs({rhs.prettyPrint(0)})')
+        term.reduce()
+        return term
+
     def is_goal(self):
         t = self.m.parseTerm(f'{self.state.prettyPrint(0)} |= {self.goal.prettyPrint(0)}')
         t.reduce()

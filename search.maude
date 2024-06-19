@@ -64,11 +64,11 @@ fmod SEARCH is
   eq nbrs(M, T, nilLabel, CTX, N) = nil .
   eq nbrs(M, T, (labelElt(Q) LL), CTX, N) = nbrs(M, T, LL, CTX, 0) [owise] . --- metaXapply returns failure
  ceq nbrs(M, T, (labelElt(Q) LL), CTX, N)
-    = [getTerm(RT), CTX', score(downTerm(T,error), act(Q,getSubstitution(RT)), CTX')]
+    = [getTerm(RT), CTX', score(downTerm(T,error), ACT, CTX')]
       ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
     if RT := metaXapply(M, T, Q, none, 0, unbounded, N) /\
        ACT := act(Q,getSubstitution(RT)) /\
-       CTX' := updateCtx(CTX,T,act(Q,none)) .
+       CTX' := updateCtx(CTX,T,ACT) .
 
   ---  module, current state, ctx
   op nbrs : Module Term SearchCtx -> List{QItem} .
@@ -102,7 +102,7 @@ fmod SEARCH is
       fi
     if [T,CTX,SC] := findMin(NQUE) /\
        ITEMS := nbrs(M,T,CTX) /\
-       ST:[State] := downTerm(T, error) .
+       ST:[State] := downTerm(T, error) . ---[print "(nbrs)" ITEMS] .
   eq search(M, P, QUE, VIS) = none(VIS) [owise] .
 
   op search : Module Term Prop -> SearchResult? .
@@ -130,7 +130,7 @@ fmod SEARCH is
 
   --- for debugging
   op printScore : List{QItem} -> Bool .
-  eq printScore([T, CTX, SC] ; ITEMS) = printScore(ITEMS) [print "(score) " SC] .
+  eq printScore(ITEMS ; [T, CTX, SC]) = printScore(ITEMS) [print "(score) " SC] .
   eq printScore(nil) = true .
 
   op printDepth : List{QItem} -> Bool .
@@ -141,7 +141,7 @@ fmod SEARCH is
   --- for logging
   var ST : [State] .
   op printResult : SearchResult? -> Bool .
- ceq printResult(RES) = printDepth(VIS) if
+ ceq printResult(RES) = printScore(VIS) if
     some(ITEM, ITEMS) := RES /\
     VIS := getVisited(RES) /\
     N := getNStates(RES) /\

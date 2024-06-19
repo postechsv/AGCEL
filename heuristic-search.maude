@@ -17,7 +17,7 @@ fmod HEURISTIC-SEARCH is
   op error : -> Data .
   op -- : -> AData [ctor] . --- symbol for don't care
   --- Label x Var Name x Data -> AData
-  op abst : Qid Variable Data -> AData . --- data abstraction
+  op abst : Qid Qid Data -> AData . --- data abstraction
 
   --- SUBSTITUTION ABSTRACTION
   sort ASubs .
@@ -28,7 +28,7 @@ fmod HEURISTIC-SEARCH is
   --- Label x Subs -> ASubs
   op abst : Qid Substitution -> ASubs . --- substitution abstraction
   eq abst(Q, (X <- T) ; SUBS)
-    = (getName(X) <- abst(Q, X, downTerm('data[T], (error).Data))) ; abst(Q, SUBS) .
+    = (getName(X) <- abst(Q, getName(X), downTerm('data[T], (error).Data))) ; abst(Q, SUBS) .
   eq abst(Q, none) = none .
 
   --- ACTION ABSTRACTION
@@ -43,12 +43,26 @@ fmod HEURISTIC-SEARCH is
   --- for goals TODO : integrate with model-checker.maude
   sorts Prop .
   op _|=_ : State Prop -> Bool [frozen] .
+  op _|=_ : AState Prop -> Bool [frozen] .
   op _/\_ : Prop Prop -> Prop [ctor assoc] .
   op ~_ : Prop -> Prop [ctor] .
 
   var S : State . vars P P1 P2 : Prop .
   eq S |= P1 /\ P2 = S |= P1 and S |= P2 .
   eq S |= ~ P = not S |= P .
+
+  --- partial migration from ONETHIRDRULE-ASYS
+  sort APair . --- abstract pair of AState x ASubs
+  op <_,_> : AState ASubs -> APair [ctor] .
+  op getAState : APair -> AState .
+  op getASubs : APair -> ASubs .
+  op abst : APair -> AState . --- stub
+  op _|=_ : APair Prop -> Bool [frozen] . --- stub
+
+  --- partial migration from ONETHIRDRULE-HSYS
+  sorts HState HAct .
+  op heur : AState -> HState .  op heur : State -> HState .  op heur : APair -> HState .
+  op heur : AAct -> HAct .  op heur : Act -> HAct .
 endfm
 
 
@@ -90,8 +104,9 @@ endfm
 
 fmod SCORE is
   pr SEARCH-BASE .
-  sort Score .
-  op default : -> Score .
+  sorts DScore Score .
+  subsort DScore < Score .
+  op default : -> DScore .
   op score : State Act SearchCtx -> Score .
   op score : AState AAct SearchCtx -> Score .
   ops _gt_ _lt_ _le_ : Score Score -> Bool .
@@ -99,6 +114,15 @@ fmod SCORE is
   eq default gt default = false .
   eq default lt default = false .
   eq default le default = true . 
+
+  var SC : Score .
+  --- default is the last score to be popped
+  eq default gt SC = true .
+  eq SC gt default = false .
+  eq default lt SC = false .
+  eq SC lt default = true .
+  eq default le SC = false .
+  eq SC le default = true .
 endfm
 
 
@@ -134,16 +158,21 @@ fmod QHS-SCORE-BASE is
   subsort Float < Score .
 
   var S : State . var A : Act .
-  var AS : AState . var AA : AAct .
   var CTX : SearchCtx .
   vars F F' : Float .
 
-  op qtable : AState AAct -> Float .
-  eq score(S, A, CTX) = qtable(abst(S), abst(A)) .
-  --- negation
+  op qtable : HState AAct -> Float .
+  eq score(S, A, CTX) = qtable(heur(S), abst(A)) .
+
+  --- correct qhs
   eq F gt F' = F < F' .
   eq F lt F' = F > F' .
   eq F le F' = F >= F' .
+
+  --- reverse qhs
+  ---eq F gt F' = F > F' .
+  ---eq F lt F' = F < F' .
+  ---eq F le F' = F <= F' .
 endfm
 
 
