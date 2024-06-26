@@ -74,7 +74,7 @@ class QLearner():
         for s, d in q_dict.items():
             for a, q in d.items():
                 f.write(f'  eq qtable({s}, {a}) = {q} [print "hit"] .\n')
-        f.write(f'  eq qtable(AS, AA) = default [owise print "miss"] .\n')
+        f.write(f'  eq qtable(AS, AA) = default [owise print "miss\\n  " AS "\\n  " AA] .\n')
         f.write('endm\n')
         f.close()
         
@@ -99,6 +99,7 @@ class QLearner():
     def train(self, env, n_training_episodes):
         stat = 0
         for episode in tqdm(range(n_training_episodes)):
+            #print(f'=== episode {episode} ===')
             # Reduce epsilon (because we need less and less exploration)
             epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
 
@@ -107,8 +108,12 @@ class QLearner():
             done = False
 
             for step in range(max_steps):
+                #print(f'--- step {step} ---')
                 s = obs["astate"]
                 a = self.eps_greedy_policy(obs, epsilon)
+
+                #print('(state)', s)
+                #print('(action)', a)
 
                 # assert action not -1
                 if type(a) == type(-1):
@@ -118,10 +123,15 @@ class QLearner():
                 ns = obs['astate']
                 stat += reward
 
+                #if reward == 1:
+                #    print('s:', s, 'a:', a)
+
                 # Update Q(s,a):= Q(s,a) + lr [R(s,a) + gamma * max Q(s',a') - Q(s,a)]
                 nq = self.get_q(s, a) + learning_rate * (
-                    reward + gamma * self.max_q(ns) - self.get_q(s, a) # FIXME!!!!! max_q(s')!!!!
+                    reward + gamma * self.max_q(ns) - self.get_q(s, a)
                 )
+                #if nq < 0.00001 and nq > 0.0:
+                #    print('q(s,a):', self.get_q(s,a), ', q_next(s,a):', nq, ', reward:', reward, ', lr:', learning_rate, ', maxq:', self.max_q(ns), ', gamma:', gamma)
                 self.set_q(s, a, nq)
 
                 # If terminated or truncated finish the episode

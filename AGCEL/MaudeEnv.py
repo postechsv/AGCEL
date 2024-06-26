@@ -22,8 +22,8 @@ class MaudeEnv():
         else:
             self.state = init_state
         # nbrs = (rhs,action) where rhs is the result of applying action on the current state
-        #self.nbrs = [(rhs, Action(label, self.abst_subs(label,sb))) for label in self.rules for rhs, sb, _, _ in self.state.apply(label)]
-        self.nbrs = [(rhs, Action(label, self.abst_subs2(rhs))) for label in self.rules for rhs, sb, _, _ in self.state.apply(label)]
+        self.nbrs = [(rhs, Action(label, self.abst_subs(label,sb))) for label in self.rules for rhs, sb, _, _ in self.state.apply(label)] # concrete
+        #self.nbrs = [(rhs, Action(label, self.abst_subs2(rhs))) for label in self.rules for rhs, sb, _, _ in self.state.apply(label)] # abstract
         return self.get_obs() 
     
     def get_obs(self):
@@ -40,7 +40,7 @@ class MaudeEnv():
         if next_states == []:
             raise Exception("invalid action")
         obs = self.reset(random.choice(next_states))
-        reward, done = -1.0, False
+        reward, done = 0.0, False
         if self.nbrs == []:
             done = True
         if self.is_goal():

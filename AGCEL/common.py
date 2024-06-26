@@ -19,8 +19,8 @@ class Action():
 
     def __str__(self):
         # to be dumped
-        #return f"aact('{self.label}, {self.get_str_asubs()})"
-        return f"aact({self.label}, {self.asubs.prettyPrint(0)})"
+        return f"aact('{self.label}, {self.get_str_asubs()})" # concrete
+        #return f"aact({self.label}, {self.asubs.prettyPrint(0)})" # abstract
 
     def __repr__(self):
         #return f'<label: {self.label}, asubs: {self.asubs}>'

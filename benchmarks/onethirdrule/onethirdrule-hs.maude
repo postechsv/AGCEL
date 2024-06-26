@@ -71,7 +71,6 @@ mod ACONF is
     var N N' : Nat . var ST : Step .
     var V : Value . var D : Value? .
     var VM : VoteMap .
-    var AO : AObj .
     var CF : Configuration .
     var ATTS : AttributeSet .
 
@@ -81,10 +80,13 @@ mod ACONF is
     sort AMsg .
     op amsg : AValue ARound -> AMsg [ctor] .
 
-    sort AConf .
-    subsorts AObj AMsg < AConf .
+    sorts AConf NeAConf .
+    subsorts AObj AMsg < NeAConf < AConf .
+
     op none : -> AConf [ctor] .
     op __ : AConf AConf -> AConf [ctor assoc comm id: none] .
+    op __ : NeAConf AConf -> NeAConf [ctor ditto] .
+    var AO : NeAConf .
     eq AO AO = AO .
 
     op abstConf : Configuration -> AConf .
@@ -175,7 +177,7 @@ mod ONETHIRDRULE-ASYS is --- abstract system for onethirdrule
 
     --- stub for MaudeEnv.py
 ---    op abst : APair -> AState .
-    eq abst(< S, SUBS >) = getAState(< S, SUBS >) .
+    eq abst(< S, SUBS >) = S .
 ---    op _|=_ : APair Prop -> Bool [frozen] .
     var P : Prop .
     eq < S, SUBS > |= P = S |= P .
@@ -194,23 +196,21 @@ mod ONETHIRDRULE-ASYS is --- abstract system for onethirdrule
     =>
     < aobj(R, wait, V, nilAValue, set(VM,V'))
       aobj(R, wait, V, nilAValue, VM)
-      amsg(V', R) CF
-    ,
+      amsg(V', R) CF,
       ('R <- --) ; ('V <- V') ; ('O <- --) ; ('VOTE <- --) ; ('TH <- --) ; ('VS <- --) ; ('CF <- --) ; ('OS <- --) ; ('ATTS <- --) ; ('O' <- --) ; ('OS' <- --)
     > .
 
-    rl ['receive] : --- SCENARIO 2: all receive.
+    rl ['receive] : --- SCENARIO 2: last obj receives.
     < aobj(R, wait, V, nilAValue, VM) amsg(V', R) CF, SUBS >
     =>
-    < aobj(R, wait, V, nilAValue, set(VM, V')) CF
-    ,
+    < aobj(R, wait, V, nilAValue, set(VM, V')) amsg(V', R) CF,
       ('R <- --) ; ('V <- V') ; ('O <- --) ; ('VOTE <- --) ; ('TH <- --) ; ('VS <- --) ; ('CF <- --) ; ('OS <- --) ; ('ATTS <- --) ; ('O' <- --) ; ('OS' <- --)
     > .
 
     rl ['decide] :
     < aobj(R, wait, V, nilAValue, (V' |-> true) ; VM) CF, SUBS >
     =>
-    < aobj(R, wait, V, V', (V' |-> true) ; VM) CF,
+    < aobj(R, done, V, V', (V' |-> true) ; VM) CF,
       ('N <- --) ; ('R <- --) ; ('V <- V') ; ('O <- --) ; ('TH <- --) ; ('VM <- --) ; ('VS <- --) ; ('CF <- --) ; ('OS <- --) ; ('ATTS <- --) ; ('VA <- --)
     > .
 
@@ -229,11 +229,42 @@ mod ONETHIRDRULE-ASYS is --- abstract system for onethirdrule
     > .
 
 
-     --- disagree on astates
-    eq aobj(R, ST, V, least, VM)
-       aobj(R', ST', V', rest, VM)
+    --- disagree on astates
+    eq aobj(R, done, V, least, VM)
+       aobj(R', done, V', rest, VM')
        CF |= disagree = true .
     eq S |= disagree = false [owise] . 
+endm
+
+
+mod ONETHIRDRULE-HSYS-TRIV is --- HState = Unit
+  pr ONETHIRDRULE-ASYS .
+  subsort Bool < HState .
+  var ST : State . var AST : AState . var AP : APair .
+  ---eq heur(AST) = true .
+  eq heur(ST) = true . ---heur(abst(ST)) .
+  ---eq heur(AP) = heur(getAState(AP)) .
+endm
+
+
+mod ONETHIRDRULE-HSYS-ABS is --- HState = AState
+  pr ONETHIRDRULE-ASYS .
+  subsort AState < HState .
+  var ST : State . var AP : APair .
+  eq heur(ST) = abst(ST) .
+endm
+
+
+mod ONETHIRDRULE-HSYS-RM-MSG is --- HState = AState - Msg
+  pr ONETHIRDRULE-ASYS .
+  subsort AState < HState .
+  var ST : State . ---var AP : APair .
+  var AR : ARound . var STEP : Step . var AV : AValue . var AD : AValue? .
+  var AVM : AVoteMap . var ACF : AConf .
+  eq heur(ST) = heur(abst(ST)) .
+  eq heur(aobj(AR, STEP, AV, AD, AVM) ACF) = aobj(AR, STEP, AV, AD, AVM) heur(ACF) .
+  eq heur(amsg(AV, AR) ACF) = heur(ACF) . --- remove msg
+  eq heur(none) = none .
 endm
 
 
@@ -254,45 +285,50 @@ mod ONETHIRDRULE-HSYS is --- heuristic system for onethirdrule
   eq heur(AP) = heur(getAState(AP)) .
 
   --- Define HState
-  op none : -> HState [ctor] .
-  op hobj : Step AValue -> HState [ctor] .
-  op __ : HState HState -> HState [ctor assoc comm id: none] .
-  eq HST HST = HST .
+  sorts NeHConf HConf .
+  subsorts NeHConf < HConf < HState .
+
+  op none : -> HConf [ctor] .
+  op hobj : ARound Step AValue AValue?  -> NeHConf [ctor] .
+  op __ : HConf HConf -> HConf [ctor assoc comm id: none] .
+  op __ : NeHConf HConf -> NeHConf [ctor ditto] .
+  var HCF : NeHConf .
+  eq HCF HCF = HCF .
 
   --- Define heur : AState -> HState
-  eq heur(aobj(AR, STEP, AV, AD, AVM) ACF) = hobj(STEP, AV) heur(ACF) .
+  eq heur(aobj(AR, STEP, AV, AD, AVM) ACF) = hobj(AR, STEP, AV, AD) heur(ACF) .
   eq heur(amsg(AV, AR) ACF) = heur(ACF) .
   eq heur(none) = none .
 
   --- Define HAct
-  op hactVote : AValue -> HAct [ctor] .
-  op hactReceive : AValue -> HAct [ctor] .
-  op hactUpdate : AValue AValue -> HAct [ctor] .
-  op hactDecide : AValue -> HAct [ctor] .
-  op hactLoss : -> HAct [ctor] .
+  ---op hactVote : AValue -> HAct [ctor] .
+  ---op hactReceive : AValue -> HAct [ctor] .
+  ---op hactUpdate : AValue AValue -> HAct [ctor] .
+  ---op hactDecide : AValue -> HAct [ctor] .
+  ---op hactLoss : -> HAct [ctor] .
 
   --- Define heur : AAct -> HAct
-  eq heur(aact('vote, ('R <- --) ; ('V <- AV) ; ('O <- --) ; ('VOTE <- --) ; ('TH <- --) ; ('VS <- --) ; ('CF <- --) ; ('OS <- --) ; ('ATTS <- --)))
-    = hactVote(AV) .
-  eq heur(aact('receive, ('R <- --) ; ('V <- AV) ; ('O <- --) ; ('VOTE <- --) ; ('TH <- --) ; ('VS <- --) ; ('CF <- --) ; ('OS <- --) ; ('ATTS <- --) ; ('O' <- --) ; ('OS' <- --)))
-    = hactReceive(AV) .
-  eq heur(aact('update, ('N <- --) ; ('R <- --) ; ('V <- AV) ; ('O <- --) ; ('TH <- --) ; ('VM <- --) ; ('VS <- --) ; ('V' <- AV') ; ('CF <- --) ; ('OS <- --) ; ('ATTS <- --) ; ('VA <- --)))
-    = hactUpdate(AV, AV') .
-  eq heur(aact('decide, ('N <- --) ; ('R <- --) ; ('V <- AV) ; ('O <- --) ; ('TH <- --) ; ('VM <- --) ; ('VS <- --) ; ('CF <- --) ; ('OS <- --) ; ('ATTS <- --) ; ('VA <- --)))
-    = hactDecide(AV) .
-  eq heur(aact('loss, ('TH <- --) ; ('VS <- --) ; ('CF <- --) ; ('MSG <- --) ; ('OS <- --)))
-    = hactLoss .
+  ---eq heur(aact('vote, ('R <- --) ; ('V <- AV) ; ('O <- --) ; ('VOTE <- --) ; ('TH <- --) ; ('VS <- --) ; ('CF <- --) ; ('OS <- --) ; ('ATTS <- --)))
+  ---  = hactVote(AV) .
+  ---eq heur(aact('receive, ('R <- --) ; ('V <- AV) ; ('O <- --) ; ('VOTE <- --) ; ('TH <- --) ; ('VS <- --) ; ('CF <- --) ; ('OS <- --) ; ('ATTS <- --) ; ('O' <- --) ; ('OS' <- --)))
+  ---  = hactReceive(AV) .
+  ---eq heur(aact('update, ('N <- --) ; ('R <- --) ; ('V <- AV) ; ('O <- --) ; ('TH <- --) ; ('VM <- --) ; ('VS <- --) ; ('V' <- AV') ; ('CF <- --) ; ('OS <- --) ; ('ATTS <- --) ; ('VA <- --)))
+  ---  = hactUpdate(AV, AV') .
+  ---eq heur(aact('decide, ('N <- --) ; ('R <- --) ; ('V <- AV) ; ('O <- --) ; ('TH <- --) ; ('VM <- --) ; ('VS <- --) ; ('CF <- --) ; ('OS <- --) ; ('ATTS <- --) ; ('VA <- --)))
+  ---  = hactDecide(AV) .
+  ---eq heur(aact('loss, ('TH <- --) ; ('VS <- --) ; ('CF <- --) ; ('MSG <- --) ; ('OS <- --)))
+  ---  = hactLoss .
 endm
 
 
 mod ONETHIRDRULE-ANALYSIS is
-    pr ONETHIRDRULE-HSYS . ---NO-MSG-LOSS .
+    pr ONETHIRDRULE-HSYS .
 
     protecting STRING .
     subsort String < Oid .
 
     ops obA obB obC obD obE obF : -> InitObject .
-    ops init3 init4 init5a init5b init6 : -> Global .
+    ops init3 init4 init5a init5b init5c init6 : -> Global .
     ops init3APair : -> APair .
 
     eq obA = < "A" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
@@ -307,6 +343,7 @@ mod ONETHIRDRULE-ANALYSIS is
     eq init4 = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .
     eq init5a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } . --- 2 (least) vs 3 (rest)
     eq init5b = {3, (0 ; 1), ("A" ; "B" ; "C" ; "E" ; "F"), (obA obB obC obE obF) } . --- 1 (least) vs 4 (rest)
+    eq init5c = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } . --- 2 (least) vs 3 (rest) --- c.e. found within a few sec
     eq init6 = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } .
 endm
 
