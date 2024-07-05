@@ -1,0 +1,15 @@
+--- automatically generated at 2024-07-03 14:12:05.150888
+mod PROP-SCORE is
+  pr PROP-SCORE-BASE .
+  pr ONETHIRDRULE-ANALYSIS .
+  ---props
+  eq props = hasDec(0) ; hasDec(1) .
+  ---score
+  eq score(hasDec(0), aact('decide, ('V <- adata(s_(0))))) = 0.9099999999999999 [print "hit"] .
+  eq score(hasDec(0), aact('receive, ('V <- adata(0)))) = 0.4654999999999999 [print "hit"] .
+  eq score(hasDec(1), aact('decide, ('V <- adata(0)))) = 0.9919 [print "hit"] .
+  eq score(hasDec(1), aact('receive, ('V <- adata(0)))) = 0.7866949999999999 [print "hit"] .
+  eq score(hasDec(1), aact('vote, ('V <- adata(0)))) = 0.5788725249999999 [print "hit"] .
+  eq score(hasDec(1), aact('update, ('V <- adata(0)) ; ('V' <- adata(s_(0))))) = 0.3911259012499998 [print "hit"] .
+  eq score(P:Prop, AA:AAct) = default [owise] .
+endm

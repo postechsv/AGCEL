@@ -18,7 +18,8 @@ decay_rate = 0.0005  # Exponential decay rate for exploration prob
 class QLearner():
     def __init__(self):
         self.q_init = 0.0
-        self.q_dict = dict()
+        self.q_dict = dict() # score(s,a)
+        self.scores = dict() # score(p,q)
         
     def get_q(self, s, a):
         q_init = self.q_init
@@ -75,6 +76,34 @@ class QLearner():
             for a, q in d.items():
                 f.write(f'  eq qtable({s}, {a}) = {q} [print "hit"] .\n')
         f.write(f'  eq qtable(AS, AA) = default [owise print "miss\\n  " AS "\\n  " AA] .\n')
+        f.write('endm\n')
+        f.close()
+
+    def load(self):
+        # TODO
+        # load qtable from qtable.maude
+        pass
+
+    def dump2(self, filename, m): # score(s,a) ->
+        sprops = ['hasDec(0)', 'hasDec(1)']
+        q_dict = self.q_dict
+        scores = self.scores
+        for sprop in sprops:
+            scores[sprop] = dict()
+        for s, d in q_dict.items():
+            for a, q in d.items():
+                for sprop in sprops:
+                    t = m.parseTerm(f'{s.prettyPrint(0)} |= {sprop}')
+                    t.reduce()
+                    if t.prettyPrint(0) == 'true':
+                        scores[sprop][a] = max(scores[sprop].get(a, 0), q)
+        
+        f = open('score.maude', 'w')
+        f.write(f'--- automatically generated at {datetime.datetime.now()}\n')
+        f.write('mod QHS-SCORE is\n')
+        for sprop, d in scores.items():
+            for a, q in d.items():
+                f.write(f'  eq score({sprop}, {a}) = {q} [print "hit"] .\n')
         f.write('endm\n')
         f.close()
         

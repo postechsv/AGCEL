@@ -68,7 +68,10 @@ class MaudeEnv():
         for var, val in subs:
             val = self.m.parseTerm(f"abst('{label},'{var.getVarName()},data({val.prettyPrint(0)}))")
             val.reduce()
-            asubs[var] = val
+            if val.prettyPrint(0) == '--':
+                continue
+            else:
+                asubs[var] = val
         return asubs
 
     # TEST

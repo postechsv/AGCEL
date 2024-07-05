@@ -1,6 +1,7 @@
-load benchmarks/onethirdrule/onethirdrule-hs.maude
+load benchmarks/onethirdrule/onethirdrule-analysis.maude
 load search.maude
-load qtable.maude
+---load qtable.maude
+load score.maude
 
 mod TEST-BFS is
   pr SEARCH .
@@ -23,7 +24,16 @@ endm
 mod TEST-QHS is
   pr SEARCH .
   pr ONETHIRDRULE-ANALYSIS .
-  pr QHS-SCORE .
+  ---pr QHS-SCORE .
+  op M : -> Module .
+  eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
+endm
+
+
+mod TEST-PROP is
+  pr SEARCH .
+  pr ONETHIRDRULE-ANALYSIS .
+  pr PROP-SCORE .
   op M : -> Module .
   eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
 endm
@@ -36,6 +46,8 @@ mod TEST-CONST is
   op M : -> Module .
   eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
 endm
+
+set print attribute on .
 
 ---red in TEST-QHS : search(M, upTerm(init4), disagree) .
 ---red in TEST-BFS : search(M, upTerm(init4), disagree) .

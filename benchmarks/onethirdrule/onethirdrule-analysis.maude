@@ -1,0 +1,76 @@
+load ../../heuristic-search .
+load onethirdrule .
+
+mod MODEL is
+    pr ONETHIRDRULE . ---NO-MSG-LOSS .
+    pr HEURISTIC-SEARCH .
+    subsorts Global < State .
+endm
+
+mod ONETHIRDRULE-HSTATE is
+    pr MODEL .
+
+    op hstate : Configuration -> HState [ctor] .
+    --- heur : State -> HState (built-in)
+    eq heur({ TH:Nat, VS:ValueSet, OS:OidSet, CF:Configuration }) = hstate(CF:Configuration) .
+    --- abst : (built-in) FIXME: recv(V,V')
+    var V : Value .
+    eq abst('vote, 'V, data(V)) = adata(V) .
+    eq abst('receive, 'V, data(V)) = adata(V) .
+    eq abst('decide, 'V, data(V)) = adata(V) .
+    eq abst('update, 'V', data(V)) =  adata(V) . --- old value
+    eq abst('update, 'V, data(V)) = adata(V) . --- new value
+    eq abst(Q:Qid, Q':Qid, DATA:Data) = -- [owise] .
+endm
+
+mod ONETHIRDRULE-PROP is
+    pr ONETHIRDRULE-HSTATE .
+
+    vars O O' : Oid . vars CF : Configuration . var C : Cid .
+    vars OS OS' : OidSet . 
+    var R TH N VA : Nat .
+    var VS : ValueSet .
+    var S : State . var HS : HState .
+    var MSG : Msg .
+    vars ATTS ATTS' : AttributeSet .
+
+    op disagree : -> Prop [ctor] .
+    eq { TH, VS, OS, < O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF } |= disagree = true .
+    eq S |= disagree = false [owise] .
+    eq hstate(< O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF) |= disagree = true .
+    eq HS |= disagree = false [owise] .
+
+    --- e.g. search [1] init5a =>* X:State such that X:State |= hasDec(1) .
+    op hasDec : Nat -> Prop [ctor] .
+    eq { TH, VS, OS, < O : Node | decision : D:Value?, ATTS > CF } |= hasDec(D:Value?) = true .
+    eq S |= hasDec(D:Value?) = false [owise] .
+    eq hstate(< O : Node | decision : D:Value?, ATTS > CF) |= hasDec(D:Value?) = true .
+    eq HS |= hasDec(D:Value?) = false [owise] .
+endm
+
+mod ONETHIRDRULE-ANALYSIS is
+    pr ONETHIRDRULE-HSTATE .
+    pr ONETHIRDRULE-PROP .
+
+    protecting STRING .
+    subsort String < Oid .
+
+    ops obA obB obC obD obE obF obG : -> InitObject .
+    ops init3 init4 init5a init5b init5c init6a init6b : -> Global .
+
+    eq obA = < "A" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obB = < "B" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obC = < "C" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obD = < "D" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obE = < "E" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obF = < "F" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obG = < "G" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+
+    eq init3 = {2, (0 ; 1), ("A" ; "B" ; "C"), (obA obB obC) } .
+    eq init4 = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .
+    eq init5a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } . --- 2 (least) vs 3 (rest)
+    eq init5b = {3, (0 ; 1), ("A" ; "B" ; "C" ; "E" ; "F"), (obA obB obC obE obF) } . --- 1 (least) vs 4 (rest)
+    eq init5c = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } . --- 2 (least) vs 3 (rest) --- c.e. found within a few sec
+    eq init6a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } . --- 2 (least) vs 4 (rest)
+    eq init6b = {3, (0 ; 1), ("A" ; "B" ; "C" ; "G" ; "E" ; "F"), (obA obB obC obD obE obF) } . --- 1(least) vs 5 (rest)
+endm
