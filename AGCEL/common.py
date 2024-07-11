@@ -15,7 +15,10 @@ class Action():
         entries = []
         for var, val in self.asubs.items():
             entries.append(f"('{var.getVarName()} <- {val.prettyPrint(0)})")
-        return ' ; '.join(entries)
+        if entries == []:
+            return 'none'
+        else:
+            return ' ; '.join(entries)
 
     def __str__(self):
         # to be dumped

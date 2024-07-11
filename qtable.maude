@@ -1,49 +1,29 @@
+--- automatically generated at 2024-07-07 16:48:45.880773
 mod QHS-SCORE is
-  pr QHS-SCORE-BASE . pr ONETHIRDRULE-ANALYSIS .
-  var AS : AState . var AA : AAct .
-  eq qtable(aobj(wait, least, nilAValue) aobj(done, rest, rest), act('decide)) = 0.29190000000000005 .
-  eq qtable(aobj(wait, least, nilAValue) aobj(done, rest, rest), act('receive)) = 0.8993925499999998 .
-  eq qtable(aobj(wait, least, nilAValue) aobj(done, rest, rest), act('loss)) = 0.8918536062124951 .
-  eq qtable(aobj(wait, least, nilAValue) aobj(done, rest, rest), act('update)) = 0.8413079441199999 .
-  eq qtable(aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue) aobj(done, rest, rest), act('decide)) = 0.9235743439999999 .
-  eq qtable(aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue) aobj(done, rest, rest), act('update)) = 0.837534144629395 .
-  eq qtable(aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue) aobj(done, rest, rest), act('loss)) = 0.8751545949382794 .
-  eq qtable(aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue) aobj(done, rest, rest), act('receive)) = 0.8768388986982691 .
-  eq qtable(aobj(init, least, nilAValue) aobj(done, rest, rest), act('vote)) = 0.9207439177999999 .
-  eq qtable(aobj(init, least, nilAValue) aobj(done, rest, rest), act('loss)) = 0.7274266927899997 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, rest, nilAValue) aobj(done, rest, rest), act('decide)) = 0.5231521749999999 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, rest, nilAValue) aobj(done, rest, rest), act('vote)) = 0.87562961806705 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, rest, nilAValue) aobj(done, rest, rest), act('loss)) = 0.6830141037004249 .
-  eq qtable(aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('decide)) = 0.8766421337666835 .
-  eq qtable(aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('loss)) = 0.8326597020316506 .
-  eq qtable(aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('receive)) = 0.8326581971717973 .
-  eq qtable(aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('update)) = 0.23081793037393883 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, rest, nilAValue), act('vote)) = 0.8316087435512781 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, rest, nilAValue), act('loss)) = 0.7752100437696683 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, rest, nilAValue), act('receive)) = 0.758511896223425 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, rest, nilAValue), act('decide)) = 0.8096803503336798 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, rest, nilAValue), act('update)) = 0.5455186373005637 .
-  eq qtable(aobj(init, rest, nilAValue) aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('vote)) = 0.831112595264027 .
-  eq qtable(aobj(init, rest, nilAValue) aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('loss)) = 0.7886624527437321 .
-  eq qtable(aobj(init, rest, nilAValue) aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('receive)) = 0.7842045766846553 .
-  eq qtable(aobj(init, rest, nilAValue) aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('update)) = 0.5393213781149504 .
-  eq qtable(aobj(init, least, nilAValue) aobj(init, rest, nilAValue) aobj(wait, rest, nilAValue), act('vote)) = 0.7883284186111409 .
-  eq qtable(aobj(init, least, nilAValue) aobj(init, rest, nilAValue) aobj(wait, rest, nilAValue), act('loss)) = 0.7427151866803507 .
-  eq qtable(aobj(init, least, nilAValue) aobj(init, rest, nilAValue) aobj(wait, rest, nilAValue), act('receive)) = 0.4875032267635539 .
-  eq qtable(aobj(init, rest, nilAValue) aobj(wait, least, nilAValue), act('vote)) = 0.7823051318992891 .
-  eq qtable(aobj(init, rest, nilAValue) aobj(wait, least, nilAValue), act('loss)) = 0.6644845979931956 .
-  eq qtable(aobj(init, least, nilAValue) aobj(init, rest, nilAValue), act('vote)) = 0.7451603970618677 .
-  eq qtable(aobj(init, least, nilAValue) aobj(init, rest, nilAValue), act('loss)) = 0.36335473581323857 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('vote)) = 0.8320413370384121 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('loss)) = 0.7766391538979452 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('receive)) = 0.7874759655679926 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, least, nilAValue) aobj(wait, rest, nilAValue), act('decide)) = 0.5888856612555134 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, least, nilAValue) aobj(done, rest, rest), act('vote)) = 0.885542347752652 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, least, nilAValue) aobj(done, rest, rest), act('loss)) = 0.8154982779999997 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, least, nilAValue) aobj(done, rest, rest), act('receive)) = 0.7541893662555135 .
-  eq qtable(aobj(init, least, nilAValue) aobj(wait, least, nilAValue) aobj(done, rest, rest), act('update)) = 0.5315102274999999 .
-  eq qtable(aobj(init, least, nilAValue) aobj(init, rest, nilAValue) aobj(wait, least, nilAValue), act('vote)) = 0.7068197043304772 .
-  eq qtable(aobj(init, least, nilAValue) aobj(init, rest, nilAValue) aobj(wait, least, nilAValue), act('loss)) = 0.17097196309618837 .
-  eq qtable(aobj(init, least, nilAValue) aobj(init, rest, nilAValue) aobj(wait, least, nilAValue), act('update)) = 0.36335473581323857 .
-  eq qtable(AS, AA) = 0.0 [owise] .
+  pr QHS-SCORE-BASE . pr ONETHIRDRULE-PA .
+  var AS : HState . var AA : AAct .
+  eq qtable(hstate(false, true), aact('decide, ('V <- adata(0)))) = 1.0 [print "hit"] .
+  eq qtable(hstate(false, true), aact('receive, ('V <- adata(0)))) = 0.95 [print "hit"] .
+  eq qtable(hstate(false, true), aact('receive, ('V <- adata(s_(0))))) = 0.95 [print "hit"] .
+  eq qtable(hstate(false, true), aact('decide, ('V <- adata(s_(0))))) = 0.95 [print "hit"] .
+  eq qtable(hstate(false, true), aact('update, ('V <- adata(0)) ; ('V' <- adata(s_(0))))) = 0.95 [print "hit"] .
+  eq qtable(hstate(false, true), aact('vote, ('V <- adata(0)))) = 0.95 [print "hit"] .
+  eq qtable(hstate(false, true), aact('update, ('V <- adata(0)) ; ('V' <- adata(0)))) = 0.95 [print "hit"] .
+  eq qtable(hstate(false, false), aact('decide, ('V <- adata(s_(0))))) = 0.95 [print "hit"] .
+  eq qtable(hstate(false, false), aact('vote, ('V <- adata(s_(0))))) = 0.9025 [print "hit"] .
+  eq qtable(hstate(false, false), aact('receive, ('V <- adata(s_(0))))) = 0.9025 [print "hit"] .
+  eq qtable(hstate(false, false), aact('vote, ('V <- adata(0)))) = 0.9025 [print "hit"] .
+  eq qtable(hstate(false, false), aact('receive, ('V <- adata(0)))) = 0.9025 [print "hit"] .
+  eq qtable(hstate(false, false), aact('update, ('V <- adata(0)) ; ('V' <- adata(0)))) = 0.9025 [print "hit"] .
+  eq qtable(hstate(false, false), aact('update, ('V <- adata(0)) ; ('V' <- adata(s_(0))))) = 0.9025 [print "hit"] .
+  eq qtable(hstate(false, false), aact('decide, ('V <- adata(0)))) = 0.95 [print "hit"] .
+  eq qtable(hstate(true, false), aact('decide, ('V <- adata(s_(0))))) = 1.0 [print "hit"] .
+  eq qtable(hstate(true, false), aact('receive, ('V <- adata(0)))) = 0.95 [print "hit"] .
+  eq qtable(hstate(true, false), aact('vote, ('V <- adata(s_(0))))) = 0.9499681050667819 [print "hit"] .
+  eq qtable(hstate(true, false), aact('receive, ('V <- adata(s_(0))))) = 0.9499967538596327 [print "hit"] .
+  eq qtable(hstate(true, false), aact('decide, ('V <- adata(0)))) = 0.95 [print "hit"] .
+  eq qtable(hstate(true, false), aact('vote, ('V <- adata(0)))) = 0.95 [print "hit"] .
+  eq qtable(hstate(true, false), aact('update, ('V <- adata(0)) ; ('V' <- adata(s_(0))))) = 0.9499999986948763 [print "hit"] .
+  eq qtable(hstate(true, false), aact('update, ('V <- adata(0)) ; ('V' <- adata(0)))) = 0.9243499999999999 [print "hit"] .
+  eq qtable(AS, AA) = default [owise print "miss\n  " AS "\n  " AA] .
 endm

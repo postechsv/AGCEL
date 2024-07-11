@@ -1,6 +1,6 @@
 load benchmarks/onethirdrule/onethirdrule-analysis.maude
 load search.maude
----load qtable.maude
+load qtable.maude
 load score.maude
 
 mod TEST-BFS is
@@ -24,7 +24,7 @@ endm
 mod TEST-QHS is
   pr SEARCH .
   pr ONETHIRDRULE-ANALYSIS .
-  ---pr QHS-SCORE .
+  pr QHS-SCORE .
   op M : -> Module .
   eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
 endm
