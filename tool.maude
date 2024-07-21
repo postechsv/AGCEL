@@ -1,0 +1,92 @@
+fmod UNIV is
+  sort Univ .
+  op data : Universal -> Univ [ctor poly (1)] .
+  op error : -> Univ .
+endfm
+
+
+fmod SYSTEM is --- Ground System R
+  sort State .
+  op init : -> State .
+  op error : -> [State] . --- for downTerm
+endfm
+
+
+fmod MDP is --- Markov Decision Process
+  pr UNIV . pr FLOAT . pr QID .
+
+  --- MDP State
+  sort MDPState .
+  
+  --- MDPActBindings
+  sorts MDPActBinding MDPActBinding? MDPActBindings .
+  subsort MDPActBinding < MDPActBinding? < MDPActBindings .
+  op none : -> MDPActBinding? [ctor] .
+  op _:=_ : Qid Univ -> MDPActBinding [ctor] .
+  op _;_ : MDPActBindings MDPActBindings -> MDPActBindings [ctor assoc comm id: none] .
+
+  --- MDPAct
+  sort MDPAct .
+  op eps : -> MDPAct [ctor] .
+  op _{_} : Qid MDPActBindings -> MDPAct [ctor] .
+
+  --- MDP reward
+  op reward : MDPState -> Float .
+endfm
+
+
+fmod PROP is
+  sorts Prop .
+  op _/\_ : Prop Prop -> Prop [ctor assoc] .
+  op ~_ : Prop -> Prop [ctor] .
+
+  sort Props .
+  subsort Prop < Props .
+  op none : -> Props [ctor] .
+  op _;_ : Props Props -> Props [ctor assoc id: none] .
+endfm
+
+
+fmod SATISFACTION is
+  pr PROP . pr SYSTEM . pr MDP .
+  op _|=_ : State Prop -> Bool [frozen] .
+  op _|=_ : MDPState Prop -> Bool [frozen] .
+  ---op _|=_ : MDPAct Prop -> Bool [frozen] .
+endfm
+
+
+fmod OBSERVATION is
+  pr PROP . pr SYSTEM . pr MDP .
+  pr META-LEVEL .
+
+  var SB : Substitution . var V : Univ .
+  vars Q Q' : Qid . var X : Variable . var T : Term .
+
+  --- state observation
+  op obs : State -> MDPState . --- (User)
+  op obsUpto : State Props -> MDPState . --- predicate abstraction
+
+  --- data observation
+  op obs : Qid Qid Univ -> MDPActBinding? . --- (User)
+  eq obs(Q, Q', V) = none [owise] .
+
+  --- action observation
+  op $obs : Qid Substitution -> MDPActBindings .
+  eq $obs(Q, (X <- T) ; SB)
+    = obs(Q, getName(X), downTerm('data[T], (error).Univ)) ; $obs(Q, SB) .
+  eq $obs(Q, none) = none .
+
+  op obs : Qid Substitution -> MDPAct .
+  eq obs(Q, SB) = Q { $obs(Q,SB) } .
+endfm
+
+
+fmod TRACE is
+  pr SYSTEM .
+  sort ResultTrace .
+  op nil : -> ResultTrace [ctor] .
+  op state : State -> ResultTrace [ctor] .
+  op _===>_ : ResultTrace ResultTrace -> ResultTrace [ctor assoc id: nil] .
+endfm
+
+

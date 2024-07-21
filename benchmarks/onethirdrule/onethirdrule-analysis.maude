@@ -1,9 +1,11 @@
-load ../../heuristic-search .
+load ../../tool .
 load onethirdrule .
 
 mod MODEL is
-    pr ONETHIRDRULE . ---NO-MSG-LOSS .
-    pr HEURISTIC-SEARCH .
+    ---pr ONETHIRDRULE .
+    pr ONETHIRDRULE-NO-MSG-LOSS .
+    pr SATISFACTION .
+
     subsorts Global < State .
 
     vars O O' : Oid . vars CF : Configuration . var C : Cid .
@@ -24,84 +26,40 @@ mod MODEL is
 endm
 
 
---- hstate = predicate abstraction
-mod ONETHIRDRULE-PA is
+mod ONETHIRDRULE-OBS is
     pr MODEL .
+    pr OBSERVATION .
 
     vars O O' : Oid . vars CF : Configuration . var C : Cid .
     vars OS OS' : OidSet . 
     var R TH N VA : Nat .
     var VS : ValueSet .
-    var S : State . var HS : HState .
+    var S : State .
     var MSG : Msg .
     vars ATTS ATTS' : AttributeSet .
 
-    op disagree : -> Prop [ctor] .
-    eq { TH, VS, OS, < O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF } |= disagree = true .
-    eq S |= disagree = false [owise] .
+    op mstate : Configuration -> MDPState [ctor] .
 
-    op hasDec : Nat -> Prop [ctor] .
-    eq { TH, VS, OS, < O : Node | decision : D:Value?, ATTS > CF } |= hasDec(D:Value?) = true .
-    eq S |= hasDec(D:Value?) = false [owise] .
+    --- state observation
+    eq obs({ TH, VS, OS, CF }) = mstate(CF) .
 
-    op hstate : Bool Bool -> HState [ctor] .
-    eq heur(S) = hstate( S |= hasDec(0) , S |= hasDec(1) ) .
-
+    --- data observation
     var V : Value .
-    eq abst('vote, 'V, data(V)) = adata(V) .
-    eq abst('receive, 'V, data(V)) = adata(V) .
-    eq abst('decide, 'V, data(V)) = adata(V) .
-    eq abst('update, 'V', data(V)) =  adata(V) . --- old value
-    eq abst('update, 'V, data(V)) = adata(V) . --- new value
-    eq abst(Q:Qid, Q':Qid, DATA:Data) = -- [owise] .
-endm
+    eq obs('vote, 'V, data(V)) = 'V := data(V) .
+    eq obs('receive, 'V, data(V)) = 'V := data(V) . --- FIXME: recv(V,V')
+    eq obs('decide, 'V, data(V)) = 'V := data(V) .
+    eq obs('update, 'V', data(V)) =  'V' := data(V) . --- old value
+    eq obs('update, 'V, data(V)) = 'V := data(V) . --- new value
+    ---eq obs(Q:Qid, Q':Qid, DATA:Data) = -- [owise] .
 
-
-mod ONETHIRDRULE-HSTATE is
-    pr MODEL .
-
-    op hstate : Configuration -> HState [ctor] .
-    --- heur : State -> HState (built-in)
-    eq heur({ TH:Nat, VS:ValueSet, OS:OidSet, CF:Configuration }) = hstate(CF:Configuration) .
-    --- abst : (built-in) FIXME: recv(V,V')
-    var V : Value .
-    eq abst('vote, 'V, data(V)) = adata(V) .
-    eq abst('receive, 'V, data(V)) = adata(V) .
-    eq abst('decide, 'V, data(V)) = adata(V) .
-    eq abst('update, 'V', data(V)) =  adata(V) . --- old value
-    eq abst('update, 'V, data(V)) = adata(V) . --- new value
-    eq abst(Q:Qid, Q':Qid, DATA:Data) = -- [owise] .
-endm
-
-
-mod ONETHIRDRULE-PROP is
-    pr ONETHIRDRULE-HSTATE .
-
-    vars O O' : Oid . vars CF : Configuration . var C : Cid .
-    vars OS OS' : OidSet . 
-    var R TH N VA : Nat .
-    var VS : ValueSet .
-    var S : State . var HS : HState .
-    var MSG : Msg .
-    vars ATTS ATTS' : AttributeSet .
-
----    op disagree : -> Prop [ctor] .
----    eq { TH, VS, OS, < O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF } |= disagree = true .
----    eq S |= disagree = false [owise] .
-    eq hstate(< O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF) |= disagree = true .
-    eq HS |= disagree = false [owise] .
-
-    --- e.g. search [1] init5a =>* X:State such that X:State |= hasDec(1) .
----    op hasDec : Nat -> Prop [ctor] .
----    eq { TH, VS, OS, < O : Node | decision : D:Value?, ATTS > CF } |= hasDec(D:Value?) = true .
----    eq S |= hasDec(D:Value?) = false [owise] .
-    eq hstate(< O : Node | decision : D:Value?, ATTS > CF) |= hasDec(D:Value?) = true .
-    eq HS |= hasDec(D:Value?) = false [owise] .
+    --- reward
+    eq reward(mstate(< O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF)) = 1.0 .
+    eq reward(mstate(CF)) = 0.0 [owise] .
 endm
 
 
 mod ONETHIRDRULE-TESTCASE is
-    pr MODEL .
+    pr ONETHIRDRULE-OBS .
 
     protecting STRING .
     subsort String < Oid .
@@ -134,3 +92,15 @@ endm
 mod ONETHIRDRULE-ANALYSIS is
     pr ONETHIRDRULE-TESTCASE .
 endm
+
+
+---mod TEST-DFS is
+---  pr SEARCH .
+---  pr ONETHIRDRULE-ANALYSIS .
+---  pr DFS-SCORE .
+---  op M : -> Module .
+---  eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
+---endm
+
+--- check
+---red in TEST-DFS : printResult(search(M, upTerm(init3), disagree))

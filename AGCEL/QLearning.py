@@ -36,7 +36,7 @@ class QLearner():
         else:
             self.q_dict[s][a] = q
         
-    def argmax_q(self, s, actions): # nbrs: iterable if acfg's
+    def argmax_q(self, s, actions):
         q_dict = self.q_dict
         if s in q_dict and len(actions) != 0:
             d = { a : q_dict[s].get(a, self.q_init) for a in actions } # d = restriction of q_dict to tl
@@ -109,9 +109,9 @@ class QLearner():
         
     def greedy_policy(self, obs):
         # returns -1 for error
-        astate = obs["astate"]
+        state = obs["state"]
         actions = obs["actions"]
-        return self.argmax_q(astate,actions)
+        return self.argmax_q(state,actions)
     
     def eps_greedy_policy(self, obs, epsilon):
         # returns -1 for error
@@ -138,7 +138,7 @@ class QLearner():
 
             for step in range(max_steps):
                 #print(f'--- step {step} ---')
-                s = obs["astate"]
+                s = obs["state"]
                 a = self.eps_greedy_policy(obs, epsilon)
 
                 #print('(state)', s)
@@ -149,7 +149,7 @@ class QLearner():
                     break
 
                 obs, reward, done = env.step(a)
-                ns = obs['astate']
+                ns = obs['state']
                 stat += reward
 
                 #if reward == 1:
