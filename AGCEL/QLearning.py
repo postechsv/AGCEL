@@ -70,12 +70,12 @@ class QLearner():
         f.write(f'--- automatically generated at {datetime.datetime.now()}\n')
         f.write('mod QHS-SCORE is\n')
         f.write(f'  pr QHS-SCORE-BASE . pr {module_name} .\n')
-        f.write('  var AS : HState . var AA : AAct .\n')
+        f.write('  var S : MDPState . var A : MDPAct .\n')
         q_dict = self.q_dict
         for s, d in q_dict.items():
             for a, q in d.items():
                 f.write(f'  eq qtable({s}, {a}) = {q} [print "hit"] .\n')
-        f.write(f'  eq qtable(AS, AA) = default [owise print "miss\\n  " AS "\\n  " AA] .\n')
+        f.write(f'  eq qtable(S, A) = bot [owise print "miss"] .\n')
         f.write('endm\n')
         f.close()
 

@@ -1,3 +1,5 @@
+load data-structures/priority-queue.maude
+
 fmod UNIV is
   sort Univ .
   op data : Universal -> Univ [ctor poly (1)] .
@@ -12,11 +14,27 @@ fmod SYSTEM is --- Ground System R
 endfm
 
 
+fmod PROP is
+  sorts Prop .
+  op _/\_ : Prop Prop -> Prop [ctor assoc] .
+  op ~_ : Prop -> Prop [ctor] .
+
+  sort PropList .
+  subsort Prop < PropList .
+  op nil : -> PropList [ctor] .
+  op _;_ : PropList PropList -> PropList [ctor assoc id: nil] .
+endfm
+
+
 fmod MDP is --- Markov Decision Process
-  pr UNIV . pr FLOAT . pr QID .
+  pr UNIV . pr FLOAT . pr QID . pr PROP .
 
   --- MDP State
-  sort MDPState .
+  sorts FeatVec MDPState .
+  op <_> : FeatVec -> MDPState [ctor] .
+  op nil : -> FeatVec [ctor] .
+  op _:_ : Prop Bool -> FeatVec [ctor] . --- TODO: this should bind tighter than _,_
+  op _,_ : FeatVec FeatVec -> FeatVec [ctor assoc id: nil] .
   
   --- MDPActBindings
   sorts MDPActBinding MDPActBinding? MDPActBindings .
@@ -35,18 +53,6 @@ fmod MDP is --- Markov Decision Process
 endfm
 
 
-fmod PROP is
-  sorts Prop .
-  op _/\_ : Prop Prop -> Prop [ctor assoc] .
-  op ~_ : Prop -> Prop [ctor] .
-
-  sort Props .
-  subsort Prop < Props .
-  op none : -> Props [ctor] .
-  op _;_ : Props Props -> Props [ctor assoc id: none] .
-endfm
-
-
 fmod SATISFACTION is
   pr PROP . pr SYSTEM . pr MDP .
   op _|=_ : State Prop -> Bool [frozen] .
@@ -56,15 +62,19 @@ endfm
 
 
 fmod OBSERVATION is
-  pr PROP . pr SYSTEM . pr MDP .
+  ---pr PROP . pr SYSTEM . pr MDP .
+  pr SATISFACTION .
   pr META-LEVEL .
 
   var SB : Substitution . var V : Univ .
   vars Q Q' : Qid . var X : Variable . var T : Term .
+  var S : State . var P : Prop . var PL : PropList .
 
   --- state observation
   op obs : State -> MDPState . --- (User)
-  op obsUpto : State Props -> MDPState . --- predicate abstraction
+  op obsUpto : State PropList -> FeatVec . --- predicate abstraction
+  eq obsUpto(S, P ; PL) = (P : (S |= P)) , obsUpto(S, PL) .
+  eq obsUpto(S, nil) = nil .
 
   --- data observation
   op obs : Qid Qid Univ -> MDPActBinding? . --- (User)
@@ -76,9 +86,22 @@ fmod OBSERVATION is
     = obs(Q, getName(X), downTerm('data[T], (error).Univ)) ; $obs(Q, SB) .
   eq $obs(Q, none) = none .
 
-  op obs : Qid Substitution -> MDPAct .
-  eq obs(Q, SB) = Q { $obs(Q,SB) } .
+  ---op obs : Qid Substitution -> MDPAct . TODO: delete this line
+  ---eq obs(Q, SB) = Q { $obs(Q,SB) } . TODO: delete this line
+  
+  --- TODO: consider defining Act in SYSTEM module
+  sort Act .
+  op eps : -> Act [ctor] .
+  op _{_} : Qid Substitution -> Act [ctor] .
+
+  op obs : Act -> MDPAct .
+  eq obs(Q { SB }) = Q { $obs(Q,SB) } .
 endfm
+
+
+----------------------------------------------------------------------
+--- Search relevant definitions (Users should not care about them) ---
+----------------------------------------------------------------------
 
 
 fmod TRACE is
@@ -90,3 +113,271 @@ fmod TRACE is
 endfm
 
 
+fmod SEARCH-CTX is
+  pr TRACE . pr OBSERVATION .
+
+  sort SearchCtx . --- e.g. timestamp, depth, etc. for each term
+  --- # of States Explored, depth, parent state, applied action 
+  op ctx : Nat Nat Term Act -> SearchCtx [ctor] .
+  op initCtx : -> SearchCtx .
+  eq initCtx = ctx(0,0,upTerm(init),eps) .
+  --- TODO: previous action, etc (for debugging purposes)
+  vars N D P : Nat . vars T T' : Term . vars A A' : Act .
+  var CTX : SearchCtx .
+
+  op getNStates : SearchCtx -> Nat .
+  eq getNStates(ctx(N,D,T,A)) = N .
+  op getDepth : SearchCtx -> Nat .
+  eq getDepth(ctx(N,D,T,A)) = D .
+  op getParent : SearchCtx -> Term .
+  eq getParent(ctx(N,D,T,A)) = T .
+  op getAction : SearchCtx -> Act .
+  eq getAction(ctx(N,D,T,A)) = A .
+
+  op updateCtx : SearchCtx Term Act -> SearchCtx .
+  eq updateCtx(ctx(N,D,T,A),T',A') = ctx(N + 1,D + 1,T',A') . --- TODO : Fix N + 1
+endfm
+
+
+fmod SCORE is
+  pr OBSERVATION . pr SEARCH-CTX .
+  sorts BotScore Score .
+  subsort BotScore < Score .
+  op bot : -> BotScore .
+  op score : State Act SearchCtx -> Score .
+  ops _gt_ _lt_ _le_ : Score Score -> Bool .
+  
+  var SC : Score .
+
+  eq bot gt bot = false .
+  eq bot lt bot = false .
+  eq bot le bot = true . 
+
+  --- default is the last score to be popped
+  eq bot gt SC = true .  eq SC gt bot = false .
+  eq bot lt SC = false . eq SC lt bot = true .
+  eq bot le SC = false . eq SC le bot = true .
+endfm
+
+
+fmod DFS-SCORE is
+  pr SCORE . pr NAT .
+  subsort Nat < Score .
+
+  var S : State . var A : Act .
+  var CTX : SearchCtx .
+  vars N N' : Nat .
+
+  eq score(S, A, CTX) = getNStates(CTX) .
+
+  eq N gt N' = N < N' .
+  eq N lt N' = N > N' .
+  eq N le N' = N >= N' .  
+endfm
+
+
+fmod QHS-SCORE-BASE is
+  inc SCORE . pr FLOAT .
+  subsort Float < Score .
+
+  var S : State . var A : Act .
+  var CTX : SearchCtx .
+  vars F F' : Float .
+
+  op qtable : MDPState MDPAct -> Float .
+
+  eq score(S, A, CTX) = qtable(obs(S), obs(A)) .
+
+  eq F gt F' = F < F' .
+  eq F lt F' = F > F' .
+  eq F le F' = F >= F' .
+endfm
+
+
+fmod QUEUE-ITEM is
+    protecting SCORE .
+    protecting META-TERM .
+
+    sort QItem .
+    op [_,_,_] : Term SearchCtx Score -> QItem [ctor] .
+
+    var T : Term . var C : SearchCtx . var S : Score .
+    
+    ---op getScore : QItem -> Score .
+    ---eq getScore([T,C,S]) = S .
+endfm
+
+
+view QItem from TRIV to QUEUE-ITEM is
+  sort Elt to QItem .
+endv
+
+
+fmod QUEUE-ITEM<= is
+    protecting QUEUE-ITEM .
+
+    vars T T' : Term .
+    vars S S' : Score .
+    vars C C' : SearchCtx .
+
+    ops _>_ _<_ _<=_ : QItem QItem -> Bool .
+    eq [T, C, S] > [T', C', S'] = S gt S' .
+    eq [T, C, S] < [T', C', S'] = S lt S' .
+    eq [T, C, S] <= [T', C', S'] = S le S' .
+endfm
+
+
+view QItem<= from TOSET<= to QUEUE-ITEM<= is
+  sort Elt to QItem .
+endv
+
+------------------------------------------------------------------
+
+fmod TERM-SET is
+  pr META-TERM .
+  sort TermSet .
+
+  var T : Term . var TS : TermSet .
+
+  op termElt : Term -> TermSet [ctor] .
+  op mtTerm : -> TermSet [ctor] .
+  op _;_ : TermSet TermSet -> TermSet [ctor assoc comm id: mtTerm] .
+  eq termElt(T) ; termElt(T) = termElt(T) .
+
+  op _in_ : Term TermSet -> Bool .
+  eq T in (termElt(T) ; TS) = true .
+  eq T in TS = false [owise] .
+endfm
+
+
+fmod LABEL-LIST is
+  pr META-MODULE .
+  sort Label LabelList .
+  subsort Label < LabelList .
+
+  vars T T' : Term . var Q : Qid .
+  var ATTS : AttrSet . var RS : RuleSet . var COND : Condition .
+
+  op labelElt : Qid -> Label [ctor] .
+  op nilLabel : -> LabelList [ctor] .
+  op __ : LabelList LabelList -> LabelList [ctor assoc id: nilLabel] .
+
+  op getLabels : RuleSet -> LabelList .
+  eq getLabels(rl T => T' [label(Q) ATTS] . RS) = labelElt(Q) getLabels(RS) .
+  eq getLabels(crl T => T' if COND [label(Q) ATTS] . RS) = labelElt(Q) getLabels(RS) .
+  eq getLabels(none) = nilLabel .
+endfm
+
+
+fmod SEARCH is
+  pr META-LEVEL .
+  pr SCORE .
+  pr TERM-SET .
+  pr LEFTIST-TREES{QItem<=} .
+  pr LIST{QItem} *
+    (op __ : List{QItem} List{QItem} -> List{QItem} to _;_) .
+  pr LABEL-LIST .
+  pr SATISFACTION .
+
+  vars M : Module .
+  vars T T' : Term .
+  var P : Prop .
+  vars N N' : Nat .
+  vars QUE : LTree{QItem<=} . vars NQUE : NeLTree{QItem<=} .
+  vars SC SC' : Score .
+  vars ITEM : QItem . vars ITEMS ITEMS' VIS : List{QItem} .
+  ---var VIS : TermSet .
+  var Q : Qid . var L : Label . var LL : LabelList .
+  vars CTX CTX' : SearchCtx . var RT : Result4Tuple .
+  var ACT : Act .
+  var RES : SearchResult? .
+
+  ---  module, current state, action label, ctx, sol num
+  op nbrs : Module Term LabelList SearchCtx Nat -> List{QItem} .
+  eq nbrs(M, T, nilLabel, CTX, N) = nil .
+  eq nbrs(M, T, (labelElt(Q) LL), CTX, N) = nbrs(M, T, LL, CTX, 0) [owise] . --- metaXapply returns failure
+ ceq nbrs(M, T, (labelElt(Q) LL), CTX, N)
+    = [getTerm(RT), CTX', score(downTerm(T,error), ACT, CTX')]
+      ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
+    if RT := metaXapply(M, T, Q, none, 0, unbounded, N) /\
+       ACT := Q { getSubstitution(RT) } /\
+       CTX' := updateCtx(CTX,T,ACT) .
+
+  ---  module, current state, ctx
+  op nbrs : Module Term SearchCtx -> List{QItem} .
+  eq nbrs(M,T,CTX) = nbrs(M, T, getLabels(getRls(M)), CTX, 0) .
+
+  op insertAll : List{QItem} LTree{QItem<=} -> LTree{QItem<=} .
+  eq insertAll(nil, QUE) = QUE .
+  eq insertAll(ITEM ; ITEMS, QUE) = insertAll(ITEMS, insert(ITEM, QUE)) . ---[print "push"] .
+
+  op checkSAT : Term Prop -> Bool .
+  eq checkSAT(T,P) = downTerm(T,error) |= P .
+
+  op visited : Term List{QItem} -> Bool .
+  eq visited(T, ITEMS ; [T,CTX,SC] ; ITEMS') = true .
+  eq visited(T, ITEMS) = false [owise] .
+
+  sorts SearchResult SearchResult? .
+  subsort SearchResult < SearchResult? .
+  op some : QItem List{QItem} -> SearchResult [ctor] . --- TODO: some : NeQItem -> SearchResult
+  op none : List{QItem} -> SearchResult? [ctor] .
+
+  op search : Module Prop NeLTree{QItem<=} List{QItem} -> SearchResult? .
+ ceq search(M, P, NQUE, VIS)
+    = if visited(T, VIS)
+        then search(M, P, deleteMin(NQUE), VIS)
+        else
+          if checkSAT(T, P)
+            then some([T,CTX,SC], VIS)
+            else search(M, P, insertAll(ITEMS,deleteMin(NQUE)), ([T,CTX,SC] ; VIS))
+          fi
+      fi
+    if [T,CTX,SC] := findMin(NQUE) /\
+       ITEMS := nbrs(M,T,CTX) /\
+       ST:[State] := downTerm(T, error) . ---[print "(nbrs)" ITEMS] .
+  eq search(M, P, QUE, VIS) = none(VIS) [owise] .
+
+  op search : Module Term Prop -> SearchResult? .
+  eq search(M,T,P) = search(M, P, insert([T, initCtx, bot],empty), nil) .
+
+  --- projection functions on SearchResult
+  op $getTrace : QItem List{QItem} -> ResultTrace .
+ ceq $getTrace([T,CTX,SC], ITEMS ; [T', CTX', SC'] ; ITEMS')
+    = $getTrace([getParent(CTX), CTX', SC'], ITEMS') ===> state(downTerm(T,error)) 
+    if T' = getParent(CTX) .
+  eq $getTrace(ITEM, ITEMS) = nil [owise] . 
+
+  op getTrace : SearchResult -> ResultTrace .
+  eq getTrace(some(ITEM, ITEMS)) = $getTrace(ITEM, ITEMS) .
+
+  op getNStates : SearchResult? -> Nat .
+  eq getNStates(RES) = size(getVisited(RES)) .
+
+  op getVisited : SearchResult? -> List{QItem} .
+  eq getVisited(some(ITEM, ITEMS)) = ITEM ; ITEMS .
+  eq getVisited(none(ITEMS)) = ITEMS .
+
+  op getState : SearchResult -> [State] .
+  eq getState(some([T,CTX,SC], ITEMS)) = downTerm(T,error) .
+
+  --- for debugging
+  op printScore : List{QItem} -> Bool .
+  eq printScore(ITEMS ; [T, CTX, SC]) = printScore(ITEMS) [print "(score) " SC] .
+  eq printScore(nil) = true .
+
+  op printDepth : List{QItem} -> Bool .
+ ceq printDepth(ITEMS ; [T, CTX, SC]) = printDepth(ITEMS)
+    if N := getDepth(CTX) [print "(depth) " N] .
+  eq printDepth(nil) = true .
+
+  --- for logging
+  var ST : [State] .
+  op printResult : SearchResult? -> Bool .
+ ceq printResult(RES) = printScore(VIS) if
+    some(ITEM, ITEMS) := RES /\
+    VIS := getVisited(RES) /\
+    N := getNStates(RES) /\
+    ST := getState(RES)
+    [print "(state) " ST "\n(# states) " N] .
+endfm

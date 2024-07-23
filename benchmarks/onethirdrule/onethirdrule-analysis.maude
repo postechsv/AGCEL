@@ -15,6 +15,9 @@ mod MODEL is
     var S : State .
     var MSG : Msg .
     vars ATTS ATTS' : AttributeSet .
+    vars V V' : Value .
+    var VM : VoteMap .
+    var VOTE : Vote .
 
     op disagree : -> Prop [ctor] .
     eq { TH, VS, OS, < O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF } |= disagree = true .
@@ -23,6 +26,67 @@ mod MODEL is
     op hasDec : Nat -> Prop [ctor] .
     eq { TH, VS, OS, < O : Node | decision : D:Value?, ATTS > CF } |= hasDec(D:Value?) = true .
     eq S |= hasDec(D:Value?) = false [owise] .
+
+    --- experimental
+    op voteLHS : Value -> Prop [ctor] .
+    eq {TH, V ; VS, O ; OS,
+        < O : Node | status : [R, init], value : V, decision : nilValue, votes : VOTE, ATTS > 
+        CF
+    } |= voteLHS(V) = true .
+    eq S |= voteLHS(V) = false [owise] .
+
+    ---op voteRHS : Value -> Prop [ctor] .
+    ---eq {TH, V ; VS, O ; OS,
+    ---    < O : Node | status : [R, wait], value : V, decision : nilValue, votes : update(VOTE, V), ATTS > 
+    ---    (multicast vote(V, R) from O to OS)
+    ---    CF
+    ---} |= voteRHS(V) = true .
+
+    op receiveLHS : Value -> Prop [ctor] .
+    eq {TH, V ; VS, OS,
+        < O : Node | status : [R, wait], decision : nilValue, votes : VOTE, ATTS > 
+        (multicast vote(V, R) from O' to (O ; OS'))
+        CF
+    } |= receiveLHS(V) = true .
+    eq S |= receiveLHS(V) = false [owise] .
+
+    ---op receiveLHS : Value -> Prop [ctor] .
+    ---eq {TH, V ; VS, OS,
+    ---    < O : Node | status : [R, wait], decision : nilValue, votes : update(VOTE, V), ATTS > 
+    ---    (multicast vote(V, R) from O' to OS')  
+    ---    CF
+    ---}  |= receiveRHS(V) = true .
+
+    op decideLHS : Value -> Prop [ctor] .
+   ceq {TH, VS, OS,
+        < O : Node | status : [R, wait], decision : nilValue, votes : [(V |-> N ; VM), VA], ATTS > 
+        CF
+    } |= decideLHS(V) = true if TH <= N .
+    eq S |= decideLHS(V) = false [owise] .
+
+    op decideRHS : Value -> Prop [ctor] .
+    eq {TH, VS, OS,
+        < O : Node | status : [R, done], decision : V, votes : [(V |-> N ; VM), VA], ATTS >
+        CF
+    } |= decideRHS(V) = true .
+    eq S |= decideRHS(V) = false [owise] .
+
+    op updateLHS : Value Value -> Prop [ctor] .
+   ceq {TH, V' ; VS, OS,
+        < O : Node | status : [R, wait], value : V, decision : nilValue, votes : [V' |-> N ; VM, VA], ATTS >
+        CF
+    } |= updateLHS(V, V') = true if (N < TH) and (TH <= VA) and genConst(V', N, VM, VS) .
+    eq S |= updateLHS(V, V') = false [owise] .
+
+    ---op updateRHS : Value Value -> Prop [ctor] .
+    ---eq {TH, V' ; VS, OS,
+    ---    < O : Node | status : [s R, init], value : V', decision : nilValue, votes : [initVotes(V' ; VS), 0], ATTS >
+    ---    CF
+    ---} |= updateRHS(V, V') = true .
+    ---eq S |= hasDec(D:Value?) = false [owise] .
+
+    op props : -> PropList .
+    eq props = voteLHS(0) ; voteLHS(1) ; receiveLHS(0) ; receiveLHS(1) ; decideLHS(0) ; decideLHS(1) ; decideRHS(0) ; decideRHS(1) ; updateLHS(0, 0) ; updateLHS(0, 1) ; updateLHS(1, 0) ; updateLHS(1, 1) .
 endm
 
 
@@ -41,20 +105,21 @@ mod ONETHIRDRULE-OBS is
     op mstate : Configuration -> MDPState [ctor] .
 
     --- state observation
-    eq obs({ TH, VS, OS, CF }) = mstate(CF) .
+    ---eq obs({ TH, VS, OS, CF }) = mstate(CF) .
+    ---eq reward(mstate(< O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF)) = 1.0 .
+    ---eq reward(mstate(CF)) = 0.0 [owise] .
+
+    eq obs({ TH, VS, OS, CF }) = < obsUpto({ TH, VS, OS, CF }, props ; disagree) > .
+    eq reward(< FV:FeatVec , (disagree : true) , FV':FeatVec >) = 1.0 .
+    eq reward(MS:MDPState) = 0.0 [owise] .
 
     --- data observation
     var V : Value .
     eq obs('vote, 'V, data(V)) = 'V := data(V) .
     eq obs('receive, 'V, data(V)) = 'V := data(V) . --- FIXME: recv(V,V')
     eq obs('decide, 'V, data(V)) = 'V := data(V) .
-    eq obs('update, 'V', data(V)) =  'V' := data(V) . --- old value
-    eq obs('update, 'V, data(V)) = 'V := data(V) . --- new value
-    ---eq obs(Q:Qid, Q':Qid, DATA:Data) = -- [owise] .
-
-    --- reward
-    eq reward(mstate(< O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF)) = 1.0 .
-    eq reward(mstate(CF)) = 0.0 [owise] .
+    eq obs('update, 'V, data(V)) = 'V := data(V) . --- old value
+    eq obs('update, 'V', data(V)) = 'V' := data(V) . --- new value
 endm
 
 
@@ -102,5 +167,8 @@ endm
 ---  eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
 ---endm
 
---- check
----red in TEST-DFS : printResult(search(M, upTerm(init3), disagree))
+
+---set print attribute on .
+
+--- check ---
+---red in TEST-DFS : getState(search(M, upTerm(init3), disagree)) .

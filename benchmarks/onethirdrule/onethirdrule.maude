@@ -54,15 +54,15 @@ mod ONETHIRDRULE-NO-MSG-LOSS is
 
 
     crl [update] : 
-    {TH, V ; VS, OS,
-        < O : Node | status : [R, wait], value : V', decision : nilValue, votes : [V |-> N ; VM, VA], ATTS >
+    {TH, V' ; VS, OS,
+        < O : Node | status : [R, wait], value : V, decision : nilValue, votes : [V' |-> N ; VM, VA], ATTS >
         CF
     }
     =>
-    {TH, V ; VS, OS,
-        < O : Node | status : [s R, init], value : V, decision : nilValue, votes : [initVotes(V ; VS), 0], ATTS >
+    {TH, V' ; VS, OS,
+        < O : Node | status : [s R, init], value : V', decision : nilValue, votes : [initVotes(V' ; VS), 0], ATTS >
         CF
-    } if (N < TH) and (TH <= VA) and genConst(V, N, VM, VS) .
+    } if (N < TH) and (TH <= VA) and genConst(V', N, VM, VS) .
 endm
 
 
