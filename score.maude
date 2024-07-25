@@ -1,15 +1,17 @@
---- automatically generated at 2024-07-03 14:12:05.150888
-mod PROP-SCORE is
-  pr PROP-SCORE-BASE .
-  pr ONETHIRDRULE-PROP .
-  ---props
-  eq props = hasDec(0) ; hasDec(1) .
-  ---score
-  eq score(hasDec(0), aact('decide, ('V <- adata(s_(0))))) = 0.9099999999999999 [print "hit"] .
-  eq score(hasDec(0), aact('receive, ('V <- adata(0)))) = 0.4654999999999999 [print "hit"] .
-  eq score(hasDec(1), aact('decide, ('V <- adata(0)))) = 0.9919 [print "hit"] .
-  eq score(hasDec(1), aact('receive, ('V <- adata(0)))) = 0.7866949999999999 [print "hit"] .
-  eq score(hasDec(1), aact('vote, ('V <- adata(0)))) = 0.5788725249999999 [print "hit"] .
-  eq score(hasDec(1), aact('update, ('V <- adata(0)) ; ('V' <- adata(s_(0))))) = 0.3911259012499998 [print "hit"] .
-  eq score(P:Prop, AA:AAct) = default [owise print "miss"] .
+--- automatically generated at 2024-07-24 19:10:17.126629
+mod QTABLE is
+  pr QTABLE-BASE . pr ONETHIRDRULE-ANALYSIS .
+  eq q(decideRHS(0), 'decide{'V := data(1)}) = 0.99999995217031 [print "hit"] .
+  eq q(decideRHS(0), 'receive{'V := data(0)}) = 0.9157315999999999 [print "hit"] .
+  eq q(decideRHS(0), 'decide{'V := data(0)}) = 0.9119610499999999 [print "hit"] .
+  eq q(decideRHS(0), 'receive{'V := data(1)}) = 0.8586287149999999 [print "hit"] .
+  eq q(decideRHS(0), 'vote{'V := data(1)}) = 0.40242474999999994 [print "hit"] .
+  eq q(decideRHS(1), 'decide{'V := data(0)}) = 1.0 [print "hit"] .
+  eq q(decideRHS(1), 'receive{'V := data(0)}) = 0.95 [print "hit"] .
+  eq q(decideRHS(1), 'vote{'V := data(0)}) = 0.6228412388340839 [print "hit"] .
+  eq q(decideRHS(1), 'decide{'V := data(1)}) = 0.6279557833730048 [print "hit"] .
+  eq q(decideRHS(1), 'update{('V := data(0)) ; 'V' := data(0)}) = 0.7419470470953993 [print "hit"] .
+  eq q(decideRHS(1), 'update{('V := data(1)) ; 'V' := data(0)}) = 0.7676061205064698 [print "hit"] .
+  eq q(decideRHS(1), 'receive{'V := data(1)}) = 0.5315377699228405 [print "hit"] .
+  eq q(P:Prop, A:MDPAct) = bot [owise print "miss"] .
 endm

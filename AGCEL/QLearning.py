@@ -68,14 +68,14 @@ class QLearner():
     def dump(self, filename, module_name):
         f = open(filename, 'w')
         f.write(f'--- automatically generated at {datetime.datetime.now()}\n')
-        f.write('mod QHS-SCORE is\n')
-        f.write(f'  pr QHS-SCORE-BASE . pr {module_name} .\n')
+        f.write('mod QTABLE is\n')
+        f.write(f'  pr QTABLE-BASE . pr {module_name} .\n')
         f.write('  var S : MDPState . var A : MDPAct .\n')
         q_dict = self.q_dict
         for s, d in q_dict.items():
             for a, q in d.items():
-                f.write(f'  eq qtable({s}, {a}) = {q} [print "hit"] .\n')
-        f.write(f'  eq qtable(S, A) = bot [owise print "miss"] .\n')
+                f.write(f'  eq q({s}, {a}) = {q} [print "hit"] .\n')
+        f.write(f'  eq q(S, A) = bot [owise print "miss"] .\n')
         f.write('endm\n')
         f.close()
 
@@ -85,7 +85,7 @@ class QLearner():
         pass
 
     def dump2(self, filename, m): # score(s,a) ->
-        sprops = ['hasDec(0)', 'hasDec(1)']
+        sprops = ['decideRHS(0)', 'decideRHS(1)']
         q_dict = self.q_dict
         scores = self.scores
         for sprop in sprops:
@@ -98,12 +98,14 @@ class QLearner():
                     if t.prettyPrint(0) == 'true':
                         scores[sprop][a] = max(scores[sprop].get(a, 0), q)
         
-        f = open('score.maude', 'w')
+        f = open(filename, 'w')
         f.write(f'--- automatically generated at {datetime.datetime.now()}\n')
-        f.write('mod QHS-SCORE is\n')
+        f.write('mod QTABLE is\n')
+        f.write(f'  pr QTABLE-BASE . pr ONETHIRDRULE-ANALYSIS .\n')
         for sprop, d in scores.items():
             for a, q in d.items():
-                f.write(f'  eq score({sprop}, {a}) = {q} [print "hit"] .\n')
+                f.write(f'  eq q({sprop}, {a}) = {q} [print "hit"] .\n')
+        f.write(f'  eq q(P:Prop, A:MDPAct) = bot [owise print "miss"] .\n')
         f.write('endm\n')
         f.close()
         

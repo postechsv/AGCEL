@@ -2,8 +2,8 @@ load ../../tool .
 load onethirdrule .
 
 mod MODEL is
-    ---pr ONETHIRDRULE .
-    pr ONETHIRDRULE-NO-MSG-LOSS .
+    pr ONETHIRDRULE .
+    ---pr ONETHIRDRULE-NO-MSG-LOSS .
     pr SATISFACTION .
 
     subsorts Global < State .
@@ -112,6 +112,8 @@ mod ONETHIRDRULE-OBS is
     eq obs({ TH, VS, OS, CF }) = < obsUpto({ TH, VS, OS, CF }, props ; disagree) > .
     eq reward(< FV:FeatVec , (disagree : true) , FV':FeatVec >) = 1.0 .
     eq reward(MS:MDPState) = 0.0 [owise] .
+    var P : Prop . var B : Bool .
+    eq < FV:FeatVec , (P : B) , FV':FeatVec > |= P = B .
 
     --- data observation
     var V : Value .
@@ -168,7 +170,7 @@ endm
 ---endm
 
 
----set print attribute on .
+set print attribute on .
 
 --- check ---
 ---red in TEST-DFS : getState(search(M, upTerm(init3), disagree)) .

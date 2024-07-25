@@ -176,21 +176,37 @@ fmod DFS-SCORE is
 endfm
 
 
-fmod QHS-SCORE-BASE is
+fmod QTABLE-BASE is
   inc SCORE . pr FLOAT .
   subsort Float < Score .
 
   var S : State . var A : Act .
+  var MS : MDPState . var MA : MDPAct .
+  var P : Prop . var PL : PropList .
   var CTX : SearchCtx .
   vars F F' : Float .
 
-  op qtable : MDPState MDPAct -> Float .
+  op q : MDPState MDPAct -> Score .
+  op q : Prop MDPAct -> Score .
+  --- q value of (s,a) upto basis PL
+  op qUpto : MDPState MDPAct PropList -> Score .
+  eq qUpto(MS, MA, nil) = bot . --- start from bot
+ ceq qUpto(MS, MA, P ; PL) = q(P, MA) \/ qUpto(MS, MA, PL) if MS |= P . --- join
+  eq qUpto(MS, MA, P ; PL) = qUpto(MS, MA, PL) [owise] .
 
-  eq score(S, A, CTX) = qtable(obs(S), obs(A)) .
+  ---eq score(S, A, CTX) = (user-defined)
 
+  --- score ordering
   eq F gt F' = F < F' .
   eq F lt F' = F > F' .
   eq F le F' = F >= F' .
+
+  --- score join
+  op _\/_ : Score Score -> Score .
+  eq F \/ F' = max(F, F') .
+  eq bot \/ F = F .
+  eq F \/ bot = F .
+  eq bot \/ bot = bot .
 endfm
 
 
