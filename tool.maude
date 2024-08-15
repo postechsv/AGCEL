@@ -15,9 +15,10 @@ endfm
 
 
 fmod PROP is
-  sorts Prop .
-  op _/\_ : Prop Prop -> Prop [ctor assoc] .
-  op ~_ : Prop -> Prop [ctor] .
+  sorts Prop Formula .
+  subsort Prop < Formula .
+  op _/\_ : Formula Formula -> Formula [ctor assoc] .
+  op ~_ : Formula -> Formula [ctor] .
 
   sort PropList .
   subsort Prop < PropList .
@@ -182,17 +183,20 @@ fmod QTABLE-BASE is
 
   var S : State . var A : Act .
   var MS : MDPState . var MA : MDPAct .
-  var P : Prop . var PL : PropList .
+  vars P P' : Prop . var PL : PropList .
   var CTX : SearchCtx .
   vars F F' : Float .
+  vars SG SG' : Formula . --- subgoal
 
-  op q : MDPState MDPAct -> Score .
-  op q : Prop MDPAct -> Score .
-  --- q value of (s,a) upto basis PL
-  op qUpto : MDPState MDPAct PropList -> Score .
-  eq qUpto(MS, MA, nil) = bot . --- start from bot
- ceq qUpto(MS, MA, P ; PL) = q(P, MA) \/ qUpto(MS, MA, PL) if MS |= P . --- join
-  eq qUpto(MS, MA, P ; PL) = qUpto(MS, MA, PL) [owise] .
+  --- q & qUpto takes subgoal as the first argument
+  op q : Prop MDPState MDPAct -> Score .
+  op q : Prop Prop MDPAct -> Score .
+  op qUpto : Formula MDPState MDPAct PropList -> Score . --- q value of (s,a) upto basis PL
+  eq qUpto(SG /\ SG', MS, MA, PL) = qUpto(SG, MS, MA, PL) /\ qUpto(SG', MS, MA, PL) . --- goal decomposition
+  
+  eq qUpto(P', MS, MA, nil) = bot . --- start from bot
+ ceq qUpto(P', MS, MA, P ; PL) = q(P', P, MA) \/ qUpto(P', MS, MA, PL) if MS |= P . --- basis decomposition
+  eq qUpto(P', MS, MA, P ; PL) = qUpto(P', MS, MA, PL) [owise] .
 
   ---eq score(S, A, CTX) = (user-defined)
 
@@ -207,6 +211,13 @@ fmod QTABLE-BASE is
   eq bot \/ F = F .
   eq F \/ bot = F .
   eq bot \/ bot = bot .
+
+  --- score meet
+  op _/\_ : Score Score -> Score .
+  eq F /\ F' = min(F, F') .
+  eq bot /\ F = F .
+  eq F /\ bot = F .
+  eq bot /\ bot = bot .
 endfm
 
 

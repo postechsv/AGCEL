@@ -170,7 +170,5 @@ endm
 ---endm
 
 
-set print attribute on .
-
 --- check ---
 ---red in TEST-DFS : getState(search(M, upTerm(init3), disagree)) .
