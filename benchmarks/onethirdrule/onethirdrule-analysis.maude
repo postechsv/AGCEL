@@ -142,7 +142,7 @@ mod ONETHIRDRULE-TESTCASE is
     eq obF = < "F" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
     eq obG = < "G" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
     eq obH = < "H" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-
+    --- 0 : A, D, H
 
     eq init3 = {2, (0 ; 1), ("A" ; "B" ; "C"), (obA obB obC) } .
     eq init4 = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .
@@ -155,19 +155,21 @@ mod ONETHIRDRULE-TESTCASE is
     eq init7b = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F" ; "H"), (obA obB obC obD obE obF obH) } . --- 3(least) vs 4 (rest)
 endm
 
+mod TEST-DFS is
+  pr SEARCH .
+  pr ONETHIRDRULE-TESTCASE .
+  pr DFS-SCORE .
+  op M : -> Module .
+  eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
+endm
+
 
 mod ONETHIRDRULE-ANALYSIS is
     pr ONETHIRDRULE-TESTCASE .
 endm
 
 
----mod TEST-DFS is
----  pr SEARCH .
----  pr ONETHIRDRULE-ANALYSIS .
----  pr DFS-SCORE .
----  op M : -> Module .
----  eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
----endm
+
 
 
 --- check ---

@@ -267,8 +267,8 @@ fmod TERM-SET is
   var T : Term . var TS : TermSet .
 
   op termElt : Term -> TermSet [ctor] .
-  op mtTerm : -> TermSet [ctor] .
-  op _;_ : TermSet TermSet -> TermSet [ctor assoc comm id: mtTerm] .
+  op mtTermSet : -> TermSet [ctor] .
+  op _;_ : TermSet TermSet -> TermSet [ctor assoc comm id: mtTermSet] .
   eq termElt(T) ; termElt(T) = termElt(T) .
 
   op _in_ : Term TermSet -> Bool .
@@ -312,27 +312,27 @@ fmod SEARCH is
   vars N N' : Nat .
   vars QUE : LTree{QItem<=} . vars NQUE : NeLTree{QItem<=} .
   vars SC SC' : Score .
-  vars ITEM : QItem . vars ITEMS ITEMS' VIS : List{QItem} .
-  ---var VIS : TermSet .
+  vars ITEM : QItem . vars ITEMS ITEMS' : List{QItem} .
+  vars VIS VIS' : TermSet .
   var Q : Qid . var L : Label . var LL : LabelList .
   vars CTX CTX' : SearchCtx . var RT : Result4Tuple .
   var ACT : Act .
   var RES : SearchResult? .
 
   ---  module, current state, action label, ctx, sol num
-  op nbrs : Module Term LabelList SearchCtx Nat -> List{QItem} .
-  eq nbrs(M, T, nilLabel, CTX, N) = nil .
-  eq nbrs(M, T, (labelElt(Q) LL), CTX, N) = nbrs(M, T, LL, CTX, 0) [owise] . --- metaXapply returns failure
- ceq nbrs(M, T, (labelElt(Q) LL), CTX, N)
-    = [getTerm(RT), CTX', score(downTerm(T,error), ACT, CTX')]
-      ; nbrs(M, T, (labelElt(Q) LL), CTX, N + 1)
+  op nbrs : Module Term LabelList SearchCtx TermSet Nat -> List{QItem} .
+  eq nbrs(M, T, nilLabel, CTX, VIS, N) = nil .
+  eq nbrs(M, T, (labelElt(Q) LL), CTX, VIS, N) = nbrs(M, T, LL, CTX, VIS, 0) [owise] . --- metaXapply returns failure
+ ceq nbrs(M, T, (labelElt(Q) LL), CTX, VIS, N)
+    = ITEMS ; nbrs(M, T, (labelElt(Q) LL), CTX, VIS, N + 1)
     if RT := metaXapply(M, T, Q, none, 0, unbounded, N) /\
        ACT := Q { getSubstitution(RT) } /\
-       CTX' := updateCtx(CTX,T,ACT) .
+       CTX' := updateCtx(CTX,T,ACT) /\ --- FIXME!
+       ITEMS := if getTerm(RT) in VIS then nil else [getTerm(RT), CTX', score(downTerm(T,error), ACT, CTX')] fi .
 
-  ---  module, current state, ctx
-  op nbrs : Module Term SearchCtx -> List{QItem} .
-  eq nbrs(M,T,CTX) = nbrs(M, T, getLabels(getRls(M)), CTX, 0) .
+  ---  nbrs "away from" VIS : module, current state, ctx, visited
+  op nbrs : Module Term SearchCtx TermSet -> List{QItem} .
+  eq nbrs(M, T, CTX, VIS) = nbrs(M, T, getLabels(getRls(M)), CTX, VIS, 0) .
 
   op insertAll : List{QItem} LTree{QItem<=} -> LTree{QItem<=} .
   eq insertAll(nil, QUE) = QUE .
@@ -347,64 +347,26 @@ fmod SEARCH is
 
   sorts SearchResult SearchResult? .
   subsort SearchResult < SearchResult? .
-  op some : QItem List{QItem} -> SearchResult [ctor] . --- TODO: some : NeQItem -> SearchResult
-  op none : List{QItem} -> SearchResult? [ctor] .
+  op some : State Nat -> SearchResult [ctor] . --- TODO: some : NeQItem -> SearchResult
+  op none : Nat -> SearchResult? [ctor] .
 
-  op search : Module Prop NeLTree{QItem<=} List{QItem} -> SearchResult? .
- ceq search(M, P, NQUE, VIS)
-    = if visited(T, VIS)
-        then search(M, P, deleteMin(NQUE), VIS)
+  --- model, goal, priority queue, visited set, # explored states 
+  op search : Module Prop NeLTree{QItem<=} TermSet Nat -> SearchResult? .
+ ceq search(M, P, NQUE, VIS, N)
+    = if T in VIS ---visited(T, VIS)
+        then search(M, P, deleteMin(NQUE), VIS, N)
         else
           if checkSAT(T, P)
-            then some([T,CTX,SC], VIS)
-            else search(M, P, insertAll(ITEMS,deleteMin(NQUE)), ([T,CTX,SC] ; VIS))
+            then some(downTerm(T,error), s(N)) ---some([T,CTX,SC])
+            else search(M, P, insertAll(ITEMS,deleteMin(NQUE)), VIS', s(N))
           fi
       fi
     if [T,CTX,SC] := findMin(NQUE) /\
-       ITEMS := nbrs(M,T,CTX) /\
+       VIS' := (termElt(T) ; VIS) /\
+       ITEMS := nbrs(M,T,CTX,VIS') /\
        ST:[State] := downTerm(T, error) . ---[print "(nbrs)" ITEMS] .
-  eq search(M, P, QUE, VIS) = none(VIS) [owise] .
+  eq search(M, P, QUE, VIS, N) = none(N) [owise] .
 
   op search : Module Term Prop -> SearchResult? .
-  eq search(M,T,P) = search(M, P, insert([T, initCtx, bot],empty), nil) .
-
-  --- projection functions on SearchResult
-  op $getTrace : QItem List{QItem} -> ResultTrace .
- ceq $getTrace([T,CTX,SC], ITEMS ; [T', CTX', SC'] ; ITEMS')
-    = $getTrace([getParent(CTX), CTX', SC'], ITEMS') ===> state(downTerm(T,error)) 
-    if T' = getParent(CTX) .
-  eq $getTrace(ITEM, ITEMS) = nil [owise] . 
-
-  op getTrace : SearchResult -> ResultTrace .
-  eq getTrace(some(ITEM, ITEMS)) = $getTrace(ITEM, ITEMS) .
-
-  op getNStates : SearchResult? -> Nat .
-  eq getNStates(RES) = size(getVisited(RES)) .
-
-  op getVisited : SearchResult? -> List{QItem} .
-  eq getVisited(some(ITEM, ITEMS)) = ITEM ; ITEMS .
-  eq getVisited(none(ITEMS)) = ITEMS .
-
-  op getState : SearchResult -> [State] .
-  eq getState(some([T,CTX,SC], ITEMS)) = downTerm(T,error) .
-
-  --- for debugging
-  op printScore : List{QItem} -> Bool .
-  eq printScore(ITEMS ; [T, CTX, SC]) = printScore(ITEMS) [print "(score) " SC] .
-  eq printScore(nil) = true .
-
-  op printDepth : List{QItem} -> Bool .
- ceq printDepth(ITEMS ; [T, CTX, SC]) = printDepth(ITEMS)
-    if N := getDepth(CTX) [print "(depth) " N] .
-  eq printDepth(nil) = true .
-
-  --- for logging
-  var ST : [State] .
-  op printResult : SearchResult? -> Bool .
- ceq printResult(RES) = printScore(VIS) if
-    some(ITEM, ITEMS) := RES /\
-    VIS := getVisited(RES) /\
-    N := getNStates(RES) /\
-    ST := getState(RES)
-    [print "(state) " ST "\n(# states) " N] .
+  eq search(M,T,P) = search(M, P, insert([T, initCtx, bot],empty), mtTermSet, 0) .
 endfm
