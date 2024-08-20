@@ -358,13 +358,11 @@ fmod SEARCH is
         else
           if checkSAT(T, P)
             then some(downTerm(T,error), s(N)) ---some([T,CTX,SC])
-            else search(M, P, insertAll(ITEMS,deleteMin(NQUE)), VIS', s(N))
+            else search(M, P, insertAll(nbrs(M,T,CTX,VIS'), deleteMin(NQUE)), VIS', s(N))
           fi
       fi
     if [T,CTX,SC] := findMin(NQUE) /\
-       VIS' := (termElt(T) ; VIS) /\
-       ITEMS := nbrs(M,T,CTX,VIS') /\
-       ST:[State] := downTerm(T, error) . ---[print "(nbrs)" ITEMS] .
+       VIS' := (termElt(T) ; VIS) .
   eq search(M, P, QUE, VIS, N) = none(N) [owise] .
 
   op search : Module Term Prop -> SearchResult? .
