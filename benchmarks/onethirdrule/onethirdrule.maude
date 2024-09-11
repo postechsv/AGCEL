@@ -29,14 +29,14 @@ mod ONETHIRDRULE-NO-MSG-LOSS is
 
 
     rl [receive] :
-    {TH, V ; VS, OS,
-        < O : Node | status : [R, wait], decision : nilValue, votes : VOTE, ATTS > 
-        (multicast vote(V, R) from O' to (O ; OS'))
+    {TH, V' ; VS, OS,
+        < O : Node | status : [R, wait], value : V, decision : nilValue, votes : VOTE, ATTS > 
+        (multicast vote(V', R) from O' to (O ; OS'))
         CF
     } =>
-    {TH, V ; VS, OS,
-        < O : Node | status : [R, wait], decision : nilValue, votes : update(VOTE, V), ATTS > 
-        (multicast vote(V, R) from O' to OS')  
+    {TH, V' ; VS, OS,
+        < O : Node | status : [R, wait], value : V, decision : nilValue, votes : update(VOTE, V'), ATTS > 
+        (multicast vote(V', R) from O' to OS')  
         CF
     } .
 

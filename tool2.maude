@@ -1,0 +1,205 @@
+load data-structures/priority-queue.maude
+
+fmod UNIV is
+  sort Univ .
+  op data : Universal -> Univ [ctor poly (1)] .
+  op error : -> Univ .
+endfm
+
+
+fmod SYSTEM is --- Ground System R
+  sort State .
+  op init : -> State .
+  op error : -> [State] . --- for downTerm
+endfm
+
+
+fmod PROP is
+  sorts Prop Formula .
+  subsort Prop < Formula .
+  op _/\_ : Formula Formula -> Formula [ctor assoc] .
+  op ~_ : Formula -> Formula [ctor] .
+
+  sort PropList .
+  subsort Prop < PropList .
+  op nil : -> PropList [ctor] .
+  op _;_ : PropList PropList -> PropList [ctor assoc id: nil] .
+endfm
+
+
+fmod MDP is --- Markov Decision Process
+  pr UNIV . pr FLOAT . pr QID . pr PROP .
+
+  --- MDP State
+  sorts FeatVec MDPState .
+  op <_> : FeatVec -> MDPState [ctor] .
+  op nil : -> FeatVec [ctor] .
+  op _:_ : Prop Bool -> FeatVec [ctor] . --- TODO: this should bind tighter than _,_
+  op _,_ : FeatVec FeatVec -> FeatVec [ctor assoc id: nil] .
+  
+  --- MDPActBindings
+  sorts MDPActBinding MDPActBinding? MDPActBindings .
+  subsort MDPActBinding < MDPActBinding? < MDPActBindings .
+  op none : -> MDPActBinding? [ctor] .
+  op _:=_ : Qid Univ -> MDPActBinding [ctor] .
+  op _;_ : MDPActBindings MDPActBindings -> MDPActBindings [ctor assoc comm id: none] .
+
+  --- MDPAct
+  sort MDPAct .
+  op eps : -> MDPAct [ctor] .
+  op _{_} : Qid MDPActBindings -> MDPAct [ctor] .
+
+  --- MDP reward
+  op reward : MDPState -> Float .
+endfm
+
+
+fmod SATISFACTION is
+  pr PROP . pr SYSTEM . pr MDP .
+  op _|=_ : State Prop -> Bool [frozen] .
+  op _|=_ : MDPState Prop -> Bool [frozen] .
+  ---op _|=_ : MDPAct Prop -> Bool [frozen] .
+endfm
+
+
+fmod OBSERVATION is
+  ---pr PROP . pr SYSTEM . pr MDP .
+  pr SATISFACTION .
+  pr META-LEVEL .
+
+  var SB : Substitution . var V : Univ .
+  vars Q Q' : Qid . var X : Variable . var T : Term .
+  var S : State . var P : Prop . var PL : PropList .
+
+  --- state observation
+  op obs : State -> MDPState . --- (User)
+  op obsUpto : State PropList -> FeatVec . --- predicate abstraction
+  eq obsUpto(S, P ; PL) = (P : (S |= P)) , obsUpto(S, PL) .
+  eq obsUpto(S, nil) = nil .
+
+  --- data observation
+  op obs : Qid Qid Univ -> MDPActBinding? . --- (User)
+  eq obs(Q, Q', V) = none [owise] .
+
+  --- action observation
+  op $obs : Qid Substitution -> MDPActBindings .
+  eq $obs(Q, (X <- T) ; SB)
+    = obs(Q, getName(X), downTerm('data[T], (error).Univ)) ; $obs(Q, SB) .
+  eq $obs(Q, none) = none .
+
+  ---op obs : Qid Substitution -> MDPAct . TODO: delete this line
+  ---eq obs(Q, SB) = Q { $obs(Q,SB) } . TODO: delete this line
+  
+  --- TODO: consider defining Act in SYSTEM module
+  sort Act .
+  op eps : -> Act [ctor] .
+  op _{_} : Qid Substitution -> Act [ctor] .
+
+  op obs : Act -> MDPAct .
+  eq obs(Q { SB }) = Q { $obs(Q,SB) } .
+endfm
+
+
+----------------------------------------------------------------------
+--- Search relevant definitions (Users should not care about them) ---
+----------------------------------------------------------------------
+
+fmod SCORE is
+  sort Score .
+  ops _gt_ _lt_ _le_ : Score Score -> Bool .
+endfm
+
+fmod Q-ITEM is
+  protecting SCORE .
+  protecting META-TERM .
+
+  sort QItem .
+  op [_,_] : Term Score -> QItem [ctor] .
+endfm
+
+view QItem from TRIV to Q-ITEM is
+  sort Elt to QItem .
+endv
+
+fmod Q-ITEM<= is
+  protecting Q-ITEM .
+
+  vars T T' : Term .
+  vars S S' : Score .
+
+  ops _>_ _<_ _<=_ : QItem QItem -> Bool .
+  eq [T, S] > [T', S'] = S gt S' .
+  eq [T, S] < [T', S'] = S lt S' .
+  eq [T, S] <= [T', S'] = S le S' .
+endfm
+
+view QItem<= from TOSET<= to Q-ITEM<= is
+  sort Elt to QItem .
+endv
+
+fmod T-ITEM is *** Term Item
+  protecting META-TERM .
+
+  sort TItem .
+  op t : Term -> TItem [ctor] .
+endfm
+
+view TItem from TRIV to T-ITEM is
+  sort Elt to TItem .
+endv
+
+fmod S-STATUS is *** Search Status
+  pr META-TERM .
+  sort SStat .
+  op checking : Term Nat -> SStat [ctor] .
+  ops waiting found fail : -> SStat [ctor] .
+endfm
+
+mod S-CONFIG is *** Search Configuration
+  pr CONFIGURATION .
+  pr S-STATUS .
+  pr LEFTIST-TREES{QItem<=} .
+  pr SET{TItem} *
+    (op _,_ : Set{TItem} Set{TItem} -> Set{TItem} to _;_) .
+
+  sort SConfig .
+  op {_,_,_} : SStat LTree{QItem<=} Set{TItem} -> SConfig .
+endm
+
+mod V-STAR is
+  pr META-LEVEL .
+  pr S-CONFIG .
+
+  var O : Oid . var N : Nat . vars T T' : Term . var S : Score .
+  var PQ : LTree{QItem<=} . var NPQ : NeLTree{QItem<=} .
+  var VIS : Set{TItem} .
+  var RES : ResultTriple .
+  
+  op isGoal : Term -> Bool . op score : Term -> Score .
+  op M : -> Module .
+
+  *** inv : PQ consists only of VISITED states
+
+  rl [fail] : {waiting, empty, VIS} => {fail, empty, VIS} .
+
+  crl [found] : {checking(T,N), PQ, VIS} => {found, PQ, VIS}
+    if RES := metaSearch(M, T, 'S:State, nil, '+, 1, N) /\ isGoal(getTerm(RES)) .
+
+  crl [pop] : {waiting, NPQ, VIS} => {checking(T,0), deleteMin(NPQ), VIS} 
+    if [T,S] := findMin(NPQ) .
+
+  crl [push] :
+    {checking(T,N), PQ, VIS}
+  => 
+    {checking(T, N + 1), insert([T', score(T')], PQ), t(T') ; VIS}
+  if RES := metaSearch(M, T, 'S:State, nil, '+, 1, N) /\ T' := getTerm(RES)
+  /\ not isGoal(T') /\ not t(T') in VIS .
+
+  crl [next] : {checking(T,N), PQ, VIS} => {checking(T, N + 1), PQ, VIS}
+    if RES := metaSearch(M, T, 'S:State, nil, '+, 1, N) /\ T' := getTerm(RES) /\ t(T') in VIS .
+
+  crl [wait] : {checking(T,N), PQ, VIS} => {waiting, PQ, VIS}
+    if metaSearch(M, T, 'S:State, nil, '+, 1, N) = failure .
+
+
+endm

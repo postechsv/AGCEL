@@ -1,9 +1,9 @@
-load ../../tool .
+load ../../tool2 .
 load onethirdrule .
 
 mod MODEL is
-    pr ONETHIRDRULE .
-    ---pr ONETHIRDRULE-NO-MSG-LOSS .
+    ---pr ONETHIRDRULE .
+    pr ONETHIRDRULE-NO-MSG-LOSS .
     pr SATISFACTION .
 
     subsorts Global < State .
@@ -118,7 +118,9 @@ mod ONETHIRDRULE-OBS is
     --- data observation
     var V : Value .
     eq obs('vote, 'V, data(V)) = 'V := data(V) .
-    eq obs('receive, 'V, data(V)) = 'V := data(V) . --- FIXME: recv(V,V')
+    eq obs('receive, 'V, data(V)) = 'V := data(V) .
+    eq obs('receive, 'V', data(V)) = 'V' := data(V) .
+    eq obs('receive, 'O, data(O)) = 'O := data(O) . --- test
     eq obs('decide, 'V, data(V)) = 'V := data(V) .
     eq obs('update, 'V, data(V)) = 'V := data(V) . --- old value
     eq obs('update, 'V', data(V)) = 'V' := data(V) . --- new value
@@ -155,22 +157,39 @@ mod ONETHIRDRULE-TESTCASE is
     eq init7b = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F" ; "H"), (obA obB obC obD obE obF obH) } . --- 3(least) vs 4 (rest)
 endm
 
-mod TEST-DFS is
-  pr SEARCH .
+--- mod TEST-DFS is
+---   pr SEARCH .
+---   pr ONETHIRDRULE-TESTCASE .
+---   pr DFS-SCORE .
+---   op M : -> Module .
+---   eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
+--- endm
+
+mod TEST-SEARCH is
+  pr V-STAR .
   pr ONETHIRDRULE-TESTCASE .
-  pr DFS-SCORE .
-  op M : -> Module .
+  subsort Nat < Score .
+  var T : Term . vars N N' : Nat .
+  eq score(T) = 0 .
+  eq N gt N' = N > N' .
+  eq N lt N' = N < N' .
+  eq N le N' = N <= N' .
+  eq isGoal(T) = downTerm(T,(error).State) |= disagree .
   eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
+  op initCFG : -> SConfig .
+  op initTerm : -> Term .
+  eq initTerm = upTerm(init3) .
+  eq initCFG = {waiting, insert([initTerm, score(initTerm)], empty), t(initTerm)} . *** todo : make this as init rule
 endm
 
-
+*** Module for Training
 mod ONETHIRDRULE-ANALYSIS is
     pr ONETHIRDRULE-TESTCASE .
 endm
 
 
-
-
+search in TEST-SEARCH : initCFG =>* { found , PQ:LTree{QItem<=} , VIS:Set{TItem} } .
+---search init3 =>* X:State such that X:State |= disagree .
 
 --- check ---
 ---red in TEST-DFS : getState(search(M, upTerm(init3), disagree)) .
