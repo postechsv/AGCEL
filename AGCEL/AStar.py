@@ -75,15 +75,15 @@ class Search():
         vis.add(init_node)
         cnt = 0
         while(True):
-            #print('i:', cnt)
             if que.is_empty(): return (False, cnt)
             p, d, curr_node = que.pop()
-            score = curr_node.get_score(V)
+            print('i:', cnt, 'p:', p, 'd:', d)
             if curr_node.is_goal(): return (True, curr_node, cnt)
             for next_node in curr_node.get_next():
                 #if not vis.has(nbr): que.push(nbr, nbr.get_score(V))
                 if not vis.has(next_node):
-                    que.push(-(d+1), d+1, next_node) # bfs
+                    que.push(next_node.get_score(V), d+1, next_node) # A*
+                    #que.push(-(d+1), d+1, next_node) # bfs
                     vis.add(next_node)
             cnt += 1
         print('cnt:',cnt)

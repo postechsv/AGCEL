@@ -35,9 +35,10 @@ class MaudeEnv():
         next_states = [s for s,a in self.nbrs if a == action] # TODO : s,a =/= action computed by self.nbrs are wasted (fix: only match in nbrs)
         if next_states == []:
             raise Exception("invalid action")
+        reward = self.curr_rew
         obs = self.reset(random.choice(next_states))
-        reward, done = self.curr_rew, self.is_done()
-        return obs, reward, done
+        next_reward, done = self.curr_rew, self.is_done()
+        return obs, next_reward, done
 
     # input: Maude.Term, output: Maude.Term
     def obs(self, term):

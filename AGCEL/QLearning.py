@@ -19,6 +19,7 @@ class QLearner():
     def __init__(self):
         self.q_init = 0.0
         self.q_dict = dict() # score(s,a)
+        self.v_dict = dict()
         self.scores = dict() # score(p,q)
         
     def get_q(self, s, a):
@@ -65,7 +66,7 @@ class QLearner():
         print(f'  eq score(X) = {self.q_init} [owise] .')
         print(f'endfm')        
     
-    def dump(self, filename, module_name):
+    def dump(self, filename, module_name, goal):
         f = open(filename, 'w')
         f.write(f'--- automatically generated at {datetime.datetime.now()}\n')
         f.write('mod QTABLE is\n')
@@ -74,17 +75,47 @@ class QLearner():
         q_dict = self.q_dict
         for s, d in q_dict.items():
             for a, q in d.items():
-                f.write(f'  eq q({s}, {a}) = {q} [print "hit"] .\n')
-        f.write(f'  eq q(S, A) = bot [owise print "miss"] .\n')
+                f.write(f'  eq q({goal}, {s}, {a}) = {q} [print "hit"] .\n')
+        f.write(f'  eq q({goal}, S, A) = bot [owise print "miss"] .\n')
         f.write('endm\n')
         f.close()
 
-    def load(self):
-        # TODO
-        # load qtable from qtable.maude
-        pass
+    def make_v_dict(self):
+        self.v_dict = dict()
+        for s, _ in self.q_dict.items():
+            self.v_dict[s] = self.max_q(s)
 
-    def dump2(self, filename, m): # score(s,a) ->
+
+    def get_value_function(self):
+        #v_dict = dict()
+        #for s, _ in self.q_dict.items():
+        #    v_dict[s] = self.max_q(s)
+        return (lambda s : self.v_dict.get(s, self.q_init))
+    
+    def dump_value_function(self, filename):
+        #print(v_dict)
+        with open(filename, 'w') as f:
+            for s, _ in self.v_dict.items():
+                f.write(f'{s} |-> {self.v_dict[s]}\n')
+   
+        #f = open(filename, 'w')
+        #f.write(f'--- automatically generated at {datetime.datetime.now()}\n')
+        #for s, _ in v_dict.items():
+        #    f.write(f'V({s}) = {v_dict[s]}\n')
+        #f.close()
+
+    def load_value_function(self, filename, m):
+        self.v_dict = dict()
+        with open(filename, 'r') as f:
+            for line in f.readlines():
+                state, value = line.split(" |-> ")
+                state = m.parseTerm(state)
+                state.reduce()
+                value = float(value)
+                self.v_dict[state] = value
+
+
+    def dump2(self, filename, m, goal): # score(s,a) ->
         sprops = ['decideRHS(0)', 'decideRHS(1)']
         q_dict = self.q_dict
         scores = self.scores
@@ -96,7 +127,7 @@ class QLearner():
                     t = m.parseTerm(f'{s.prettyPrint(0)} |= {sprop}')
                     t.reduce()
                     if t.prettyPrint(0) == 'true':
-                        scores[sprop][a] = max(scores[sprop].get(a, 0), q)
+                        scores[sprop][a] = min(scores[sprop].get(a, 1000), q)
         
         f = open(filename, 'w')
         f.write(f'--- automatically generated at {datetime.datetime.now()}\n')
@@ -104,8 +135,8 @@ class QLearner():
         f.write(f'  pr QTABLE-BASE . pr ONETHIRDRULE-ANALYSIS .\n')
         for sprop, d in scores.items():
             for a, q in d.items():
-                f.write(f'  eq q({sprop}, {a}) = {q} [print "hit"] .\n')
-        f.write(f'  eq q(P:Prop, A:MDPAct) = bot [owise print "miss"] .\n')
+                f.write(f'  eq q({goal}, {sprop}, {a}) = {q} [print "hit"] .\n')
+        f.write(f'  eq q({goal}, P:Prop, A:MDPAct) = bot [owise print "miss"] .\n')
         f.write('endm\n')
         f.close()
         
@@ -170,4 +201,5 @@ class QLearner():
                     break
 
         print('training done!')
-        return stat
+        self.make_v_dict()
+        #return self.make_value_function()

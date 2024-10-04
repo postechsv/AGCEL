@@ -182,14 +182,22 @@ mod TEST-SEARCH is
   eq initCFG = {waiting, insert([initTerm, score(initTerm)], empty), t(initTerm)} . *** todo : make this as init rule
 endm
 
-*** Module for Training
+*** Module for Python
 mod ONETHIRDRULE-ANALYSIS is
     pr ONETHIRDRULE-TESTCASE .
+    op goal : -> Prop .
+    eq goal = disagree .
+
+    ops init3a goal3 : -> Global .
+    eq init3a = {2, (0 ; 1), ("B" ; "A" ; "C"), (obA obC obB) } .
+    eq goal3 = {2,0 ; 1, "A" ; "B" ; "C", < "A" : Node | status : [2, done],value : 0,decision : 0,votes : [0 |-> 2 ; 1 |-> 0,2] > < "B" : Node | status : [2, wait],
+    value : 0,decision : nilValue,votes : [0 |-> 1 ; 1 |-> 0,1] > < "C" : Node | status : [1, done],value : 1,decision : 1,votes : [0 |-> 0 ; 1 |-> 2,2] > (multicast
+    vote(0, 1) from "A" to "C") (multicast vote(0, 2) from "A" to "B" ; "C") (multicast vote(0, 2) from "B" to "C") multicast vote(1, 1) from "C" to "A" ; "B"} .
 endm
 
 
-search in TEST-SEARCH : initCFG =>* { found , PQ:LTree{QItem<=} , VIS:Set{TItem} } .
----search init3 =>* X:State such that X:State |= disagree .
+---search in TEST-SEARCH : initCFG =>* { found , PQ:LTree{QItem<=} , VIS:Set{TItem} } .
+---search [1] init3 =>* X:State such that X:State |= goal . --- searches 822 states
 
 --- check ---
 ---red in TEST-DFS : getState(search(M, upTerm(init3), disagree)) .
