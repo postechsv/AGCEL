@@ -53,7 +53,7 @@ class MaudeEnv():
         act.reduce()
         return act
 
-    def get_rew(self):
+    def get_rew(self): # FIXME: actually, this should be get_utility
         t = self.m.parseTerm(f'reward({self.state.prettyPrint(0)})')
         t.reduce()
         return t.toFloat()

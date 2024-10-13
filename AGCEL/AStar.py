@@ -71,20 +71,21 @@ class Search():
         # arg: init term, Value dict, bound
         que = NodeQueue()
         vis = NodeSet()
+        cnt = 0
+        if init_node.is_goal(): return (True, init_node, cnt)
         que.push(init_node.get_score(V), 0, init_node)
         vis.add(init_node)
-        cnt = 0
         while(True):
+            cnt += 1
             if que.is_empty(): return (False, cnt)
             p, d, curr_node = que.pop()
             print('i:', cnt, 'p:', p, 'd:', d)
-            if curr_node.is_goal(): return (True, curr_node, cnt)
             for next_node in curr_node.get_next():
-                #if not vis.has(nbr): que.push(nbr, nbr.get_score(V))
+                # goal check should be here due to value-shift w.r.t utility
+                if next_node.is_goal(): return (True, next_node, cnt)
                 if not vis.has(next_node):
                     que.push(next_node.get_score(V), d+1, next_node) # A*
                     #que.push(-(d+1), d+1, next_node) # bfs
                     vis.add(next_node)
-            cnt += 1
         print('cnt:',cnt)
 
