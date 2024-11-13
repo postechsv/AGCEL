@@ -1,0 +1,103 @@
+***
+*** Loop {
+***      Remainder Section
+***  rs: tmp := enqueue(queue,i);
+***  es: queue := tmp;
+***  ws: repeat until top(queue) = i;
+***      Critical Section
+***  cs: tmp := dequeue(queue);
+***  ds: queue := tmp
+*** }
+***
+*** rs, es, ws, cs and ds stand for remainder section,  enqueuing section,
+*** waiting section, critical section and dequeuing section.
+***
+
+fmod LABEL is
+  sort Label .
+  ops rs es ws cs ds : -> Label .
+endfm
+
+fmod PID is
+  protecting NAT .
+  sort Pid .
+  ops p1 p2 nop : -> Pid .
+  *** nop is used as a dummy ID.
+  ops p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 : -> Pid .
+  op p : Nat -> Pid .
+endfm
+
+fmod QUEUE is
+  pr PID .
+  sort Queue .
+  op empty : -> Queue .
+  op __ : Pid Queue -> Queue .
+  op enq : Queue Pid -> Queue .
+  op deq : Queue -> Queue .
+  op top : Queue -> Pid .
+  var Q : Queue .
+  vars X Y : Pid .
+  eq enq(empty,X) = X empty .
+  eq enq((Y Q),X) = Y enq(Q,X) .
+  eq deq(empty) = empty .
+  eq deq((X Q)) = Q .
+  eq top(empty) = nop .
+  eq top((X Q)) = X .
+endfm
+
+mod QLOCK is
+  pr LABEL .
+  pr PID .
+  pr QUEUE .
+  sorts Val Sys .
+  subsorts Val < Sys .
+*** Configurations
+  op __ : Sys Sys -> Sys [assoc comm] .
+*** State components
+  op pc[_]:_ : Pid Label -> Val .
+  op queue:_ : Queue -> Val .
+  op tmp[_]:_ : Pid Queue -> Val .
+*** Maude variables
+  vars Q R : Queue .
+  var I : Pid .
+*** Rules (Transitions)
+  rl [eq1] : (pc[I]: rs) (queue: Q) (tmp[I]: R)
+     => (pc[I]: es) (queue: Q) (tmp[I]: enq(Q,I)) .
+  rl [eq2] : (pc[I]: es) (queue: Q) (tmp[I]: R)
+     => (pc[I]: ws) (queue: R) (tmp[I]: R) .
+  crl [wt] : (pc[I]: ws) (queue: Q)
+     => (pc[I]: cs) (queue: Q) if top(Q) = I .
+  rl [dq1] : (pc[I]: cs) (queue: Q) (tmp[I]: R)
+     => (pc[I]: ds) (queue: Q) (tmp[I]: deq(Q)) .
+  rl [dq2] : (pc[I]: ds) (queue: Q) (tmp[I]: R)
+     => (pc[I]: rs) (queue: R) (tmp[I]: R) .
+endm
+
+mod QLOCK-INIT is
+  pr QLOCK .
+  op init : -> Sys .
+  eq init = (pc[p1]: rs) (pc[p2]: rs) (queue: empty) (tmp[p1]: empty) (tmp[p2]: empty) .
+
+  op init' : -> Sys .
+  eq init' = (pc[p1]: rs) (pc[p2]: rs) (pc[p3]: rs) (pc[p4]: rs)
+             (pc[p5]: rs) (pc[p6]: rs) (pc[p7]: rs) (pc[p8]: rs)
+             (pc[p9]: rs) (pc[p10]: rs) (pc[p11]: rs) (pc[p12]: rs) (queue: empty)
+             (tmp[p1]: empty) (tmp[p2]: empty) (tmp[p3]: empty) (tmp[p4]: empty)
+             (tmp[p5]: empty) (tmp[p6]: empty) (tmp[p7]: empty) (tmp[p8]: empty)
+             (tmp[p9]: empty) (tmp[p10]: empty) (tmp[p11]: empty) (tmp[p12]: empty) .
+
+  var N : Nat .
+  op init : Nat -> Sys .
+  eq init(0) = (queue: empty) .
+  eq init(s(N)) = init(N) (pc[p(s(N))]: rs) (tmp[p(s(N))]: empty) .
+endm
+
+
+ search [1] in QLOCK-INIT : init(10) =>* (pc[P:Pid]: cs) (pc[Q:Pid]: cs) (S:Sys) .
+ show path 33 .
+
+
+***
+*** search [1] in QLOCK-INIT : init =>* (S:Sys) such that false .
+*** Seems non-terminating.
+***
