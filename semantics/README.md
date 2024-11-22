@@ -53,9 +53,11 @@ k(#release-after ~> A ~> K) => k(A ~> #release ~> K)
 ```
 
 - if OPTIONS fi
+
 Unlocked case)
 Note that executable-branch always returns a sequence of form A ; SL.
 This is why prepending #release-after makes sense.
+Also, the condition executable(if OPTIONS fi) ensures that executable-branch(OPTIONS) is well-defined.
 ```unlocked
 pid(I) k(if OPTIONS fi ~> K) Lock(none) => pid(I) k(#release-after ~> executable-branch(OPTIONS) ~> K) Lock(I)
 if executable(if OPTIONS fi)
@@ -65,6 +67,15 @@ Locked case)
 ```locked
 pid(I) k(if OPTIONS fi ~> K) Lock(I) => pid(I) k(executable-branch(OPTIONS) ~> K) Lock(I)
 if executable(if OPTIONS fi)
+```
+
+Note that the difference is only in #release-after.
+Actually, we can combine the above two cases for unlocked and locked, into a single rule.
+- Define ifPrefix(L) := (L == none ? #release-after : .K)
+Combined Rule)
+```locked
+pid(I) k(if OPTIONS fi ~> K) Lock(L) => pid(I) k(ifPrefix(L) ~> executable-branch(OPTIONS) ~> K) Lock(I)
+if executable(if OPTIONS fi) and (L = none or L = I)
 ```
 
 
