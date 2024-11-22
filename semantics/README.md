@@ -33,8 +33,24 @@ k(atomic { SL } ~> K) => k(#acquire ~> SL ~> #release ~> K)
 k(#release-after ~> S ~> K) => k(S ~> #release ~> K)
 ```
 
+- if OPTIONS fi
+```unlocked
+pid(I) k(if OPTIONS fi ~> K) Lock(none) => pid(I) k(#release-after ~> executable-branch(OPTIONS) ~> K) Lock(I)
+if executable(if OPTIONS fi)
+```
 
-### Notes
+```locked
+pid(I) k(if OPTIONS fi ~> K) Lock(none) => pid(I) k(#release-after ~> executable-branch(OPTIONS) ~> K) Lock(I)
+if executable(if OPTIONS fi)
+```
+
+### Loop
+- do OPTIONS od
+```
+k(do OPTIONS od ~> K) => k(if OPTIONS fi ~> K)
+```
+
+## Notes
 * why flattening may not work
 >> consider if ... :: do ... od :: ... fi. In this case, the structure of do ... od must be preserved.
 otherwise, when do branch is taken and reached the end, we don't know where to go back.
