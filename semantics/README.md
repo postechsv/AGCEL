@@ -53,6 +53,16 @@ k(#release-after ~> A ~> K) => k(A ~> #release ~> K)
 ```
 
 - if OPTIONS fi
+Semantics for Selection is very nontrivial.
+The difficulty comes from the fact that in order to perform selection, we must:
+1) test if there is an executable branch
+2) if there is one, choose one
+3) execute the very first action in the chosen branch
+Since there should be no interleaving between step 1), 2) and 3) we must ensure atomicity.
+If we try to define a single rule that does 1), 2) and 3) all at once,
+we get stuck because we don't know how to execute the action in step 3).
+Then, we are forced to define the selection step separately, while ensuring atomicity.
+Hence we utilize the global lock.
 
 Unlocked case)
 Note that executable-branch always returns a sequence of form A ; SL.
@@ -72,6 +82,7 @@ if executable(if OPTIONS fi)
 Note that the difference is only in #release-after.
 Actually, we can combine the above two cases for unlocked and locked, into a single rule.
 - Define ifPrefix(L) := (L == none ? #release-after : .K)
+
 Combined Rule)
 ```locked
 pid(I) k(if OPTIONS fi ~> K) Lock(L) => pid(I) k(ifPrefix(L) ~> executable-branch(OPTIONS) ~> K) Lock(I)
