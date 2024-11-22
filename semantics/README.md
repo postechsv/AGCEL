@@ -1,5 +1,19 @@
 # Semantics for Promela as our modeling language
 
+## Syntax
+- Statement(S) ::= assign | selection | loop
+- Sequence(SL) ::= S | S ; SL
+
+## Configuration
+Lock(PID or none)
+Process(
+  k(K)
+  env()
+)
+
+
+## Semantics
+
 ### Lock
 - #acquire
 - #release
@@ -13,7 +27,7 @@ k(atomic { SL } ~> K) => k(#acquire ~> SL ~> #release ~> K)
 ```
 
 ### Selection
-
+- #rel
 
 
 ### Notes
