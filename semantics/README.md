@@ -21,8 +21,14 @@ process(
 
 ## Semantics
 
+### Executability
+
 ### Side-effects
 The trickiest part of defining the semantics of Promela is in how to define the semantics of atomic and selection constructs.
+Here are their behaviours:
+- The behaviour of `atomic{ SL }` is: first acquire the global lock when SL is executable, then run SL, and finally release the lock.
+- The behaviour of `if (:: SL_1) (:: SL_2) ... (:: SL_n) fi` is: first choose an executable option :: SL_i, then run SL_i.
+
 
 ### Chanllenges
 - nested loop, selection, and atomic
