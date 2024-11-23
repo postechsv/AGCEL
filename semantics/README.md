@@ -1,19 +1,28 @@
 # Semantics for Promela as our modeling language
 
 ## Syntax
-- Action(A) ::= assign | chanop
-- Statement(S) ::= A | selection | loop | atomic
-- Sequence(SL) ::= S | S ; SL
+- Basic Actions corresponds to basic transitions in the SPIN engine.
+Hence basic actions should be executed atomically.
+>> A ::= assign | chanop
+- Statements
+>> S ::= A | selection | loop | atomic
+- Sequences
+>> SL ::= S | S ; SL
 
 ## Configuration
-Lock(PID or none)
-Process(
+lock(PID | none)
+store(STORE)
+process(
   k(K)
+  acq(BOOL)
   env(ENV)
 )
 
 
 ## Semantics
+
+### Side-effects
+The trickiest part of defining the semantics of Promela is in how to define the semantics of atomic and selection constructs.
 
 ### Chanllenges
 - nested loop, selection, and atomic
@@ -74,6 +83,7 @@ if executable(if OPTIONS fi)
 ```
 
 Locked case)
+WARNING: even if the lock is acquired, we cannot ensure the executability. So executability check is necessary.
 ```locked
 pid(I) k(if OPTIONS fi ~> K) Lock(I) => pid(I) k(executable-branch(OPTIONS) ~> K) Lock(I)
 if executable(if OPTIONS fi)
@@ -95,6 +105,8 @@ if executable(if OPTIONS fi) and (L = none or L = I)
 ```
 k(do OPTIONS od ~> K) => k(if OPTIONS fi ~> ~> do OPTIONS fi ~> K)
 ```
+
+### Goto
 
 ## Notes
 * why flattening may not work
