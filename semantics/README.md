@@ -84,6 +84,7 @@ pid(I) k(< .E :: SL >) lock(none)
 
 ### Selection
 * flatten
+>> Note that selection does not happen here. Actual selection only happens at the basic action!
 ```
 k(< E :: if OPTL fi ; SL > EOS)
 =>
@@ -91,14 +92,21 @@ k(eos(E, OPTL, SL) EOS)
 ```
 
 ### Loop
-- do OPTIONS od
+- loop
 ```
-k(do OPTIONS od ~> K) => k(if OPTIONS fi ~> ~> do OPTIONS fi ~> K)
+k(< E :: do OPTL od ; SL > EOS)
+=>
+k(< E :: if OPTL od ; do OPTL od ; SL > EOS)
 ```
+
+- break
+defined using goto
 
 ### Goto
+WARNING: goto is NOT an basic action!
+```
+k(< E :: goto L ; SL > EOS) gotoMap(... L |-> (E', SL') ...)
+=>
+k(< ? :: SL' > EOS) gotoMap(... L |-> (E', SL') ...)
+```
 
-## Notes
-* why flattening may not work
->> consider if ... :: do ... od :: ... fi. In this case, the structure of do ... od must be preserved.
-otherwise, when do branch is taken and reached the end, we don't know where to go back.
