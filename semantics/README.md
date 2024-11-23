@@ -38,7 +38,21 @@ then should take place 'simultaneously' with the main effect of that basic actio
 
 - main effect : basic actions
 - default side-effect : selection
-- optional side-effect : atomic
+- optional side-effect : no-effect(.E) / atomic(@)
+
+K ::= Set(Option)
+
+* lift
+```
+k(SL) => k(< . :: SL>)
+```
+
+### Basic Actions
+```
+k(< E :: X = V ; SL > OPTS) lock(L)
+=>
+k(< .E :: SL > .OPTS) lock(f(L, E))
+```
 
 ### Lock
 - S ::= #acquire | #release
@@ -46,12 +60,14 @@ then should take place 'simultaneously' with the main effect of that basic actio
 - atomic { SL } = #acquire ; SL ; #release
 >> assume atomic is not nested. (this can be ensured by deleting inner atomics without changing the behaviour)
 
+* acquire
 ```
 k((:: #acquire ; SL) OPTS) acq(False)
 =>
 k((:: SL) OPTS) acq(True)
 ```
 
+* release
 `#release` can be executed on its own, because the lock is acquired.
 ```
 pid(I) k((:: #release ; SL) OPTS) lock(I)
@@ -61,50 +77,12 @@ pid(I) k((:: SL) OPTS) lock(none)
 
 
 ### Selection
-- #release-after
-Recall actions(A) is a simple atomic transition in the SPIN engine.
+* select
 ```
-k(#release-after ~> A ~> K) => k(A ~> #release ~> K)
+k((:: if OPTL fi) OPTS)
+=>
+k((:: if OPTL fi) OPTS)
 ```
-
-- if OPTIONS fi
-Semantics for Selection is very nontrivial.
-The difficulty comes from the fact that in order to perform selection, we must:
-1) test if there is an executable branch
-2) if there is one, choose one
-3) execute the very first action in the chosen branch
-Since there should be no interleaving between step 1), 2) and 3) we must ensure atomicity.
-If we try to define a single rule that does 1), 2) and 3) all at once,
-we get stuck because we don't know how to execute the action in step 3).
-Then, we are forced to define the selection step separately, while ensuring atomicity.
-Hence we utilize the global lock.
-
-Unlocked case)
-Note that executable-branch always returns a sequence of form A ; SL.
-This is why prepending #release-after makes sense.
-Also, the condition executable(if OPTIONS fi) ensures that executable-branch(OPTIONS) is well-defined.
-```unlocked
-pid(I) k(if OPTIONS fi ~> K) Lock(none) => pid(I) k(#release-after ~> executable-branch(OPTIONS) ~> K) Lock(I)
-if executable(if OPTIONS fi)
-```
-
-Locked case)
-WARNING: even if the lock is acquired, we cannot ensure the executability. So executability check is necessary.
-```locked
-pid(I) k(if OPTIONS fi ~> K) Lock(I) => pid(I) k(executable-branch(OPTIONS) ~> K) Lock(I)
-if executable(if OPTIONS fi)
-```
-
-Note that the difference is only in #release-after.
-Actually, we can combine the above two cases for unlocked and locked, into a single rule.
-- Define ifPrefix(L) := (L == none ? #release-after : .K)
-
-Combined Rule)
-```locked
-pid(I) k(if OPTIONS fi ~> K) Lock(L) => pid(I) k(ifPrefix(L) ~> executable-branch(OPTIONS) ~> K) Lock(I)
-if executable(if OPTIONS fi) and (L = none or L = I)
-```
-
 
 ### Loop
 - do OPTIONS od
