@@ -49,9 +49,9 @@ k(SL) => k(< . :: SL>)
 
 ### Basic Actions
 ```
-k(< E :: X = V ; SL > OPTS) lock(L)
+k(< E :: X = V ; SL > OPTS) lock(L) env(ENV) store(STORE)
 =>
-k(< .E :: SL > .OPTS) lock(f(L, E))
+k(< .E :: SL > .OPTS) lock(f(L, E)) env(ENV') store(STORE')
 ```
 
 ### Lock
@@ -61,18 +61,19 @@ k(< .E :: SL > .OPTS) lock(f(L, E))
 >> assume atomic is not nested. (this can be ensured by deleting inner atomics without changing the behaviour)
 
 * acquire
+Note lock() is not affected 'yet'.
 ```
-k((:: #acquire ; SL) OPTS) acq(False)
+k(< .E :: #acquire ; SL > OPTS)
 =>
-k((:: SL) OPTS) acq(True)
+k(< @ :: SL > OPTS)
 ```
 
 * release
 `#release` can be executed on its own, because the lock is acquired.
 ```
-pid(I) k((:: #release ; SL) OPTS) lock(I)
+pid(I) k(< .E :: #release ; SL >) lock(I)
 =>
-pid(I) k((:: SL) OPTS) lock(none)
+pid(I) k(< .E :: SL >) lock(none)
 ```
 
 
