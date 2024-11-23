@@ -40,18 +40,23 @@ then should take place 'simultaneously' with the main effect of that basic actio
 - default side-effect : selection
 - optional side-effect : no-effect(.E) / atomic(@)
 
-K ::= Set(Option)
+E ::= .E | @
+EO ::= < E :: SL >
+
+- Effectful Options
+EOS ::= Set{EO}
+K ::= EOS
 
 * lift
 ```
-k(SL) => k(< . :: SL>)
+k(SL) => k(< .E :: SL>)
 ```
 
 ### Basic Actions
 ```
-k(< E :: X = V ; SL > OPTS) lock(L) env(ENV) store(STORE)
+k(< E :: X = V ; SL > EOS) lock(L) env(ENV) store(STORE)
 =>
-k(< .E :: SL > .OPTS) lock(f(L, E)) env(ENV') store(STORE')
+k(< .E :: SL > .EOS) lock(f(L, E)) env(ENV') store(STORE')
 ```
 
 ### Lock
@@ -63,9 +68,9 @@ k(< .E :: SL > .OPTS) lock(f(L, E)) env(ENV') store(STORE')
 * acquire
 Note lock() is not affected 'yet'.
 ```
-k(< .E :: #acquire ; SL > OPTS)
+k(< .E :: #acquire ; SL > EOS)
 =>
-k(< @ :: SL > OPTS)
+k(< @ :: SL > EOS)
 ```
 
 * release
@@ -78,11 +83,11 @@ pid(I) k(< .E :: SL >) lock(none)
 
 
 ### Selection
-* select
+* flatten
 ```
-k((:: if OPTL fi) OPTS)
+k(< E :: if OPTL fi ; SL > EOS)
 =>
-k((:: if OPTL fi) OPTS)
+k(eos(E, OPTL, SL) EOS)
 ```
 
 ### Loop
