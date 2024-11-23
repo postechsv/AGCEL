@@ -29,6 +29,9 @@ Here are their behaviours:
 - The behaviour of `atomic{ SL }` is: first acquire the global lock when SL is executable, then run SL, and finally release the lock.
 - The behaviour of `if (:: SL_1) (:: SL_2) ... (:: SL_n) fi` is: first choose an executable option :: SL_i, then run SL_i.
 
+Note that the 'acquire' and the 'choose' parts are not basic actions.
+Rather, they are 'side-effects' that are attached to a 'main effect' of a basic action.
+So if they should not be a valid transition on their own.
 
 ### Chanllenges
 - nested loop, selection, and atomic
