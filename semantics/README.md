@@ -91,6 +91,9 @@ k(< E :: if OPTL fi ; SL > EOS)
 k(eos(E, OPTL, SL) EOS)
 ```
 
+* what about else?
+>> else condition can be determined statically, EXCEPT.. rendezvous...
+
 ### Loop
 - loop
 ```
@@ -103,10 +106,21 @@ k(< E :: if OPTL od ; do OPTL od ; SL > EOS)
 defined using goto
 
 ### Goto
+
+TODO: executability check timing of goto?
+
 WARNING: goto is NOT an basic action!
+- atomic -> nonatomic : should release
+two subcases 1) locked 2) not yet locked
+>> @ goto .E = .E
+- nonatomic -> atomic : should acquire
+
+
+`#release` should not block the guard
 ```
 k(< E :: goto L ; SL > EOS) gotoMap(... L |-> (E', SL') ...)
 =>
 k(< ? :: SL' > EOS) gotoMap(... L |-> (E', SL') ...)
 ```
+
 
