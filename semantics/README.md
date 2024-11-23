@@ -33,35 +33,32 @@ Note that the 'acquire' and the 'choose' parts are not basic actions.
 Rather, they are 'side-effects' that are attached to a 'main effect' of a basic action.
 So if they should not be a valid transition on their own.
 
-### Chanllenges
-- nested loop, selection, and atomic
-- interference when rendezvous operations are at the guards of selections.
-- executability
-- state-space explosion
+Hence, those side-effects for selection and atomic should be 'delayed' until a first basic actions is found,
+then should take place 'simultaneously' with the main effect of that basic action.
+
+- main effect : basic actions
+- default side-effect : selection
+- optional side-effect : atomic
 
 ### Lock
-- #acquire
-- #release
+- S ::= #acquire | #release
 
-- atomic { SL }
+- atomic { SL } = #acquire ; SL ; #release
 >> assume atomic is not nested. (this can be ensured by deleting inner atomics without changing the behaviour)
 
-e.g
 ```
-k(atomic { SL } ~> K) => k(#acquire ~> SL ~> #release ~> K)
-```
-
-acquire only if executable
-```
-pid(I) k(#acquire ~> SL ~> K) Lock(none) => pid(I) k(SL ~> K) Lock(I)
-if executable(S)
+k((:: #acquire ; SL) OPTS) acq(False)
+=>
+k((:: SL) OPTS) acq(True)
 ```
 
-release temporarily if blocked
+`#release` can be executed on its own, because the lock is acquired.
 ```
-pid(I) k(S ~> K) Lock(I) => pid(I) k(#acquire ~> S ~> K) Lock(none)
-if not executable(S)
+pid(I) k((:: #release ; SL) OPTS) lock(I)
+=>
+pid(I) k((:: SL) OPTS) lock(none)
 ```
+
 
 ### Selection
 - #release-after
