@@ -1,0 +1,47 @@
+load ../tool2 .
+load filter .
+
+mod MODEL is
+  pr FILTER .
+  inc SATISFACTION .
+  inc OBSERVATION .
+
+  subsort Conf < State .
+
+  var S : State .
+  var VS : VictSet .  var PS : ProcSet .
+  vars I J L : Nat .
+
+  --- Defining State Propositions ---
+  op twoCrits : -> Prop [ctor] .
+  eq VS ; proc(I, L, crit) proc(J, L, crit) PS:ProcSet |= twoCrits = true .
+  eq S |= twoCrits = false [owise] .
+
+  op waitLHS : -> Prop [ctor] .
+  eq vict(s L, J) VS ; proc(I, L, on) PS |= waitLHS = true .
+  eq S |= waitLHS = false [owise] .
+
+  op filterLHS : -> Prop [ctor] .
+ ceq VS ; proc(I, L, wait) PS |= filterLHS = true
+    if L < @NL and not conflict(I, L, VS ; proc(I, L, wait) PS) .
+  eq S |= filterLHS = false [owise] .
+
+  op critLHS : -> Prop [ctor] .
+ ceq VS ; proc(I, L, on) PS |= critLHS = true
+    if s L = @NL .
+  eq S |= critLHS = false [owise] .
+
+  op exitLHS : -> Prop [ctor] .
+  eq VS ; proc(I, L, crit) PS |= exitLHS = true .
+  eq S |= exitLHS = false [owise] .
+
+  op props : -> PropList .
+  eq props = waitLHS ; filterLHS ; critLHS ; exitLHS ; twoCrits .
+
+  --- Defining Observations ---
+  eq obs(S) = < obsUpto(S, props) > .
+  eq reward(< FV:FeatVec , (disagree : true) , FV':FeatVec >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+  var P : Prop . var B : Bool .
+  eq < FV:FeatVec , (P : B) , FV':FeatVec > |= P = B .
+endm
