@@ -16,9 +16,12 @@ m = maude.getCurrentModule()
 env = MaudeEnv(m,prop,lambda : init)
 
 ### Train
+print('=== TRAINING ===')
 learner = QLearner()
-print(f'training {m}, {init} |= {prop} ... with {N} samples')
+print(f'TASK: Module({m}), Init({init}) |= Goal({prop})')
+print(f'NUM_DATA: {N} samples')
 learner.train(env, N)
+print('=== RESULT ===')
 print('qtable size :', learner.get_size())
 #learner.dump(f'qtable-{prop}.maude', str(m), prop)
 learner.dump_value_function(f'value-function-{prop}.maude')
@@ -31,10 +34,10 @@ learner.dump_value_function(f'value-function-{prop}.maude')
 ### Search right after training ###
 from AGCEL.AStar import *
 
-init = m.parseTerm('init3')
+#init = m.parseTerm('init3')
 #init.reduce()
-n0 = Node(m, init)
-V = learner.get_value_function()
+#n0 = Node(m, init)
+#V = learner.get_value_function()
 #res = Search().search(n0, V, 9999)
 
 #if res[0]:
