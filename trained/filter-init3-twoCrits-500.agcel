@@ -1,0 +1,9 @@
+< (waitLHS : true),(filterLHS : false),(critLHS : true),(exitLHS : true),twoCrits : false > |-> 1.0
+< (waitLHS : false),(filterLHS : true),(critLHS : false),(exitLHS : true),twoCrits : false > |-> 0.95
+< (waitLHS : true),(filterLHS : true),(critLHS : true),(exitLHS : false),twoCrits : false > |-> 0.9025
+< (waitLHS : false),(filterLHS : true),(critLHS : false),(exitLHS : false),twoCrits : false > |-> 0.8573749999999999
+< (waitLHS : true),(filterLHS : true),(critLHS : false),(exitLHS : false),twoCrits : false > |-> 0.804213770496502
+< (waitLHS : true),(filterLHS : false),(critLHS : false),(exitLHS : true),twoCrits : false > |-> 0.8919562190214434
+< (waitLHS : true),(filterLHS : false),(critLHS : false),(exitLHS : false),twoCrits : false > |-> 0.22384261837103092
+< (waitLHS : true),(filterLHS : false),(critLHS : true),(exitLHS : false),twoCrits : false > |-> 0.6424461821797334
+< (waitLHS : false),(filterLHS : false),(critLHS : false),(exitLHS : true),twoCrits : false > |-> 0.660241637816412
