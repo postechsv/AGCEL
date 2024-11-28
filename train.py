@@ -3,11 +3,13 @@ from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
 import sys
 
-#model = './benchmarks/onethirdrule/onethirdrule-hs.maude'
+# e.g. python3 train.py ./benchmarks/filter-analysis.maude init twoCrits 500 trained/filter-init3-twoCrits-500.agcel
+
 model = sys.argv[1]
 init = sys.argv[2]
 prop = sys.argv[3]
 N = int(sys.argv[4])
+filename = sys.argv[5]
 
 maude.init()
 maude.load(model)
@@ -24,7 +26,7 @@ learner.train(env, N)
 print('=== RESULT ===')
 print('qtable size :', learner.get_size())
 #learner.dump(f'qtable-{prop}.maude', str(m), prop)
-learner.dump_value_function(f'value-function-{prop}.maude')
+learner.dump_value_function(filename)
 
 
 #learner.dump2(f'score-{prop}.maude', m, prop)
