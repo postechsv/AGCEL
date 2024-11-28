@@ -46,11 +46,21 @@ endm
 
 
 mod FILTER-TEST is
-  protecting FILTER .
+  protecting MODEL .
+  op goal : -> Prop .
+  eq goal = twoCrits .
+  ops init2 init3 init4 init5 init : -> Conf .
+  eq init2 = vict(1,0) ; proc(1, 0, on) proc(2, 0, on) . --- safe(no sol). why?
+  eq init3 = vict(1,0) vict(2,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) . --- error
+  eq init4 = vict(1,0) vict(2,0) vict(3,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) . --- error
+  eq init5 = vict(1,0) vict(2,0) vict(3,0) vict(4,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on) . --- error
 
-  op init : -> Conf .
-  eq init = vict(1,0) vict(2,0) vict(3,0) vict(4,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on) .
-  eq @NL = 4 .
+  eq init = init3 .
+  eq @NL = 2 .
+
+---  for example:
+---  eq init = init5 .
+---  eq @NL = 4 .
 endm
 
 
