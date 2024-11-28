@@ -28,6 +28,7 @@ class MaudeEnv():
             'G_state' : self.G_state, # ground state for Rewrite Theory : Maude.Term
             'state' : self.state, # observed state for MDP : Maude.Term
             'actions' : [a for s,a in self.nbrs] # List of (available) action objects
+            # FIXME: actions may contain duplicates. better remove them later.
         }
 
     # action = Action obj = <rule label, abstract subs>
