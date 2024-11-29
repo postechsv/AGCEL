@@ -42,10 +42,18 @@ endm
 mod BAKERY-TEST is
   pr MODEL .
 
-  op init : -> Conf .
-  eq init = 0 ; 0 ; [idle] [idle] [idle] [idle] [idle] .
-  eq @K = 4 .
+  ops init init2 init3 init4 init5 : -> Conf .
+  eq init2 = 0 ; 0 ; [idle] [idle] [idle] [idle] [idle] .
+  eq init3 = 0 ; 0 ; [idle] [idle] [idle] [idle] [idle] .
+  eq init4 = 0 ; 0 ; [idle] [idle] [idle] [idle] [idle] .
+  eq init5 = 0 ; 0 ; [idle] [idle] [idle] [idle] [idle] .
+
+  eq init = init3 .
+  eq @K = 2 .
+
+---  eq init = init5
+---  eq @K = 4 .
 endm
 
 
----search [1] init =>* N:Nat ; M:Nat ; [crit(N1:Nat)] [crit(N2:Nat)] PS:ProcSet .
+search [1] init =>* N:Nat ; M:Nat ; [crit(N1:Nat)] [crit(N2:Nat)] PS:ProcSet .
