@@ -1,0 +1,11 @@
+state 0, Conf: 0 ; 0 ; [idle] [idle] [idle] [idle] [idle]
+===[ rl N:Nat ; M:Nat ; PS:ProcSet [idle] => s N:Nat rem @K ; M:Nat ; PS:ProcSet [wait(N:Nat)] [label wake] . ]===>
+state 1, Conf: 1 ; 0 ; [idle] [idle] [idle] [idle] [wait(0)]
+===[ rl N:Nat ; M:Nat ; PS:ProcSet [idle] => s N:Nat rem @K ; M:Nat ; PS:ProcSet [wait(N:Nat)] [label wake] . ]===>
+state 2, Conf: 0 ; 0 ; [idle] [idle] [idle] [wait(0)] [wait(1)]
+===[ rl N:Nat ; M:Nat ; PS:ProcSet [idle] => s N:Nat rem @K ; M:Nat ; PS:ProcSet [wait(N:Nat)] [label wake] . ]===>
+state 4, Conf: 1 ; 0 ; [idle] [idle] [wait(0)] [wait(0)] [wait(1)]
+===[ rl N:Nat ; M:Nat ; PS:ProcSet [wait(M:Nat)] => N:Nat ; M:Nat ; PS:ProcSet [crit(M:Nat)] [label crit] . ]===>
+state 8, Conf: 1 ; 0 ; [idle] [idle] [wait(0)] [wait(1)] [crit(0)]
+===[ rl N:Nat ; M:Nat ; PS:ProcSet [wait(M:Nat)] => N:Nat ; M:Nat ; PS:ProcSet [crit(M:Nat)] [label crit] . ]===>
+state 12, Conf: 1 ; 0 ; [idle] [idle] [wait(1)] [crit(0)] [crit(0)]
