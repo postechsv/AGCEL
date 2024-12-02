@@ -1,2 +1,45 @@
 load ../tool2 .
 load qlock .
+
+mod MODEL is
+  pr QLOCK .
+  inc SATISFACTION .
+  inc OBSERVATION .
+
+  subsort Sys < State .
+
+  vars I J : Pid . var S : Sys .
+  vars Q R : Queue .
+
+  --- Defining State Propositions ---
+  op twoCrits : -> Prop [ctor] .
+  eq (pc[I]: cs) (pc[J]: cs) S |= twoCrits = true .
+  eq S |= twoCrits = false [owise] .
+
+  op eq1LHS : -> Prop [ctor] .
+  eq (pc[I]: rs) (queue: Q) (tmp[I]: R) |= eq1LHS = true .
+  eq S |= eq1LHS = false [owise] .
+
+  op eq2LHS : -> Prop [ctor] .
+  eq (pc[I]: es) (queue: Q) (tmp[I]: R) |= eq2LHS = true .
+  eq S |= eq2LHS = false [owise] .
+
+  op wtLHS : -> Prop [ctor] .
+  ceq (pc[I]: ws) (queue: Q) |= wtLHS = true if top(Q) = I .
+  eq S |= wtLHS = false [owise] .
+
+  op dq1LHS : -> Prop [ctor] .
+  eq (pc[I]: cs) (queue: Q) (tmp[I]: R) |= dq1LHS = true .
+  eq S |= dq1LHS = false [owise] .
+
+  op dq2LHS : -> Prop [ctor] .
+  eq (pc[I]: ds) (queue: Q) (tmp[I]: R) |= dq2LHS = true .
+  eq S |= dq2LHS = false [owise] .
+ 
+  --- Defining Observations ---
+  eq obs(S) = < obsUpto(S, eq1LHS ; eq2LHS ; wtLHS ; dq1LHS ; dq2LHS ; twoCrits) > .
+  eq reward(< FV:FeatVec , (twoCrits : true) , FV':FeatVec >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+  var P : Prop . var B : Bool .
+  eq < FV:FeatVec , (P : B) , FV':FeatVec > |= P = B . --- TODO: this may be default
+endm
