@@ -46,7 +46,7 @@ endm
 
 
 mod QLOCK-TEST is
-  pr QLOCK .
+  pr MODEL .
   op init : -> Sys .
   eq init = (pc[p1]: rs) (pc[p2]: rs) (queue: empty) (tmp[p1]: empty) (tmp[p2]: empty) .
 
@@ -65,7 +65,7 @@ mod QLOCK-TEST is
 endm
 
 
-search [1] in QLOCK-TEST : init(10) =>* (pc[P:Pid]: cs) (pc[Q:Pid]: cs) (S:Sys) .
+---search [1] in QLOCK-TEST : init(10) =>* (pc[P:Pid]: cs) (pc[Q:Pid]: cs) (S:Sys) .
 --- show path 33 .
 
 
