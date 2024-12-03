@@ -73,31 +73,3 @@ mod QLOCK is
      => (pc[I]: rs) (queue: R) (tmp[I]: R) .
 endm
 
-mod QLOCK-INIT is
-  pr QLOCK .
-  op init : -> Sys .
-  eq init = (pc[p1]: rs) (pc[p2]: rs) (queue: empty) (tmp[p1]: empty) (tmp[p2]: empty) .
-
-  op init' : -> Sys .
-  eq init' = (pc[p1]: rs) (pc[p2]: rs) (pc[p3]: rs) (pc[p4]: rs)
-             (pc[p5]: rs) (pc[p6]: rs) (pc[p7]: rs) (pc[p8]: rs)
-             (pc[p9]: rs) (pc[p10]: rs) (pc[p11]: rs) (pc[p12]: rs) (queue: empty)
-             (tmp[p1]: empty) (tmp[p2]: empty) (tmp[p3]: empty) (tmp[p4]: empty)
-             (tmp[p5]: empty) (tmp[p6]: empty) (tmp[p7]: empty) (tmp[p8]: empty)
-             (tmp[p9]: empty) (tmp[p10]: empty) (tmp[p11]: empty) (tmp[p12]: empty) .
-
-  var N : Nat .
-  op init : Nat -> Sys .
-  eq init(0) = (queue: empty) .
-  eq init(s(N)) = init(N) (pc[p(s(N))]: rs) (tmp[p(s(N))]: empty) .
-endm
-
-
- search [1] in QLOCK-INIT : init(10) =>* (pc[P:Pid]: cs) (pc[Q:Pid]: cs) (S:Sys) .
- show path 33 .
-
-
-***
-*** search [1] in QLOCK-INIT : init =>* (S:Sys) such that false .
-*** Seems non-terminating.
-***
