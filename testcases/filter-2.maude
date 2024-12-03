@@ -1,0 +1,10 @@
+load ../benchmarks/filter-analysis .
+
+mod FILTER-INIT2 is
+  pr MODEL .
+  op init : -> Conf .
+  eq init = vict(1,0) ; proc(1, 0, on) proc(2, 0, on) . --- FIXME: safe(no sol). why?
+  eq @NL = 1 .
+endm
+
+search [1] init =>* VS:VictSet ; proc(I:Nat, L:Nat, crit) proc(J:Nat, L:Nat, crit) PS:ProcSet such that I:Nat =/= J:Nat .
