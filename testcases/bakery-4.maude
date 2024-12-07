@@ -1,0 +1,14 @@
+load ../benchmarks/bakery-analysis
+
+mod BAKERY-TEST is
+  pr MODEL .
+
+  ops init : -> Conf .
+  eq init = 0 ; 0 ; [idle] [idle] [idle] [idle] .
+  eq @K = 3 .
+
+---  eq init = init5
+---  eq @K = 4 .
+endm
+
+search [1] init =>* N:Nat ; M:Nat ; [crit(N1:Nat)] [crit(N2:Nat)] PS:ProcSet .
