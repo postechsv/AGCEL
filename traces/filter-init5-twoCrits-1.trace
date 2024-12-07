@@ -1,0 +1,68 @@
+state 0, Conf: (vict(1, 0) vict(2, 0) vict(3, 0) vict(4, 0)) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 1, Conf: (vict(1, 1) vict(2, 0) vict(3, 0) vict(4, 0)) ; proc(1, 1, wait) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 6, Conf: (vict(1, 2) vict(2, 0) vict(3, 0) vict(4, 0)) ; proc(1, 1, wait) proc(2, 1, wait) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 31, Conf: (vict(1, 3) vict(2, 0) vict(3, 0) vict(4, 0)) ; proc(1, 1, wait) proc(2, 1, wait) proc(3, 1, wait) proc(4, 0, on) proc(5, 0, on)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 86, Conf: (vict(1, 4) vict(2, 0) vict(3, 0) vict(4, 0)) ; proc(1, 1, wait) proc(2, 1, wait) proc(3, 1, wait) proc(4, 1, wait) proc(5, 0, on)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 191, Conf: (vict(1, 5) vict(2, 0) vict(3, 0) vict(4, 0)) ; proc(1, 1, wait) proc(2, 1, wait) proc(3, 1, wait) proc(4, 1, wait) proc(5, 1, wait)
+===[ crl VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, wait) => VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, on) if not conflict(I:Nat, L:Nat, VS:VictSet ; PS:ProcSet
+    proc(I:Nat, L:Nat, wait)) and L:Nat < @NL = true [label filter] . ]===>
+state 371, Conf: (vict(1, 5) vict(2, 0) vict(3, 0) vict(4, 0)) ; proc(1, 1, on) proc(2, 1, wait) proc(3, 1, wait) proc(4, 1, wait) proc(5, 1, wait)
+===[ crl VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, wait) => VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, on) if not conflict(I:Nat, L:Nat, VS:VictSet ; PS:ProcSet
+    proc(I:Nat, L:Nat, wait)) and L:Nat < @NL = true [label filter] . ]===>
+state 657, Conf: (vict(1, 5) vict(2, 0) vict(3, 0) vict(4, 0)) ; proc(1, 1, on) proc(2, 1, on) proc(3, 1, wait) proc(4, 1, wait) proc(5, 1, wait)
+===[ crl VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, wait) => VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, on) if not conflict(I:Nat, L:Nat, VS:VictSet ; PS:ProcSet
+    proc(I:Nat, L:Nat, wait)) and L:Nat < @NL = true [label filter] . ]===>
+state 1119, Conf: (vict(1, 5) vict(2, 0) vict(3, 0) vict(4, 0)) ; proc(1, 1, on) proc(2, 1, on) proc(3, 1, on) proc(4, 1, wait) proc(5, 1, wait)
+===[ crl VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, wait) => VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, on) if not conflict(I:Nat, L:Nat, VS:VictSet ; PS:ProcSet
+    proc(I:Nat, L:Nat, wait)) and L:Nat < @NL = true [label filter] . ]===>
+state 1809, Conf: (vict(1, 5) vict(2, 0) vict(3, 0) vict(4, 0)) ; proc(1, 1, on) proc(2, 1, on) proc(3, 1, on) proc(4, 1, on) proc(5, 1, wait)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 2765, Conf: (vict(1, 5) vict(2, 1) vict(3, 0) vict(4, 0)) ; proc(1, 2, wait) proc(2, 1, on) proc(3, 1, on) proc(4, 1, on) proc(5, 1, wait)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 4014, Conf: (vict(1, 5) vict(2, 2) vict(3, 0) vict(4, 0)) ; proc(1, 2, wait) proc(2, 2, wait) proc(3, 1, on) proc(4, 1, on) proc(5, 1, wait)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 5553, Conf: (vict(1, 5) vict(2, 3) vict(3, 0) vict(4, 0)) ; proc(1, 2, wait) proc(2, 2, wait) proc(3, 2, wait) proc(4, 1, on) proc(5, 1, wait)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 7366, Conf: (vict(1, 5) vict(2, 4) vict(3, 0) vict(4, 0)) ; proc(1, 2, wait) proc(2, 2, wait) proc(3, 2, wait) proc(4, 2, wait) proc(5, 1, wait)
+===[ crl VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, wait) => VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, on) if not conflict(I:Nat, L:Nat, VS:VictSet ; PS:ProcSet
+    proc(I:Nat, L:Nat, wait)) and L:Nat < @NL = true [label filter] . ]===>
+state 9490, Conf: (vict(1, 5) vict(2, 4) vict(3, 0) vict(4, 0)) ; proc(1, 2, on) proc(2, 2, wait) proc(3, 2, wait) proc(4, 2, wait) proc(5, 1, wait)
+===[ crl VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, wait) => VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, on) if not conflict(I:Nat, L:Nat, VS:VictSet ; PS:ProcSet
+    proc(I:Nat, L:Nat, wait)) and L:Nat < @NL = true [label filter] . ]===>
+state 12110, Conf: (vict(1, 5) vict(2, 4) vict(3, 0) vict(4, 0)) ; proc(1, 2, on) proc(2, 2, on) proc(3, 2, wait) proc(4, 2, wait) proc(5, 1, wait)
+===[ crl VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, wait) => VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, on) if not conflict(I:Nat, L:Nat, VS:VictSet ; PS:ProcSet
+    proc(I:Nat, L:Nat, wait)) and L:Nat < @NL = true [label filter] . ]===>
+state 15309, Conf: (vict(1, 5) vict(2, 4) vict(3, 0) vict(4, 0)) ; proc(1, 2, on) proc(2, 2, on) proc(3, 2, on) proc(4, 2, wait) proc(5, 1, wait)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 18928, Conf: (vict(1, 5) vict(2, 4) vict(3, 1) vict(4, 0)) ; proc(1, 3, wait) proc(2, 2, on) proc(3, 2, on) proc(4, 2, wait) proc(5, 1, wait)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 22392, Conf: (vict(1, 5) vict(2, 4) vict(3, 2) vict(4, 0)) ; proc(1, 3, wait) proc(2, 3, wait) proc(3, 2, on) proc(4, 2, wait) proc(5, 1, wait)
+===[ rl (VS:VictSet vict(s L:Nat, J:Nat)) ; PS:ProcSet proc(I:Nat, L:Nat, on) => (VS:VictSet vict(s L:Nat, I:Nat)) ; PS:ProcSet proc(I:Nat, s L:Nat, wait) [label
+    wait] . ]===>
+state 25377, Conf: (vict(1, 5) vict(2, 4) vict(3, 3) vict(4, 0)) ; proc(1, 3, wait) proc(2, 3, wait) proc(3, 3, wait) proc(4, 2, wait) proc(5, 1, wait)
+===[ crl VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, wait) => VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, on) if not conflict(I:Nat, L:Nat, VS:VictSet ; PS:ProcSet
+    proc(I:Nat, L:Nat, wait)) and L:Nat < @NL = true [label filter] . ]===>
+state 27801, Conf: (vict(1, 5) vict(2, 4) vict(3, 3) vict(4, 0)) ; proc(1, 3, on) proc(2, 3, wait) proc(3, 3, wait) proc(4, 2, wait) proc(5, 1, wait)
+===[ crl VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, wait) => VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, on) if not conflict(I:Nat, L:Nat, VS:VictSet ; PS:ProcSet
+    proc(I:Nat, L:Nat, wait)) and L:Nat < @NL = true [label filter] . ]===>
+state 29638, Conf: (vict(1, 5) vict(2, 4) vict(3, 3) vict(4, 0)) ; proc(1, 3, on) proc(2, 3, on) proc(3, 3, wait) proc(4, 2, wait) proc(5, 1, wait)
+===[ crl VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, on) => VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, crit) if s L:Nat = @NL [label crit] . ]===>
+state 30900, Conf: (vict(1, 5) vict(2, 4) vict(3, 3) vict(4, 0)) ; proc(1, 3, crit) proc(2, 3, on) proc(3, 3, wait) proc(4, 2, wait) proc(5, 1, wait)
+===[ crl VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, on) => VS:VictSet ; PS:ProcSet proc(I:Nat, L:Nat, crit) if s L:Nat = @NL [label crit] . ]===>
+state 31706, Conf: (vict(1, 5) vict(2, 4) vict(3, 3) vict(4, 0)) ; proc(1, 3, crit) proc(2, 3, crit) proc(3, 3, wait) proc(4, 2, wait) proc(5, 1, wait)
