@@ -48,3 +48,22 @@ env.get_rew()
 
 # Test : MaudeEnv.is_done
 env.is_done()
+
+
+"""
+Test for QLearner
+"""
+# Test : QLearner.__init__
+QL = QLearner()
+
+# Test : QLearner.train
+QL.train(env, 100)
+
+# Test : QLearner.get_size
+QL.get_size()
+
+# Test : QLearner.dump_value_function
+QL.dump_value_function('tmp')
+
+# Test : QLearner.load_value_function
+QL.load_value_function('tmp', m)
