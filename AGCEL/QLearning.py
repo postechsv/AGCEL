@@ -115,8 +115,8 @@ class QLearner():
                 self.v_dict[state] = value
 
 
-    def dump2(self, filename, m, goal): # score(s,a) ->
-        sprops = ['decideRHS(0)', 'decideRHS(1)']
+    #def dump2(self, filename, m, goal): # score(s,a) ->
+        """sprops = ['decideRHS(0)', 'decideRHS(1)']
         q_dict = self.q_dict
         scores = self.scores
         for sprop in sprops:
@@ -138,8 +138,9 @@ class QLearner():
                 f.write(f'  eq q({goal}, {sprop}, {a}) = {q} [print "hit"] .\n')
         f.write(f'  eq q({goal}, P:Prop, A:MDPAct) = bot [owise print "miss"] .\n')
         f.write('endm\n')
-        f.close()
-        
+        f.close() """
+
+
     def greedy_policy(self, obs):
         # returns -1 for error
         state = obs["state"]
