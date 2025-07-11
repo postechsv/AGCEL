@@ -3,3 +3,6 @@ trained/
 .DS_Store
 log/
 AGCEL/__pycache__/
+# Byte-compiled / cache
+__pycache__/
+*.pyc
