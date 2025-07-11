@@ -5,6 +5,9 @@ from AGCEL.AStar import *
 import time
 import sys
 
+# Usage: python3 test.py <maude_model> <init_term> <goal_prop> <qtable_file>
+# python3 test.py testcases/filter-4.maude init twoCrits trained/filter-init4-twoCrits-500-o1.agcel
+
 model = sys.argv[1]
 init = sys.argv[2]
 prop = sys.argv[3]
@@ -33,7 +36,7 @@ if res0[0]:
     print('[BASELINE] Goal reached!')
     res0[1].print_term()
 
-### Load pretrained value function.
+# Load pretrained value function
 learner = QLearner()
 learner.load_value_function(qtable_file, m)
 V = learner.get_value_function()
@@ -48,20 +51,3 @@ print(f'[TRAINED] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
 if res[0]:
     print('[TRAINED] Goal reached!')
     res[1].print_term()
-
-
-### test script ###
-# Trained on filter-3
-# python3 test.py ./testcases/filter-3.maude init twoCrits trained/filter3-init3.agcel 
-# python3 test.py ./testcases/filter-4.maude init twoCrits trained/filter3-init3.agcel 
-# python3 test.py ./testcases/filter-5.maude init twoCrits trained/filter3-init3.agcel 
-
-# Trained on filter-4
-# python3 test.py ./testcases/filter-3.maude init twoCrits trained/filter4-init4.agcel 
-# python3 test.py ./testcases/filter-4.maude init twoCrits trained/filter4-init4.agcel 
-# python3 test.py ./testcases/filter-5.maude init twoCrits trained/filter4-init4.agcel 
-
-# Trained on filter-5
-# python3 test.py ./testcases/filter-3.maude init twoCrits trained/filter5-init5.agcel 
-# python3 test.py ./testcases/filter-4.maude init twoCrits trained/filter5-init5.agcel 
-# python3 test.py ./testcases/filter-5.maude init twoCrits trained/filter5-init5.agcel 

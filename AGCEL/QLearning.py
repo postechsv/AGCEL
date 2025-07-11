@@ -87,22 +87,12 @@ class QLearner():
 
 
     def get_value_function(self):
-        #v_dict = dict()
-        #for s, _ in self.q_dict.items():
-        #    v_dict[s] = self.max_q(s)
         return (lambda s : self.v_dict.get(s, self.q_init))
     
     def dump_value_function(self, filename):
-        #print(v_dict)
         with open(filename, 'w') as f:
             for s, _ in self.v_dict.items():
                 f.write(f'{s} |-> {self.v_dict[s]}\n')
-   
-        #f = open(filename, 'w')
-        #f.write(f'--- automatically generated at {datetime.datetime.now()}\n')
-        #for s, _ in v_dict.items():
-        #    f.write(f'V({s}) = {v_dict[s]}\n')
-        #f.close()
 
     def load_value_function(self, filename, m):
         self.v_dict = dict()
@@ -113,33 +103,6 @@ class QLearner():
                 state.reduce()
                 value = float(value)
                 self.v_dict[state] = value
-
-
-    #def dump2(self, filename, m, goal): # score(s,a) ->
-        """sprops = ['decideRHS(0)', 'decideRHS(1)']
-        q_dict = self.q_dict
-        scores = self.scores
-        for sprop in sprops:
-            scores[sprop] = dict()
-        for s, d in q_dict.items():
-            for a, q in d.items():
-                for sprop in sprops:
-                    t = m.parseTerm(f'{s.prettyPrint(0)} |= {sprop}')
-                    t.reduce()
-                    if t.prettyPrint(0) == 'true':
-                        scores[sprop][a] = min(scores[sprop].get(a, 1000), q)
-        
-        f = open(filename, 'w')
-        f.write(f'--- automatically generated at {datetime.datetime.now()}\n')
-        f.write('mod QTABLE is\n')
-        f.write(f'  pr QTABLE-BASE . pr ONETHIRDRULE-ANALYSIS .\n')
-        for sprop, d in scores.items():
-            for a, q in d.items():
-                f.write(f'  eq q({goal}, {sprop}, {a}) = {q} [print "hit"] .\n')
-        f.write(f'  eq q({goal}, P:Prop, A:MDPAct) = bot [owise print "miss"] .\n')
-        f.write('endm\n')
-        f.close() """
-
 
     def greedy_policy(self, obs):
         # returns -1 for error
@@ -158,25 +121,71 @@ class QLearner():
                 return random.choice(actions)
             else:
                 return -1
-            
+
+    def oracle_policy(self, s, ns, actions, env):
+        for a in actions:
+            for next_state, act in env.nbrs:
+                if act == a:
+                    obs_ns = env.obs(next_state)
+                    if obs_ns == ns:
+                        return a
+        return -1
+
+    def pretrain(self, env, trace_path, repeat=10):
+        from AGCEL.TraceParser import parse_trace
+
+        trace = parse_trace(trace_path)
+        matched = 0
+        total = 0
+
+        for _ in range(repeat):
+            for i in range(len(trace)):
+                s_str, _, ns_str = trace[i]
+                s_term = env.m.parseTerm(s_str)
+                ns_term = env.m.parseTerm(ns_str)
+                s_term.reduce()
+                ns_term.reduce()
+                env.reset(to_state=s_term)
+                obs_s = env.get_obs()
+                s = obs_s['state']
+                ns = env.obs(ns_term)
+                a = self.oracle_policy(s, ns, obs_s['actions'], env)
+                total += 1
+                if isinstance(a, int) and a == -1:
+                    continue
+                matched += 1
+
+                reward_term = env.m.parseTerm(f'reward({ns.prettyPrint(0)})')
+                reward_term.reduce()
+                r = reward_term.toFloat()
+
+                if i < len(trace) - 1:
+                    _, _, next_ns_str = trace[i + 1]
+                    next_s_term = env.m.parseTerm(next_ns_str)
+                    next_s_term.reduce()
+                    next_ns = env.obs(next_s_term)
+                    max_next_q = self.max_q(next_ns)
+                else:
+                    max_next_q = 0.0
+
+                q = self.get_q(s, a)
+                nq = q + learning_rate * (r + gamma * max_next_q - q)
+                self.set_q(s, a, nq)
+
+        print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
+        self.make_v_dict()
+        
     def train(self, env, n_training_episodes):
-        # stat = 0
         for episode in tqdm(range(n_training_episodes)):
-            #print(f'=== episode {episode} ===')
             # Reduce epsilon (because we need less and less exploration)
             epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
 
             obs = env.reset()
-            step = 0
             done = False
 
-            for step in range(max_steps):
-                #print(f'--- step {step} ---')
+            for _ in range(max_steps):
                 s = obs["state"]
                 a = self.eps_greedy_policy(obs, epsilon)
-
-                #print('(state)', s)
-                #print('(action)', a)
 
                 # assert action not -1
                 if type(a) == type(-1):
@@ -184,23 +193,15 @@ class QLearner():
 
                 obs, reward, done = env.step(a)
                 ns = obs['state']
-                # stat += reward
 
-                #if reward == 1:
-                #    print('s:', s, 'a:', a)
-
-                # Update Q(s,a):= Q(s,a) + lr [R(s,a) + gamma * max Q(s',a') - Q(s,a)]
+                # Update Q(s,a) := Q(s,a) + lr [R(s,a) + gamma * max Q(s',a') - Q(s,a)]
                 nq = self.get_q(s, a) + learning_rate * (
                     reward + gamma * self.max_q(ns) - self.get_q(s, a)
                 )
-                #if nq < 0.00001 and nq > 0.0:
-                #    print('q(s,a):', self.get_q(s,a), ', q_next(s,a):', nq, ', reward:', reward, ', lr:', learning_rate, ', maxq:', self.max_q(ns), ', gamma:', gamma)
                 self.set_q(s, a, nq)
 
-                # If terminated or truncated finish the episode
                 if done:
                     break
 
         print('training done!')
         self.make_v_dict()
-        #return self.make_value_function()
