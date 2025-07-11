@@ -79,7 +79,7 @@ class Search():
             cnt += 1
             if que.is_empty(): return (False, cnt)
             p, d, curr_node = que.pop()
-            print('i:', cnt, 'p:', p, 'd:', d)
+            #print('i:', cnt, 'p:', p, 'd:', d)
             for next_node in curr_node.get_next():
                 # goal check should be here due to value-shift w.r.t utility
                 if next_node.is_goal(): return (True, next_node, cnt)
@@ -88,4 +88,3 @@ class Search():
                     #que.push(-(d+1), d+1, next_node) # bfs
                     vis.add(next_node)
         print('cnt:',cnt)
-

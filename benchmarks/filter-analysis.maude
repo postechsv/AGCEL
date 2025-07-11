@@ -55,8 +55,8 @@ mod FILTER-TEST is
   eq init4 = vict(1,0) vict(2,0) vict(3,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) . --- error
   eq init5 = vict(1,0) vict(2,0) vict(3,0) vict(4,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on) . --- error
 
-  eq init = init3 .
-  eq @NL = 2 .
+  eq init = init5 .
+  eq @NL = 4 .
 
 ---  for example:
 ---  eq init = init5 .

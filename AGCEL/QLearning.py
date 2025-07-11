@@ -160,7 +160,7 @@ class QLearner():
                 return -1
             
     def train(self, env, n_training_episodes):
-        stat = 0
+        # stat = 0
         for episode in tqdm(range(n_training_episodes)):
             #print(f'=== episode {episode} ===')
             # Reduce epsilon (because we need less and less exploration)
@@ -184,7 +184,7 @@ class QLearner():
 
                 obs, reward, done = env.step(a)
                 ns = obs['state']
-                stat += reward
+                # stat += reward
 
                 #if reward == 1:
                 #    print('s:', s, 'a:', a)

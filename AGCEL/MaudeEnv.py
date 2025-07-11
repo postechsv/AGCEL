@@ -1,6 +1,3 @@
-"""
-Author : Byoungho Son (byhoson@postech.ac.kr)
-"""
 import random
 #from AGCEL.common import Action
 
