@@ -1,9 +1,0 @@
-< (waitLHS : true), (filterLHS : false), (critLHS : true), (exitLHS : true), twoCrits : false > |-> 1.0
-< (waitLHS : true), (filterLHS : false), (critLHS : true), (exitLHS : false), twoCrits : false > |-> 0.836341786506559
-< (waitLHS : true), (filterLHS : true), (critLHS : false), (exitLHS : false), twoCrits : false > |-> 0.8144646896438384
-< (waitLHS : true), (filterLHS : false), (critLHS : false), (exitLHS : false), twoCrits : false > |-> 0.17853047790092313
-< (waitLHS : false), (filterLHS : true), (critLHS : false), (exitLHS : true), twoCrits : false > |-> 0.95
-< (waitLHS : true), (filterLHS : false), (critLHS : false), (exitLHS : true), twoCrits : false > |-> 0.8930162744269703
-< (waitLHS : true), (filterLHS : true), (critLHS : true), (exitLHS : false), twoCrits : false > |-> 0.9025
-< (waitLHS : false), (filterLHS : true), (critLHS : false), (exitLHS : false), twoCrits : false > |-> 0.8573749999999999
-< (waitLHS : false), (filterLHS : false), (critLHS : false), (exitLHS : true), twoCrits : false > |-> 0.5919758584268701
