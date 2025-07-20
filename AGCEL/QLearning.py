@@ -85,7 +85,6 @@ class QLearner():
         for s, _ in self.q_dict.items():
             self.v_dict[s] = self.max_q(s)
 
-
     def get_value_function(self):
         return (lambda s : self.v_dict.get(s, self.q_init))
     
@@ -131,8 +130,8 @@ class QLearner():
                         return a
         return -1
 
-    def pretrain(self, env, trace_path, repeat=10):
-        from AGCEL.TraceParser import parse_trace
+    def pretrain(self, env, trace_path, repeat=100):
+        from AGCEL.Parser import parse_trace
 
         trace = parse_trace(trace_path)
         matched = 0
@@ -172,7 +171,7 @@ class QLearner():
                 nq = q + learning_rate * (r + gamma * max_next_q - q)
                 self.set_q(s, a, nq)
 
-        print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
+        #print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
         self.make_v_dict()
         
     def train(self, env, n_training_episodes):

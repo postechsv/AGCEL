@@ -35,9 +35,36 @@ mod MODEL is
   eq VS ; proc(I, L, crit) PS |= exitLHS = true .
   eq S |= exitLHS = false [owise] .
 
+  --- added predicates
+  op prop1 : -> Prop [ctor] .
+  eq vict(s L, J) VS ; PS |= prop1 = true .
+  eq S |= prop1 = false [owise] .
+
+  op prop2 : -> Prop [ctor] .
+  eq VS ; proc(I, L, wait) PS |= prop2 = true .
+  eq S |= prop2 = false [owise] .
+
+  op prop3 : -> Prop [ctor] .
+  eq VS ; proc(I, L, on) PS |= prop3 = true .
+  eq S |= prop3 = false [owise] .
+
+  op prop4 : -> Prop [ctor] .
+  ceq VS ; proc(I, L, on) proc(I, L, crit) PS |= prop4 = true
+    if s L = @NL .
+  eq S |= prop4 = false [owise] .
+
+  op prop5 : -> Prop [ctor] .
+  eq VS ; proc(I, L, on) proc(I, L, crit) PS |= prop5 = true .
+  eq S |= prop5 = false [owise] .
+
+  op prop6 : -> Prop [ctor] .
+  eq vict(s L, J) VS ; proc(I, L, crit) PS |= prop6 = true .
+  eq S |= prop6 = false [owise] .
 
   --- Defining Observations ---
   eq obs(S) = < obsUpto(S, waitLHS ; filterLHS ; critLHS ; exitLHS ; twoCrits) > .
+  ---eq obs(S) = < obsUpto(S, waitLHS ; filterLHS ; critLHS ; exitLHS ; prop1 ; prop2 ; prop3 ; twoCrits) > .
+  ---eq obs(S) = < obsUpto(S, waitLHS ; filterLHS ; critLHS ; exitLHS ; prop1 ; prop2 ; prop3 ; prop4 ; prop5 ; prop6 ; twoCrits) > .
   eq reward(< FV:FeatVec , (twoCrits : true) , FV':FeatVec >) = 1.0 .
   eq reward(MS:MDPState) = 0.0 [owise] .
   var P : Prop . var B : Bool .
@@ -58,16 +85,16 @@ mod FILTER-TEST is
   eq init7 = vict(1,0) vict(2,0) vict(3,0) vict(4,0) vict(5,0) vict(6,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on) proc(6, 0, on) proc(7, 0, on) . --- error
 
   --- init3
-  --- eq init = init3 .
-  --- eq @NL = 2 .
+  eq init = init3 .
+  eq @NL = 2 .
 
   --- init4
   --- eq init = init4 .
   --- eq @NL = 3 .
 
   --- init5
-  eq init = init5 .
-  eq @NL = 4 .
+  --- eq init = init5 .
+  --- eq @NL = 4 .
 
   --- init6
   --- eq init = init6 .

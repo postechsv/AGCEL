@@ -1,4 +1,3 @@
-from AGCEL.MaudeEnv import MaudeEnv
 import heapq
 
 class Node():
@@ -18,6 +17,11 @@ class Node():
 
     def __lt__(self, other):
         return 0
+
+    def get_obs(self):
+        obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
+        obs.reduce()
+        return obs
 
     def get_score(self, V): # V: Value function (State -> Score)
         obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
@@ -63,28 +67,79 @@ class NodeQueue():
 
     def pop(self):
         #return 0, self.queue.pop()
-        p, d, n =  heapq.heappop(self.queue)
+        p, d, n =  heapq.heappop(self.queue)    # priority(min score), depth, node
         return p, d, n
 
 class Search():
     def search(self, init_node, V, bound):
-        # arg: init term, Value dict, bound
         que = NodeQueue()
         vis = NodeSet()
         cnt = 0
-        if init_node.is_goal(): return (True, init_node, cnt)
+        hit_cnt = 0
+        state_cnt = 0
+
+        if init_node.is_goal(): return (True, init_node, 0)
         que.push(init_node.get_score(V), 0, init_node)
         vis.add(init_node)
-        while(True):
+
+        while True:
             cnt += 1
             if que.is_empty(): return (False, cnt)
-            p, d, curr_node = que.pop()
-            #print('i:', cnt, 'p:', p, 'd:', d)
+            _, d, curr_node = que.pop()
+
             for next_node in curr_node.get_next():
-                # goal check should be here due to value-shift w.r.t utility
-                if next_node.is_goal(): return (True, next_node, cnt)
-                if not vis.has(next_node):
-                    que.push(next_node.get_score(V), d+1, next_node) # A*
-                    #que.push(-(d+1), d+1, next_node) # bfs
-                    vis.add(next_node)
-        print('cnt:',cnt)
+                if vis.has(next_node): continue
+                vis.add(next_node)
+                score = next_node.get_score(V)
+                state_cnt += 1
+                if abs(score) > 1e-8:
+                    hit_cnt += 1
+                if next_node.is_goal():
+                    if hit_cnt == 0:
+                        print(f'[BASELINE] lookup cnt: {state_cnt}')
+                    elif hit_cnt == state_cnt:
+                        print(f'[REGRESSION] lookup cnt: {state_cnt}')
+                    else:
+                        print(f'[QTABLE] hit ratio: {hit_cnt}/{state_cnt} = {hit_cnt/state_cnt:.4f}')
+                    return (True, next_node, cnt)
+                que.push(score, d + 1, next_node)
+
+    # def search(self, init_node, V, bound):
+    #     # arg: init term, Value dict, bound
+    #     que = NodeQueue()
+    #     vis = NodeSet()
+    #     cnt = 0
+
+    #     hit_cnt = 0
+    #     total_cnt = 0
+
+    #     if init_node.is_goal(): return (True, init_node, cnt)
+    #     que.push(init_node.get_score(V), 0, init_node)
+    #     vis.add(init_node)
+
+    #     while(True):
+    #         cnt += 1
+    #         if que.is_empty(): return (False, cnt)
+    #         p, d, curr_node = que.pop()
+    #         #print('i:', cnt, 'p:', p, 'd:', d)
+    #         #print(curr_node.get_obs())
+    #         for next_node in curr_node.get_next():
+    #             score = next_node.get_score(V)
+    #             total_cnt += 1
+    #             if abs(score) > 1e-8:
+    #                 hit_cnt += 1
+    #             # goal check should be here due to value-shift w.r.t utility
+    #             if next_node.is_goal():
+    #                 #print(f'hit_cnt: {hit_cnt}, total_cnt: {total_cnt}')
+    #                 if hit_cnt == 0 :
+    #                     print(f'[BASELINE] lookup cnt: {total_cnt}')
+    #                 elif hit_cnt == total_cnt :
+    #                     print(f'[REGRESSION] lookup cnt: {total_cnt}')
+    #                 else :
+    #                     print(f'[QTABLE] hit ratio: {hit_cnt}/{total_cnt} = {hit_cnt / total_cnt if total_cnt > 0 else 0:.4f}')
+    #                 #print('cnt:',cnt)
+    #                 return (True, next_node, cnt)
+    #             if not vis.has(next_node):
+    #                 que.push(score, d+1, next_node) # A*
+    #                 #que.push(-(d+1), d+1, next_node) # bfs
+    #                 vis.add(next_node)
