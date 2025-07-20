@@ -6,3 +6,5 @@ AGCEL/__pycache__/
 # Byte-compiled / cache
 __pycache__/
 *.pyc
+/log/
+.DS_Store
