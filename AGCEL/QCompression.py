@@ -36,6 +36,9 @@ def compress_qtable_pairwise(q_dict):
                 key = ((p1, v1), (p2, v2), str(action))
                 pairwise_q[key].append(q_val)
 
+    print(f'[LOG] Compressed Q-table size: {len(pairwise_q)}')
+    print(f'[LOG] Sample keys: {list(pairwise_q.keys())[:3]}')
+
     return {k: np.mean(v) for k, v in pairwise_q.items()}
 
 def infer_pairwise():
