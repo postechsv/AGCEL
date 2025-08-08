@@ -14,7 +14,8 @@ def extract_predicate_vector(obs_term):
             val = t.arguments()[0].symbol().getName().lower() == 'true'
             preds.append((pname, val))
 
-    return
+    flatten(pred_container)
+    return preds
 
 def compress_qtable_pairwise():
     return
