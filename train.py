@@ -15,7 +15,6 @@ episode = int(sys.argv[4])
 trace_path = sys.argv[5]
 output_prefix = sys.argv[6]
 
-# === Extract suffix from trace file name ===
 trace_suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
 warm_output_file = output_prefix + trace_suffix + '.agcel'
 #cold_output_file = output_prefix + "-cold" + trace_suffix[2:] + ".agcel"
@@ -33,15 +32,15 @@ print(f'Init term: {init_term}')
 print(f'Goal proposition: {goal_prop}')
 print(f'Episodes: {episode}')
 print(f'Trace file: {trace_path}')
+print(f'Trace file: {trace_path}')
 print(f'Output prefix: {output_prefix}')
 
 # Warm-start (Oracle-pretrained) learner
 print('\n=== WITH ORACLE ===')
 warm_learner = QLearner()
-t0 = time.time()
 warm_learner.pretrain(env, trace_path)
 warm_size_before = warm_learner.get_size()
-#print(f'Oracle QTable size (Before Training): {warm_size_before}')
+t0 = time.time()
 warm_learner.train(env, episode)
 t1 = time.time()
 warm_learner.dump_value_function(warm_output_file)
