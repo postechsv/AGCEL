@@ -1,6 +1,7 @@
 import maude
 from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
+from AGCEL.QCompression import compress_qtable_pairwise
 import sys
 import time
 
@@ -47,6 +48,13 @@ warm_learner.dump_value_function(warm_output_file)
 #print(f'Oracle QTable size (After Training): {warm_learner.get_size()}')
 #print(f'Oracle training time: {t1 - t0:.2f}s')
 #print(f'Output: {warm_output_file.split('/')[-1]}')
+
+warm_compressed_q = compress_qtable_pairwise(warm_learner.q_dict)
+print(f'[LOG] Compressed Q-table entries: {len(warm_compressed_q)}')
+sample_keys = list(warm_compressed_q.keys())[:3]
+for k in sample_keys:
+    print(f'[LOG] Sample key: {k} -> {warm_compressed_q[k]:.4f}')
+
 
 # Cold-start learner
 print('\n=== WITHOUT ORACLE ===')
