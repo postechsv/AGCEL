@@ -1,3 +1,7 @@
+from collections import defaultdict
+from itertools import combinations
+import numpy as np
+
 def extract_predicate_vector(obs_term):
     """Extract predicate names and their truth values from obs(...)"""
 
@@ -23,6 +27,8 @@ def extract_predicate_vector(obs_term):
     return preds
 
 def compress_qtable_pairwise():
+    pairwise_q = defaultdict(list)
+
     return
 
 def infer_pairwise():
