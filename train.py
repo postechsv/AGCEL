@@ -13,16 +13,10 @@ model_path = sys.argv[1]
 init_term = sys.argv[2]
 goal_prop = sys.argv[3]
 episode = int(sys.argv[4])
-# trace_path = sys.argv[5]
-# output_prefix = sys.argv[6]
-trace_paths = sys.argv[5:-1] 
-output_prefix = sys.argv[-1]
+trace_path = sys.argv[5]
+output_prefix = sys.argv[6]
 
-def make_suffix(trace_paths):
-    idx = [tp.split("-")[-1].split(".")[0] for tp in trace_paths]
-    return "-o" + "".join(idx)
-
-trace_suffix = make_suffix(trace_paths)
+trace_suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
 warm_output_file = output_prefix + trace_suffix + '.agcel'
 
 # === Setup ===
@@ -36,17 +30,14 @@ print(f'Module: {m}')
 print(f'Init term: {init_term}')
 print(f'Goal proposition: {goal_prop}')
 print(f'Episodes: {episode}')
-#print(f'Trace file: {trace_path}')
-print(f'Trace files: {trace_paths}')
+print(f'Trace file: {trace_path}')
 print(f'Output prefix: {output_prefix}')
 
 # Warm-start (Oracle-pretrained) learner
 print('\n=== WITH ORACLE ===')
 warm_learner = QLearner()
-#warm_learner.pretrain(env, trace_path)
-warm_learner.pretrain_multi(env, trace_paths)
+warm_learner.pretrain(env, trace_path)
 warm_size_before = warm_learner.get_size()
-#print(f'Oracle QTable size (Before Training): {warm_size_before}')
 t0 = time.time()
 warm_learner.train(env, episode)
 t1 = time.time()

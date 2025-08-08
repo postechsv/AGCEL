@@ -2,6 +2,9 @@ from collections import defaultdict
 from itertools import combinations
 import numpy as np
 
+def count_qtable_entries(q_dict):
+    return sum(len(action_dict) for action_dict in q_dict.values())
+
 def extract_predicate_vector(obs_term):
     """Extract predicate names and their truth values from obs(...)"""
 
@@ -19,11 +22,12 @@ def extract_predicate_vector(obs_term):
             pname = str(pred_term.symbol())
             val = str(bool_term.symbol()).lower() == 'true'
             preds.append((pname, val))
-            print(f'[LOG] Found predicate: {pname} = {val}')
+            #print(f'[LOG] Found predicate: {pname} = {val}')
         else:
             print(f'[LOG] Ignored term: {t.prettyPrint(0)} (symbol: {sym})')
 
     flatten(pred_container)
+    print(f'[LOG] Final predicate vector: {preds}')
     return preds
 
 def compress_qtable_pairwise(q_dict):
@@ -36,8 +40,8 @@ def compress_qtable_pairwise(q_dict):
                 key = ((p1, v1), (p2, v2), str(action))
                 pairwise_q[key].append(q_val)
 
-    print(f'[LOG] Compressed Q-table size: {len(pairwise_q)}')
-    print(f'[LOG] Sample keys: {list(pairwise_q.keys())[:3]}')
+    #print(f'[LOG] Compressed Q-table size: {len(pairwise_q)}')
+    #print(f'[LOG] Sample keys: {list(pairwise_q.keys())[:3]}')
 
     return {k: np.mean(v) for k, v in pairwise_q.items()}
 
