@@ -13,8 +13,10 @@ def extract_predicate_vector(obs_term):
             pname = str(t.symbol())
             val = str(list(t.arguments())[0].symbol()).lower() == 'true'
             preds.append((pname, val))
+            print(f'[LOG] Found predicate: {pname} = {val}')
 
     flatten(pred_container)
+    print(f'[LOG] Final predicate vector: {preds}')
     return preds
 
 def compress_qtable_pairwise():
