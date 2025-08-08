@@ -22,3 +22,22 @@ def compress_qtable_pairwise():
 
 def infer_pairwise():
     return
+
+if __name__ == '__main__':
+    import maude
+    from MaudeEnv import MaudeEnv
+
+    maude.init()
+    maude.load('benchmarks/filter-analysis.maude')
+    m = maude.getCurrentModule()
+
+    init_term = 'init'
+    goal = 'twoCrits'
+    env = MaudeEnv(m, goal, lambda: init_term)
+
+    obs = env.get_obs()
+    obs_term = obs["state"]
+    print(f'[LOG] Raw obs term: {obs_term.prettyPrint(0)}')
+
+    vec = extract_predicate_vector(obs_term)
+    print(f'[LOG] Extracted predicate vector: {vec}')
