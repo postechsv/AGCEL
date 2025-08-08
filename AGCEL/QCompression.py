@@ -31,7 +31,8 @@ def compress_qtable_pairwise(q_dict):
 
     for state_term, action_dict in q_dict.items():
         pred_vector = extract_predicate_vector(state_term)
-
+        for (p1, v1), (p2, v2) in combinations(pred_vector, 2):
+            pass
     return
 
 def infer_pairwise():
