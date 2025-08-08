@@ -26,8 +26,11 @@ def extract_predicate_vector(obs_term):
     flatten(pred_container)
     return preds
 
-def compress_qtable_pairwise():
+def compress_qtable_pairwise(q_dict):
     pairwise_q = defaultdict(list)
+
+    for state_term, action_dict in q_dict.items():
+        pred_vector = extract_predicate_vector(state_term)
 
     return
 
