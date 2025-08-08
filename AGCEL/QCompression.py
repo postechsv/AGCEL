@@ -34,6 +34,7 @@ def compress_qtable_pairwise(q_dict):
         for (p1, v1), (p2, v2) in combinations(pred_vector, 2):
             for action, q_val in action_dict.items():
                 key = ((p1, v1), (p2, v2), str(action))
+                pairwise_q[key].append(q_val)
 
     return
 
