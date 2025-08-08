@@ -6,17 +6,20 @@ def extract_predicate_vector(obs_term):
 
     def flatten(t):
         sym = str(t.symbol())
-        if sym in ('_;_', 'and'):
+        if sym in ('_;_', 'and', '_`,_'):
             for arg in t.arguments():
                 flatten(arg)
-        else:
-            pname = str(t.symbol())
-            val = str(list(t.arguments())[0].symbol()).lower() == 'true'
+        elif sym == '_:_' and len(list(t.arguments())) == 2:
+            pred_term = list(t.arguments())[0]
+            bool_term = list(t.arguments())[1]
+            pname = str(pred_term.symbol())
+            val = str(bool_term.symbol()).lower() == 'true'
             preds.append((pname, val))
             print(f'[LOG] Found predicate: {pname} = {val}')
+        else:
+            print(f'[LOG] Ignored term: {t.prettyPrint(0)} (symbol: {sym})')
 
     flatten(pred_container)
-    print(f'[LOG] Final predicate vector: {preds}')
     return preds
 
 def compress_qtable_pairwise():
