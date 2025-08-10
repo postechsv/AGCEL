@@ -1,7 +1,7 @@
 import maude
 from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
-from AGCEL.QCompression import compress_qtable_pairwise
+from AGCEL.QCompression import count_qtable_entries, compress_qtable_pairwise
 import sys
 import time
 
@@ -43,6 +43,7 @@ warm_learner.train(env, episode)
 t1 = time.time()
 warm_learner.dump_value_function(warm_output_file)
 
+print(f'[LOG] Raw Q-table entries: {count_qtable_entries(warm_learner.q_dict)}')
 warm_compressed_q = compress_qtable_pairwise(warm_learner.q_dict)
 print(f'[LOG] Compressed Q-table entries: {len(warm_compressed_q)}')
 sample_keys = list(warm_compressed_q.keys())[:3]
