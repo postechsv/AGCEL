@@ -8,5 +8,5 @@ def popcount(x: int):   # the number of 1-bits of x
 def bitmask(idxs):  # bitmask with idxs bits set to 1
     pass
 
-def matches():
+def matches(p: Pattern, b: int):  # check if bit vector matches the pattern
     pass
