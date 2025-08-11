@@ -3,7 +3,7 @@ class Pattern:
     mask_val: int   # value bits of mask_known positions
 
 def popcount(x: int):   # the number of 1-bits of x
-    pass
+    return x.bit_count()
 
 def bitmask(idxs):  # bitmask with idxs bits set to 1
     pass
