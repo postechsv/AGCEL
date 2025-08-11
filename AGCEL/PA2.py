@@ -1,3 +1,5 @@
+import itertools
+
 class Pattern:
     mask: int   # 0: (0,1) fixed position / 1: (T) masked position
     val: int    # value bits at fixed(non-masked) positions
@@ -14,5 +16,5 @@ def bitmask(idxs):  # bitmask with idxs bits set to 1
 def matches(p: Pattern, b: int):  # check if bit vector matches the pattern
     return (b & ~p.mask) == (p.val & ~p.mask)
 
-def choose_positions():
-    pass
+def choose_positions(n: int, t: int):
+    return list(itertools.combinations(range(n), t))
