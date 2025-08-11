@@ -6,7 +6,11 @@ def popcount(x: int):   # the number of 1-bits of x
     return x.bit_count()
 
 def bitmask(idxs):  # bitmask with idxs bits set to 1
-    pass
+    m = 0
+    for i in idxs:
+        m |= (1 << i)
+    return m
+
 
 def matches(p: Pattern, b: int):  # check if bit vector matches the pattern
     pass
