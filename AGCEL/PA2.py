@@ -13,3 +13,6 @@ def bitmask(idxs):  # bitmask with idxs bits set to 1
 
 def matches(p: Pattern, b: int):  # check if bit vector matches the pattern
     return (b & ~p.mask) == (p.val & ~p.mask)
+
+def choose_positions():
+    pass
