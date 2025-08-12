@@ -14,7 +14,7 @@ def popcnt(x: int):   # the number of 1-bits of x
     return x.bit_count()
 
 def maskpos(idxs):  # bitmask with idxs bits set to 1
-    n = (max(idxs) + 1) if idxs else 0
+    n = max(idxs) + 1
     m = 0
     for i in idxs:
         m |= (1 << (n - 1 - i))
@@ -52,7 +52,7 @@ def parse(s: str) : # pattern parsing (ex: 111T to 1110, 1111)
     val = 0
     for i, ch in enumerate(s):
         pos = n - 1 - i
-        if ch.upper() == 'T':
+        if ch == 'T':
             mask |= (1 << pos)
         elif ch == '1':
             val |= (1 << pos)
@@ -60,5 +60,8 @@ def parse(s: str) : # pattern parsing (ex: 111T to 1110, 1111)
             pass
     return Pattern(mask=mask, val=val)
 
-def weight():
-    pass
+def weight(p: Pattern, alpha: float):   # weight = alpha ^ {num of masked bits} (0 < alpha <= 1)
+    t = popcnt(p.mask)  # num of masked bits
+    # return max(0.0, 1 - beta * t)
+    # return 1 / (1 + t)
+    return alpha ** t   # max(0.0, 1 - beta * t)
