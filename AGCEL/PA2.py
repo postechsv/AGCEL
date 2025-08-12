@@ -75,5 +75,8 @@ class QPatternCache:
         self.mean = defaultdict(lambda: defaultdict(float))
         self.cnt = defaultdict(lambda: defaultdict(int))
         
-    def update():
-        pass
+    def update(self, p: Pattern, a, val: float):
+        m = self.mean[p][a]
+        c = self.cnt[p][a]
+        self.mean[p][a] = (m * c + val) / (c + 1)
+        self.cnt[p][a] = c + 1
