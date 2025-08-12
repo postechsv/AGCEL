@@ -75,3 +75,5 @@ class QPatternCache:
         self.mean = defaultdict(lambda: defaultdict(float))
         self.cnt = defaultdict(lambda: defaultdict(int))
         
+    def update():
+        pass
