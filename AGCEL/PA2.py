@@ -60,8 +60,18 @@ def parse(s: str) : # pattern parsing (ex: 111T to 1110, 1111)
             pass
     return Pattern(mask=mask, val=val)
 
-def weight(p: Pattern, alpha: float):   # weight = alpha ^ {num of masked bits} (0 < alpha <= 1)
+def weight(p: Pattern, alpha: float):   # weight (for weighted sum) = alpha ^ {num of masked bits} (0 < alpha <= 1)
     t = popcnt(p.mask)  # num of masked bits
+    if alpha <= 0 or alpha > 1:
+        alpha = 1.0
     # return max(0.0, 1 - beta * t)
     # return 1 / (1 + t)
-    return alpha ** t   # max(0.0, 1 - beta * t)
+    return alpha ** t
+
+def weight(p: Pattern, alpha: float):
+    t = popcnt(p.mask)  # number of masked bits
+    if alpha <= 0 or alpha > 1:
+        alpha = 1.0
+    return alpha ** t
+    # return max(0.0, 1 - beta * t)
+    # return 1 / (1 + t)
