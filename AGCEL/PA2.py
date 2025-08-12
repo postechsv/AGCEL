@@ -45,3 +45,20 @@ def render(p: Pattern): # pattern rendering (ex: 1110, 1111 to 111T)
         else:
             chars.append('1' if ((p.val >> pos) & 1) else '0')
     return ''.join(chars)
+
+def parse(s: str) : # pattern parsing (ex: 111T to 1110, 1111)
+    n = len(s)
+    mask = 0
+    val = 0
+    for i, ch in enumerate(s):
+        pos = n - 1 - i
+        if ch.upper() == 'T':
+            mask |= (1 << pos)
+        elif ch == '1':
+            val |= (1 << pos)
+        elif ch == '0':
+            pass
+    return Pattern(mask=mask, val=val)
+
+def weight():
+    pass
