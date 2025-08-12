@@ -26,10 +26,22 @@ def match(p: Pattern, b: int):  # check if bit vector matches the pattern
 def combos(n: int, t: int):     # all index combinations of size t
     return list(itertools.combinations(range(n), t))
 
-def patterns(b: int, n: int, t: int):   # pattern masking (t positions)
+def patterns(b: int, t: int):   # pattern masking (t positions)
+    n = nbits(b)
     out = []
     for idx_subset in combos(n, t):
         m = maskpos(idx_subset, n)
         v = b & ~m
         out.append(Pattern(mask=m, val=v))
     return out
+
+def render(p: Pattern): # pattern rendering (ex: 1110, 1111 to 111T)
+    n = pbits(p)
+    chars = []
+    for i in range(n):
+        pos = n - 1 - i
+        if (p.mask >> pos) & 1:
+            chars.append('T')
+        else:
+            chars.append('1' if ((p.val >> pos) & 1) else '0')
+    return ''.join(chars)
