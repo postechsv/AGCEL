@@ -80,3 +80,9 @@ class QPatternCache:
         c = self.cnt[p][a]
         self.mean[p][a] = (m * c + val) / (c + 1)
         self.cnt[p][a] = c + 1
+
+    def has(self, p: Pattern, a):   # if action is in mean[p]
+        return a in self.mean[p]
+
+    def get(self, p: Pattern, a):   # value of action in mean[p]
+        return self.mean[p][a]
