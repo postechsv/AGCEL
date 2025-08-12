@@ -19,5 +19,5 @@ def matches(p: Pattern, b: int):  # check if bit vector matches the pattern
 def choose_positions(n: int, t: int):
     return list(itertools.combinations(range(n), t))
 
-def generalize_bits():
+def generalize_bits(b: int, n: int, t: int):    # pattern masking (t positions)
     pass
