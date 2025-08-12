@@ -4,10 +4,10 @@ class Pattern:
     mask: int   # 0: (0,1) fixed position / 1: (T) masked position
     val: int    # value bits at fixed(non-masked) positions
 
-def nbits(x: int) -> int:
+def nbits(x: int):  # bit width of an integer
     return x.bit_length()
 
-def pbits(p: Pattern) -> int:
+def pbits(p: Pattern):  # bit width of a pattern
     return max(nbits(p.mask), nbits(p.val))
 
 def popcnt(x: int):   # the number of 1-bits of x
