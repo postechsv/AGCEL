@@ -86,3 +86,6 @@ class QPatternCache:
 
     def get(self, p: Pattern, a):   # value of action in mean[p]
         return self.mean[p][a]
+    
+    def size(self): # sum of numbers of actions in mean(p) for each pattern
+        return sum(len(self.mean[p]) for p in self.mean)
