@@ -1,8 +1,10 @@
 import itertools
+from collections import defaultdict
 
 class Pattern:
-    mask: int   # 0: (0,1) fixed position / 1: (T) masked position
-    val: int    # value bits at fixed(non-masked) positions
+    def __init__(self, mask: int, val: int):
+        self.mask = mask    # 0: (0,1) fixed position / 1: (T) masked position
+        self.val = val      # value bits at fixed(non-masked) positions
 
 def nbits(x: int):  # bit width of an integer
     return x.bit_length()
@@ -60,14 +62,6 @@ def parse(s: str) : # pattern parsing (ex: 111T to 1110, 1111)
             pass
     return Pattern(mask=mask, val=val)
 
-def weight(p: Pattern, alpha: float):   # weight (for weighted sum) = alpha ^ {num of masked bits} (0 < alpha <= 1)
-    t = popcnt(p.mask)  # num of masked bits
-    if alpha <= 0 or alpha > 1:
-        alpha = 1.0
-    # return max(0.0, 1 - beta * t)
-    # return 1 / (1 + t)
-    return alpha ** t
-
 def weight(p: Pattern, alpha: float):
     t = popcnt(p.mask)  # number of masked bits
     if alpha <= 0 or alpha > 1:
@@ -75,3 +69,9 @@ def weight(p: Pattern, alpha: float):
     return alpha ** t
     # return max(0.0, 1 - beta * t)
     # return 1 / (1 + t)
+
+class QPatternCache:
+    def __init__(self):
+        self.mean = defaultdict(lambda: defaultdict(float))
+        self.cnt = defaultdict(lambda: defaultdict(int))
+        
