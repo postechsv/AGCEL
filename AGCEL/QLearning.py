@@ -23,6 +23,14 @@ class QLearner():
         self.v_dict = dict()
         self.scores = dict() # score(p,q)
         
+    # obs(...) term to a boolean vector
+    def obs_to_vec(self, obs_term, env):
+        pairs = env.extract_predicate_vector(obs_term)      # [('p1', True), ('p2', False), ('p3', True)]
+        pred_order = [name for name, _ in pairs]            # ['p1', 'p2', 'p3']
+        m = {name: int(val) for name, val in pairs}         # {'p1': 1, 'p2': 0, 'p3': 1}
+        vec = tuple(m.get(name, 0) for name in pred_order)  # (1, 0, 1)
+        return vec, pred_order
+
     def get_q(self, s, a):
         q_init = self.q_init
         if s in self.q_dict:
@@ -91,7 +99,7 @@ class QLearner():
         return (lambda s : self.v_dict.get(s, self.q_init))
     
     # PA2
-    def get_value_function_paa(self):
+    def get_value_function_pa2(self):
         pass
     
     def dump_value_function(self, filename):
@@ -180,50 +188,6 @@ class QLearner():
         print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
         self.make_v_dict()
         
-    def pretrain_multi(self, env, trace_paths, repeat=10):
-        from AGCEL.Parser import parse_trace
-        all_traces = []
-        for tp in trace_paths:
-            all_traces += parse_trace(tp)
-
-        matched = 0
-        total = 0
-        for _ in range(repeat):
-            for i in range(len(all_traces)):
-                s_str, _, ns_str = all_traces[i]
-                s_term = env.m.parseTerm(s_str)
-                ns_term = env.m.parseTerm(ns_str)
-                s_term.reduce()
-                ns_term.reduce()
-                env.reset(to_state=s_term)
-                obs_s = env.get_obs()
-                s = obs_s['state']
-                ns = env.obs(ns_term)
-                a = self.oracle_policy(s, ns, obs_s['actions'], env)
-                total += 1
-                if isinstance(a, int) and a == -1:
-                    continue
-                matched += 1
-
-                reward_term = env.m.parseTerm(f'reward({ns.prettyPrint(0)})')
-                reward_term.reduce()
-                r = reward_term.toFloat()
-
-                if i < len(all_traces) - 1:
-                    _, _, next_ns_str = all_traces[i + 1]
-                    next_s_term = env.m.parseTerm(next_ns_str)
-                    next_s_term.reduce()
-                    next_ns = env.obs(next_s_term)
-                    max_next_q = self.max_q(next_ns)
-                else:
-                    max_next_q = 0.0
-
-                q = self.get_q(s, a)
-                nq = q + learning_rate * (r + gamma * max_next_q - q)
-                self.set_q(s, a, nq)
-
-        print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
-        self.make_v_dict()
 
     def train(self, env, n_training_episodes):
         for episode in tqdm(range(n_training_episodes)):
