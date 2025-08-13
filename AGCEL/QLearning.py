@@ -2,7 +2,7 @@ import random
 import numpy as np
 import datetime
 from tqdm import tqdm
-#from AGCEL.PA2 import QPatternCache
+from itertools import combinations
 
 # Training parameters
 learning_rate = 0.7  # Learning rate
@@ -22,21 +22,24 @@ class QLearner():
         self.q_dict = dict() # score(s,a)
         self.v_dict = dict()
         self.scores = dict() # score(p,q)
+        #self._mask_cache = {}
+        #self._pa2_eval_cache = {}
         
     # obs(...) term to a boolean vector
     def obs_to_vec(self, obs_term, env):
-        pairs = env.extract_predicate_vector(obs_term)      # [('p1', True), ('p2', False), ('p3', True)]
-        pred_order = [name for name, _ in pairs]            # ['p1', 'p2', 'p3']
-        m = {name: int(val) for name, val in pairs}         # {'p1': 1, 'p2': 0, 'p3': 1}
-        vec = tuple(m.get(name, 0) for name in pred_order)  # (1, 0, 1)
-        return vec, pred_order
+        pairs = env.extract_predicate_vector(obs_term)  # [('p1', True), ('p2', False), ('p3', True)]
+        names = [name for name, _ in pairs]             # ['p1', 'p2', 'p3']
+        m = {name: int(val) for name, val in pairs}     # {'p1': 1, 'p2': 0, 'p3': 1}
+        vec = tuple(m.get(name, 0) for name in names)   # (1, 0, 1)
+        return vec, names
 
+    # check for a partial match by idx
     def match_idx(self, vec, cand, idx):
         for i in idx:
             if cand[i] != vec[i]:
                 return False
         return True
-    
+
     def aggregate(self, vals):
         return max(vals) if vals else self.q_init
 
@@ -107,7 +110,7 @@ class QLearner():
         return (lambda s : self.v_dict.get(s, self.q_init))
     
     # PA2
-    def get_value_function_pa2(self, env, mask_order=None):
+    def get_value_function_pa2(self, env):
         if not self.q_dict:
             return self.q_init
 
@@ -117,8 +120,6 @@ class QLearner():
             items.append((vec, v))
 
         n = len(items[0][0])    # vector dimension (= number of predicates)
-        if mask_order is None:  # default index order
-            mask_order = list(range(n))
     
     def dump_value_function(self, filename):
         with open(filename, 'w') as f:
