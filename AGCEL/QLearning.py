@@ -67,6 +67,19 @@ class QLearner():
                 keeps.add(tuple(keep))
         return keeps
 
+    # update q_abs: when updating Q(s,a)=q, max all s_abs of s
+    def set_q_abs(self, s, a, q, env):
+        vals = self.parse_obs(s)
+        n = len(vals)
+        for keep in self.keep_idx(n):
+            keep_vals = tuple(vals[i] for i in keep)
+            s_abs = (keep, keep_vals)
+            if s_abs not in self.q_abs:
+                self.q_abs[s_abs] = { a : q }
+            else:
+                if q > self.q_abs[s_abs].get(a, self.q_init):
+                    self.q_abs[s_abs][a] = q
+
     def get_q(self, s, a):
         q_init = self.q_init
         if s in self.q_dict:
@@ -77,7 +90,7 @@ class QLearner():
         # TODO deepcopy terms
         if q == 0.0: # TODO
             return
-        elif not s in self.q_dict:
+        elif s not in self.q_dict:
             self.q_dict[s] = { a : q }
         else:
             self.q_dict[s][a] = q
@@ -218,6 +231,7 @@ class QLearner():
                 q = self.get_q(s, a)
                 nq = q + learning_rate * (r + gamma * max_next_q - q)
                 self.set_q(s, a, nq)
+                self.set_q_abs(s, a, nq, env)
 
         print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
         self.make_v_dict()
@@ -247,6 +261,7 @@ class QLearner():
                     reward + gamma * self.max_q(ns) - self.get_q(s, a)
                 )
                 self.set_q(s, a, nq)
+                self.set_q_abs(s, a, nq, env)
 
                 # PA2: V(s) = max_a { max_{s' in matching(s)} Q(s', a) }
 
