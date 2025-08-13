@@ -32,7 +32,7 @@ def patterns(b: int, t: int):   # pattern masking (t positions)
     n = nbits(b)
     out = []
     for idx_subset in combos(n, t):
-        m = maskpos(idx_subset, n)
+        m = maskpos(idx_subset)
         v = b & ~m
         out.append(Pattern(mask=m, val=v))
     return out

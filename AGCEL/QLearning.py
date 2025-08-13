@@ -2,6 +2,7 @@ import random
 import numpy as np
 import datetime
 from tqdm import tqdm
+from AGCEL.PA2 import QPatternCache
 
 # Training parameters
 learning_rate = 0.7  # Learning rate
