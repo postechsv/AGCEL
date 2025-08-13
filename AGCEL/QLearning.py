@@ -23,10 +23,8 @@ class QLearner():
         self.q_dict = dict() # score(s,a)
         self.v_dict = dict()
         self.scores = dict() # score(p,q)
-
-        self._mask_cache = {}
-        self.pa2_q_dict = defaultdict(lambda: defaultdict(float))
-        self.pa2_a = set()
+        self.q_abs = dict()         # score(s_abs, a)
+        self.abs_mask_sizes = (1,)  # number of masking bits (default: 1)
 
     def build_pa2(self, env):
         self.pa2_q_dict.clear()
