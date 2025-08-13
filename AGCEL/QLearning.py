@@ -56,6 +56,17 @@ class QLearner():
         # return vec, names
         return [1 if b else 0 for _, b in pairs]
     
+    # masks m bits (dim=n); keeps n-m bits
+    def keep_idx(self, n):
+        keeps = set()
+        for m in self.abs_mask_sizes:
+            k = n - m
+            if k < 0:
+                continue
+            for keep in combinations(range(n), k):
+                keeps.add(tuple(keep))
+        return keeps
+
     def get_q(self, s, a):
         q_init = self.q_init
         if s in self.q_dict:
@@ -122,31 +133,8 @@ class QLearner():
     def get_value_function(self):
         return (lambda s : self.v_dict.get(s, self.q_init))
     
-    # masks m bits (dim=n); keeps n-m bits
-    def mask(self, n, mask_sizes=(0,)):
-        key = (n, tuple(sorted(mask_sizes)))
-        if key in self._mask_cache:
-            return self._mask_cache[key]    # import from cache
-        
-        all_idx = tuple(range(n))
-        pats = set()
-
-        for m in mask_sizes:
-            for pat in combinations(all_idx, n-m):
-                pats.add(pat)
-
-        pat_list = sorted(pats)
-        self._mask_cache[key] = pat_list   # cache
-        
-        return pat_list
-
-    # PA2: V(s) = max_a { max_{s' in matching(s)} Q(s', a) }
     def get_value_function_pa2(self, env):
-
-        if not self.q_dict:
-            return self.q_init
-        
-        self.build_pa2(env)
+        pass
 
     def dump_value_function(self, filename):
         with open(filename, 'w') as f:
@@ -259,6 +247,8 @@ class QLearner():
                     reward + gamma * self.max_q(ns) - self.get_q(s, a)
                 )
                 self.set_q(s, a, nq)
+
+                # PA2: V(s) = max_a { max_{s' in matching(s)} Q(s', a) }
 
                 if done:
                     break
