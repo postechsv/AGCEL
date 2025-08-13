@@ -2,7 +2,7 @@ import random
 import numpy as np
 import datetime
 from tqdm import tqdm
-from AGCEL.PA2 import QPatternCache
+#from AGCEL.PA2 import QPatternCache
 
 # Training parameters
 learning_rate = 0.7  # Learning rate
@@ -88,6 +88,10 @@ class QLearner():
 
     def get_value_function(self):
         return (lambda s : self.v_dict.get(s, self.q_init))
+    
+    # PA2
+    def get_value_function_paa(self):
+        pass
     
     def dump_value_function(self, filename):
         with open(filename, 'w') as f:
