@@ -104,8 +104,18 @@ class QLearner():
         return (lambda s : self.v_dict.get(s, self.q_init))
     
     # PA2
-    def get_value_function_pa2(self):
-        pass
+    def get_value_function_pa2(self, env, mask_order=None):
+        if not self.v_dict:     # if no learned values, q_init
+            return self.q_init
+
+        items = []  # cache (vec, val) for all states in v_dict
+        for s, v in self.v_dict.items():
+            vec, _ = self.obs_to_vec(s, env)
+            items.append((vec, v))
+
+        n = len(items[0][0])  # vector dimension
+        if mask_order is None:  # default index order
+            mask_order = list(range(n))
     
     def dump_value_function(self, filename):
         with open(filename, 'w') as f:
