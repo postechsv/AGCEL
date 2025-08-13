@@ -34,7 +34,7 @@ class QLearner():
         for s, a_dict in self.q_dict.items():   # q_dict: state -> (a_dict) { action -> Q-value }
             vec, _ = self.obs_to_vec(s, env)
             for a, q in a_dict.items():
-                if q > self._pa2_idx[vec][a]:   # 
+                if q > self._pa2_idx[vec][a]:
                     self._pa2_idx[vec][a] = q
                 self._pa2_actions.add(a)
         
@@ -123,7 +123,7 @@ class QLearner():
         return (lambda s : self.v_dict.get(s, self.q_init))
     
     # masks m bits (dim=n); keeps n-m bits
-    def generate_mask(self, n, mask_sizes):
+    def generate_mask(self, n, mask_sizes=(0,)):
         key = (n, tuple(sorted(mask_sizes)))
         if key in self._mask_cache:
             return self._mask_cache[key]    # import from cache
@@ -144,13 +144,9 @@ class QLearner():
     def get_value_function_pa2(self, env):
         if not self.q_dict:
             return self.q_init
-
-        items = []  # cache (vec, val) for all states in v_dict
-        for s, v in self.v_dict.items():
-            vec, _ = self.obs_to_vec(s, env)
-            items.append((vec, v))
-
-        n = len(items[0][0])    # vector dimension (= number of predicates)
+        
+        self.build_pa2(env)
+        keep_sets = self.generate_mask(len(list(self._pa2_idx)[0]))
     
     def dump_value_function(self, filename):
         with open(filename, 'w') as f:
