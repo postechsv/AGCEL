@@ -148,6 +148,13 @@ class QLearner():
         self.build_pa2(env)
         keep_sets = self.generate_mask(len(list(self._pa2_idx)[0]))
     
+        def V_pa2(obs_term):
+            vec, _ = self.obs_to_vec(obs_term, env)
+            if vec in self._pa2_idx:    # exact (no masking)
+                return max(self._pa2_idx[vec][a] for a in self._pa2_actions) if self._pa2_actions else self.q_init
+            return self.q_init
+        return V_pa2
+
     def dump_value_function(self, filename):
         with open(filename, 'w') as f:
             for s, _ in self.v_dict.items():
