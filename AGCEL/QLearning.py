@@ -36,6 +36,9 @@ class QLearner():
             if cand[i] != vec[i]:
                 return False
         return True
+    
+    def aggregate(self, vals):
+        return max(vals) if vals else self.q_init
 
     def get_q(self, s, a):
         q_init = self.q_init
@@ -105,7 +108,7 @@ class QLearner():
     
     # PA2
     def get_value_function_pa2(self, env, mask_order=None):
-        if not self.v_dict:     # if no learned values, q_init
+        if not self.q_dict:
             return self.q_init
 
         items = []  # cache (vec, val) for all states in v_dict
@@ -113,7 +116,7 @@ class QLearner():
             vec, _ = self.obs_to_vec(s, env)
             items.append((vec, v))
 
-        n = len(items[0][0])  # vector dimension
+        n = len(items[0][0])    # vector dimension (= number of predicates)
         if mask_order is None:  # default index order
             mask_order = list(range(n))
     
