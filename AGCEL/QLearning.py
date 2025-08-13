@@ -31,6 +31,12 @@ class QLearner():
         vec = tuple(m.get(name, 0) for name in pred_order)  # (1, 0, 1)
         return vec, pred_order
 
+    def match_idx(self, vec, cand, idx):
+        for i in idx:
+            if cand[i] != vec[i]:
+                return False
+        return True
+
     def get_q(self, s, a):
         q_init = self.q_init
         if s in self.q_dict:
