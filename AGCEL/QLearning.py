@@ -23,6 +23,14 @@ class QLearner():
         self.v_dict = dict()
         self.scores = dict() # score(p,q)
         
+    # obs(...) term to a boolean vector
+    def obs_to_vec(self, obs_term, env):
+        pairs = env.extract_predicate_vector(obs_term)      # [('p1', True), ('p2', False), ('p3', True)]
+        pred_order = [name for name, _ in pairs]            # ['p1', 'p2', 'p3']
+        m = {name: int(val) for name, val in pairs}         # {'p1': 1, 'p2': 0, 'p3': 1}
+        vec = tuple(m.get(name, 0) for name in pred_order)  # (1, 0, 1)
+        return vec, pred_order
+
     def get_q(self, s, a):
         q_init = self.q_init
         if s in self.q_dict:
@@ -90,7 +98,7 @@ class QLearner():
         return (lambda s : self.v_dict.get(s, self.q_init))
     
     # PA2
-    def get_value_function_paa(self):
+    def get_value_function_pa2(self):
         pass
     
     def dump_value_function(self, filename):
@@ -176,9 +184,10 @@ class QLearner():
                 nq = q + learning_rate * (r + gamma * max_next_q - q)
                 self.set_q(s, a, nq)
 
-        #print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
+        print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
         self.make_v_dict()
         
+
     def train(self, env, n_training_episodes):
         for episode in tqdm(range(n_training_episodes)):
             # Reduce epsilon (because we need less and less exploration)
