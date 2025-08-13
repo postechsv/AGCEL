@@ -26,6 +26,17 @@ class QLearner():
         self._mask_cache = {}
         self._pa2_idx = defaultdict(lambda: defaultdict(float))
         self._pa2_actions = set()
+
+    def build_pa2(self, env):
+        self._pa2_idx.clear()
+        self._pa2_actions.clear()
+
+        for s, a_dict in self.q_dict.items():   # q_dict: state -> (a_dict) { action -> Q-value }
+            vec, _ = self.obs_to_vec(s, env)
+            for a, q in a_dict.items():
+                if q > self._pa2_idx[vec][a]:   # 
+                    self._pa2_idx[vec][a] = q
+                self._pa2_actions.add(a)
         
     # obs(...) term to a boolean vector
     def obs_to_vec(self, obs_term, env):
