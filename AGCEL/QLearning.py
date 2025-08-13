@@ -3,6 +3,7 @@ import numpy as np
 import datetime
 from tqdm import tqdm
 from itertools import combinations
+from collections import defaultdict
 
 # Training parameters
 learning_rate = 0.7  # Learning rate
@@ -23,7 +24,8 @@ class QLearner():
         self.v_dict = dict()
         self.scores = dict() # score(p,q)
         self._mask_cache = {}
-        #self._pa2_eval_cache = {}
+        self._pa2_idx = defaultdict(lambda: defaultdict(float))
+        self._pa2_actions = set()
         
     # obs(...) term to a boolean vector
     def obs_to_vec(self, obs_term, env):
@@ -119,7 +121,7 @@ class QLearner():
         keeps = set()
 
         for m in mask_sizes:
-            for keep in combinations(all_idx, n - m):
+            for keep in combinations(all_idx, n-m):
                 keeps.add(keep)
 
         keep_list = sorted(keeps)
@@ -127,7 +129,7 @@ class QLearner():
         
         return keep_list
 
-    # PA2
+    # PA2: V(s) = max_a { max_{s' in matching(s)} Q(s', a) }
     def get_value_function_pa2(self, env):
         if not self.q_dict:
             return self.q_init
