@@ -22,7 +22,7 @@ class QLearner():
         self.q_dict = dict() # score(s,a)
         self.v_dict = dict()
         self.scores = dict() # score(p,q)
-        #self._mask_cache = {}
+        self._mask_cache = {}
         #self._pa2_eval_cache = {}
         
     # obs(...) term to a boolean vector
@@ -109,6 +109,24 @@ class QLearner():
     def get_value_function(self):
         return (lambda s : self.v_dict.get(s, self.q_init))
     
+    # masks m bits (dim=n); keeps n-m bits
+    def generate_mask(self, n, mask_sizes):
+        key = (n, tuple(sorted(mask_sizes)))
+        if key in self._mask_cache:
+            return self._mask_cache[key]    # import from cache
+        
+        all_idx = tuple(range(n))
+        keeps = set()
+
+        for m in mask_sizes:
+            for keep in combinations(all_idx, n - m):
+                keeps.add(keep)
+
+        keep_list = sorted(keeps)
+        self._mask_cache[key] = keep_list   # cache
+        
+        return keep_list
+
     # PA2
     def get_value_function_pa2(self, env):
         if not self.q_dict:
