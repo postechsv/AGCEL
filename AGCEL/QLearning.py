@@ -23,24 +23,46 @@ class QLearner():
         self.q_dict = dict() # score(s,a)
         self.v_dict = dict()
         self.scores = dict() # score(p,q)
+
         self._mask_cache = {}
-        self._pa2_idx = defaultdict(lambda: defaultdict(float))
-        self._pa2_actions = set()
+        self.pa2_q_dict = defaultdict(lambda: defaultdict(float))
+        self.pa2_a = set()
 
     def build_pa2(self, env):
-        self._pa2_idx.clear()
-        self._pa2_actions.clear()
+        self.pa2_q_dict.clear()
+        self.pa2_a.clear()
 
         for s, a_dict in self.q_dict.items():   # q_dict: state -> (a_dict) { action -> Q-value }
             vec, _ = self.obs_to_vec(s, env)
             for a, q in a_dict.items():
-                if q > self._pa2_idx[vec][a]:
-                    self._pa2_idx[vec][a] = q
-                self._pa2_actions.add(a)
+                if q > self.pa2_q_dict[vec][a]:
+                    self.pa2_q_dict[vec][a] = q
+                self.pa2_a.add(a)
         
     # obs(...) term to a boolean vector
-    def obs_to_vec(self, obs_term, env):
-        pairs = env.extract_predicate_vector(obs_term)  # [('p1', True), ('p2', False), ('p3', True)]
+    def obs_to_vec(self, obs_term):
+        # Extract predicate names and their truth values from obs(...)
+        def extract_predicate_vector(obs_term):
+            preds = []
+            pred_container = list(obs_term.arguments())[0]
+
+            def flatten(t):
+                sym = str(t.symbol())
+                if sym in ('_;_', 'and', '_`,_'):
+                    for arg in t.arguments():
+                        flatten(arg)
+                elif sym == '_:_' and len(list(t.arguments())) == 2:
+                    pred_term = list(t.arguments())[0]
+                    bool_term = list(t.arguments())[1]
+                    pname = str(pred_term.symbol())
+                    val = str(bool_term.symbol()).lower() == 'true'
+                    preds.append((pname, val))
+
+            flatten(pred_container)
+            print(f'[LOG] Final predicate vector: {preds}')
+            return preds
+
+        pairs = extract_predicate_vector(obs_term)  # [('p1', True), ('p2', False), ('p3', True)]
         names = [name for name, _ in pairs]             # ['p1', 'p2', 'p3']
         m = {name: int(val) for name, val in pairs}     # {'p1': 1, 'p2': 0, 'p3': 1}
         vec = tuple(m.get(name, 0) for name in names)   # (1, 0, 1)
@@ -123,37 +145,30 @@ class QLearner():
         return (lambda s : self.v_dict.get(s, self.q_init))
     
     # masks m bits (dim=n); keeps n-m bits
-    def generate_mask(self, n, mask_sizes=(0,)):
+    def mask(self, n, mask_sizes=(0,)):
         key = (n, tuple(sorted(mask_sizes)))
         if key in self._mask_cache:
             return self._mask_cache[key]    # import from cache
         
         all_idx = tuple(range(n))
-        keeps = set()
+        pats = set()
 
         for m in mask_sizes:
-            for keep in combinations(all_idx, n-m):
-                keeps.add(keep)
+            for pat in combinations(all_idx, n-m):
+                pats.add(pat)
 
-        keep_list = sorted(keeps)
-        self._mask_cache[key] = keep_list   # cache
+        pat_list = sorted(pats)
+        self._mask_cache[key] = pat_list   # cache
         
-        return keep_list
+        return pat_list
 
     # PA2: V(s) = max_a { max_{s' in matching(s)} Q(s', a) }
     def get_value_function_pa2(self, env):
+
         if not self.q_dict:
             return self.q_init
         
         self.build_pa2(env)
-        keep_sets = self.generate_mask(len(list(self._pa2_idx)[0]))
-    
-        def V_pa2(obs_term):
-            vec, _ = self.obs_to_vec(obs_term, env)
-            if vec in self._pa2_idx:    # exact (no masking)
-                return max(self._pa2_idx[vec][a] for a in self._pa2_actions) if self._pa2_actions else self.q_init
-            return self.q_init
-        return V_pa2
 
     def dump_value_function(self, filename):
         with open(filename, 'w') as f:

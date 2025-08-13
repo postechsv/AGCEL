@@ -65,24 +65,24 @@ class MaudeEnv():
         else:
             return False
         
-    # Extract predicate names and their truth values from obs(...)
-    def extract_predicate_vector(obs_term):
+    # # Extract predicate names and their truth values from obs(...)
+    # def extract_predicate_vector(self, obs_term):
 
-        preds = []
-        pred_container = list(obs_term.arguments())[0]
+    #     preds = []
+    #     pred_container = list(obs_term.arguments())[0]
 
-        def flatten(t):
-            sym = str(t.symbol())
-            if sym in ('_;_', 'and', '_`,_'):
-                for arg in t.arguments():
-                    flatten(arg)
-            elif sym == '_:_' and len(list(t.arguments())) == 2:
-                pred_term = list(t.arguments())[0]
-                bool_term = list(t.arguments())[1]
-                pname = str(pred_term.symbol())
-                val = str(bool_term.symbol()).lower() == 'true'
-                preds.append((pname, val))
+    #     def flatten(t):
+    #         sym = str(t.symbol())
+    #         if sym in ('_;_', 'and', '_`,_'):
+    #             for arg in t.arguments():
+    #                 flatten(arg)
+    #         elif sym == '_:_' and len(list(t.arguments())) == 2:
+    #             pred_term = list(t.arguments())[0]
+    #             bool_term = list(t.arguments())[1]
+    #             pname = str(pred_term.symbol())
+    #             val = str(bool_term.symbol()).lower() == 'true'
+    #             preds.append((pname, val))
 
-        flatten(pred_container)
-        print(f'[LOG] Final predicate vector: {preds}')
-        return preds
+    #     flatten(pred_container)
+    #     print(f'[LOG] Final predicate vector: {preds}')
+    #     return preds
