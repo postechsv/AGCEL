@@ -25,21 +25,10 @@ class QLearner():
         self.scores = dict() # score(p,q)
         self.q_abs = dict()         # score(s_abs, a)
         self.abs_mask_sizes = (1,)  # number of masking bits (default: 1)
-
-    def build_pa2(self, env):
-        self.pa2_q_dict.clear()
-        self.pa2_a.clear()
-
-        for s, a_dict in self.q_dict.items():   # q_dict: state -> (a_dict) { action -> Q-value }
-            vec, _ = self.obs_to_vec(s, env)
-            for a, q in a_dict.items():
-                if q > self.pa2_q_dict[vec][a]:
-                    self.pa2_q_dict[vec][a] = q
-                self.pa2_a.add(a)
         
-    # obs(...) term to a boolean vector
-    def obs_to_vec(self, obs_term):
-        # Extract predicate names and their truth values from obs(...)
+    # obs term to a boolean list
+    def parse_obs(self, obs_term):
+        # extract predicate names and their truth values from obs(...)
         def extract_predicate_vector(obs_term):
             preds = []
             pred_container = list(obs_term.arguments())[0]
@@ -61,21 +50,12 @@ class QLearner():
             return preds
 
         pairs = extract_predicate_vector(obs_term)  # [('p1', True), ('p2', False), ('p3', True)]
-        names = [name for name, _ in pairs]             # ['p1', 'p2', 'p3']
-        m = {name: int(val) for name, val in pairs}     # {'p1': 1, 'p2': 0, 'p3': 1}
-        vec = tuple(m.get(name, 0) for name in names)   # (1, 0, 1)
-        return vec, names
-
-    # check for a partial match by idx
-    def match_idx(self, vec, cand, idx):
-        for i in idx:
-            if cand[i] != vec[i]:
-                return False
-        return True
-
-    def aggregate(self, vals):
-        return max(vals) if vals else self.q_init
-
+        # names = [name for name, _ in pairs]             # ['p1', 'p2', 'p3']
+        # m = {name: int(val) for name, val in pairs}     # {'p1': 1, 'p2': 0, 'p3': 1}
+        # vec = tuple(m.get(name, 0) for name in names)   # (1, 0, 1)
+        # return vec, names
+        return [1 if b else 0 for _, b in pairs]
+    
     def get_q(self, s, a):
         q_init = self.q_init
         if s in self.q_dict:
