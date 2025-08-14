@@ -7,7 +7,7 @@ import time
 import sys
 
 # Usage: python3 test.py <maude_model> <init_term> <goal_prop> <qtable_file>
-# python3 test.py testcases/filter-5.maude init twoCrits trained/filter-init3-twoCrits-500-o1.agcel
+# python3 test.py testcases/filter-5.maude init twoCrits trained/filter-init3-twoCrits-500-o1
 
 model = sys.argv[1]
 init = sys.argv[2]
@@ -44,7 +44,7 @@ if res0[0]:
 # ----- SEARCH WITH QTABLE -----
 print('\n=== SEARCH WITH QTABLE ===')
 learner = QLearner()
-learner.load_value_function(qtable_file, m)
+learner.load_value_function(qtable_file + ".agcel", m)
 V = learner.get_value_function()
 
 start_time = time.perf_counter()
@@ -59,6 +59,7 @@ if res[0]:
 
 # ----- SEARCH WITH Q_ABS -----
 print('\n=== SEARCH WITH Q_ABS ===')
+learner.load_abs_table(qtable_file + ".abs")
 V_abs = learner.get_value_function_abs()
 
 start_time = time.perf_counter()
