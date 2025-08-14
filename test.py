@@ -62,3 +62,16 @@ print(f'[QTABLE] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
 if res[0]:
     print('[QTABLE] Goal reached!')
     # res[1].print_term()
+
+# ----- SEARCH WITH Q_ABS -----
+print('\n=== SEARCH WITH Q_ABS ===')
+V_abs = learner.get_value_function_abs()
+
+start_time = time.perf_counter()
+res_abs = Search().search(n0, V_abs, 9999)
+end_time = time.perf_counter()
+
+print('[PA2] n_states:', res_abs[2])
+print(f'[PA2] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
+if res_abs[0]:
+    print('[PA2] Goal reached!')
