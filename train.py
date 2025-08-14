@@ -42,7 +42,7 @@ t0 = time.time()
 warm_learner.train(env, episode)
 t1 = time.time()
 warm_learner.dump_value_function(warm_output_file + '.agcel')
-warm_learner.dump_abs_table(warm_output_file + ".pa2")
+warm_learner.dump_abs_table(warm_output_file + ".abs")
 
 # Cold-start learner
 # print('\n=== WITHOUT ORACLE ===')

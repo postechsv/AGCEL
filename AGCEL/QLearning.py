@@ -149,7 +149,14 @@ class QLearner():
     # PA2: V(s) = max_{s' in matching(s)} { max_a Q(s', a) }
     def get_value_function_abs(self):
         if not self.q_abs:
-            return (lambda obs_term: self.q_init)
+            return (lambda _: self.q_init)
+
+        ####################################################
+        idx = {}
+        for (keep, keep_vals), by_act in self.q_abs.items():
+            d = idx.setdefault(keep, {})
+            d[keep_vals] = max(by_act.values()) if by_act else self.q_init
+        ####################################################
 
         def V_abs(obs_term):
             vals = self.parse_obs(obs_term)
@@ -177,7 +184,8 @@ class QLearner():
             for (keep, keep_vals), by_act in self.q_abs.items():
                 max_q = max(by_act.values()) if by_act else self.q_init
                 f.write(
-                    f'keep={list(keep)}, vals={list(keep_vals)} |-> {max_q} ; {by_act}\n'
+                    # keep=[...], keep_vals=[...] |-> <max_q> ; { 'act1':q1, 'act2':q2, ... }
+                    f'keep={list(keep)}, keep_vals={list(keep_vals)} |-> {max_q} ; {by_act}\n'
                 )
 
     def load_value_function(self, filename, m):
@@ -189,6 +197,25 @@ class QLearner():
                 state.reduce()
                 value = float(value)
                 self.v_dict[state] = value
+
+    ####################################################
+    def load_abs_table(self, filename):
+        self.q_abs = {}
+        with open(filename) as f:
+            for line in f:
+                left, right = line.split("|->")
+                max_q, a_dict = right.split(";")
+                keep_str = left.split("keep=")[1].split(", keep_vals=")[0].strip()
+                keep_vals_str = left.split("keep_vals=")[1].strip()
+                keep = tuple(int(x) for x in keep_str.strip("[]").split(",") if x.strip()!="")
+                keep_vals = tuple(int(x) for x in keep_vals_str.strip().strip("[]").split(",") if x.strip()!="")
+                by_act = {}
+                if "{" in a_dict:
+                    for max_q in a_dict.split("{",1)[1].rsplit("}",1)[0].strip().split(","):
+                        a,q = max_q.split(":")
+                        by_act[a.strip().strip("'")] = float(q)
+                self.q_abs[(keep, keep_vals)] = by_act
+    ####################################################
 
     def greedy_policy(self, obs):
         # returns -1 for error
