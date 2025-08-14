@@ -3,7 +3,6 @@ import numpy as np
 import datetime
 from tqdm import tqdm
 from itertools import combinations
-from collections import defaultdict
 
 # Training parameters
 learning_rate = 0.7  # Learning rate
@@ -150,7 +149,7 @@ class QLearner():
     # PA2: V(s) = max_{s' in matching(s)} { max_a Q(s', a) }
     def get_value_function_abs(self):
         if not self.q_abs:
-            return self.q_init
+            return (lambda obs_term: self.q_init)
 
         def V_abs(obs_term):
             vals = self.parse_obs(obs_term)
