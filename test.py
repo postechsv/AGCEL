@@ -56,24 +56,3 @@ print(f'[QTABLE] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
 if res[0]:
     print('[QTABLE] Goal reached!')
     # res[1].print_term()
-
-
-# # ----- SEARCH WITH LOCAL REGRESSION -----
-# from AGCEL.LocalRegression import LocalRegressionScore
-
-# print('\n=== SEARCH WITH LOCAL REGRESSION ===')
-# k = 1
-# min_nbrs = 5
-# loc_reg = LocalRegressionScore(k, min_nbrs)
-# loc_reg.train(qtable_file)
-# V_loc = loc_reg.get_value_function()
-
-# start_time = time.perf_counter()
-# res_loc = Search().search(n0, V_loc, 9999)
-# end_time = time.perf_counter()
-
-# print(f'[LOCAL REG] LocalRegressionScore(k={k}, min_nbrs={min_nbrs})')
-# print('[LOCAL REG] n_states:', res_loc[2])
-# print(f'[LOCAL REG] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
-# if res_loc[0]:
-#     print('[LOCAL REG] Goal reached!')

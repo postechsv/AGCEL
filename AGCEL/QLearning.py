@@ -46,7 +46,7 @@ class QLearner():
                     preds.append((pname, val))
 
             flatten(pred_container)
-            print(f'[LOG] Final predicate vector: {preds}')
+            #print(f'[LOG] Final predicate vector: {preds}')
             return preds
 
         pairs = extract_predicate_vector(obs_term)  # [('p1', True), ('p2', False), ('p3', True)]
@@ -68,9 +68,10 @@ class QLearner():
         return keeps
 
     # update q_abs: when updating Q(s,a)=q, max all s_abs of s
-    def set_q_abs(self, s, a, q, env):
+    def set_q_abs(self, s, a, q):
         vals = self.parse_obs(s)
         n = len(vals)
+
         for keep in self.keep_idx(n):
             keep_vals = tuple(vals[i] for i in keep)
             s_abs = (keep, keep_vals)
@@ -146,13 +147,39 @@ class QLearner():
     def get_value_function(self):
         return (lambda s : self.v_dict.get(s, self.q_init))
     
-    def get_value_function_pa2(self, env):
-        pass
+    # PA2: V(s) = max_{s' in matching(s)} { max_a Q(s', a) }
+    def get_value_function_abs(self):
+        if not self.q_abs:
+            return self.q_init
+
+        def V_abs(obs_term):
+            vals = self.parse_obs(obs_term)
+            best = self.q_init
+
+            for (keep, keep_vals), a in self.q_abs.items(): # s_abs = (keep, keep_vals)
+                proj = tuple(vals[i] for i in keep) # projection of keep idx
+                if proj != keep_vals:
+                    continue
+                cand = max(a.values()) if a else self.q_init  # max among max_a Q per action
+                if cand > best:
+                    best = cand
+
+            return best
+
+        return V_abs
 
     def dump_value_function(self, filename):
         with open(filename, 'w') as f:
             for s, _ in self.v_dict.items():
                 f.write(f'{s} |-> {self.v_dict[s]}\n')
+
+    def dump_abs_table(self, filename):
+        with open(filename, 'w') as f:
+            for (keep, keep_vals), by_act in self.q_abs.items():
+                max_q = max(by_act.values()) if by_act else self.q_init
+                f.write(
+                    f'keep={list(keep)}, vals={list(keep_vals)} |-> {max_q} ; {by_act}\n'
+                )
 
     def load_value_function(self, filename, m):
         self.v_dict = dict()
@@ -231,7 +258,7 @@ class QLearner():
                 q = self.get_q(s, a)
                 nq = q + learning_rate * (r + gamma * max_next_q - q)
                 self.set_q(s, a, nq)
-                self.set_q_abs(s, a, nq, env)
+                self.set_q_abs(s, a, nq)
 
         print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
         self.make_v_dict()
@@ -261,9 +288,7 @@ class QLearner():
                     reward + gamma * self.max_q(ns) - self.get_q(s, a)
                 )
                 self.set_q(s, a, nq)
-                self.set_q_abs(s, a, nq, env)
-
-                # PA2: V(s) = max_a { max_{s' in matching(s)} Q(s', a) }
+                self.set_q_abs(s, a, nq)
 
                 if done:
                     break

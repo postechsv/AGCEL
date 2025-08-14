@@ -16,7 +16,7 @@ trace_path = sys.argv[5]
 output_prefix = sys.argv[6]
 
 trace_suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
-warm_output_file = output_prefix + trace_suffix + '.agcel'
+warm_output_file = output_prefix + trace_suffix
 
 # === Setup ===
 maude.init()
@@ -40,26 +40,18 @@ warm_size_before = warm_learner.get_size()
 t0 = time.time()
 warm_learner.train(env, episode)
 t1 = time.time()
-warm_learner.dump_value_function(warm_output_file)
-
-# print(f'[LOG] Raw Q-table entries: {count_qtable_entries(warm_learner.q_dict)}')
-# warm_compressed_q = compress_qtable_pairwise(warm_learner.q_dict)
-# print(f'[LOG] Compressed Q-table entries: {len(warm_compressed_q)}')
-# sample_keys = list(warm_compressed_q.keys())
-# for k in sample_keys:
-#     print(f'[LOG] Sample key: {k} -> {warm_compressed_q[k]:.4f}')
-
+warm_learner.dump_value_function(warm_output_file + '.agcel')
+warm_learner.dump_abs_table(warm_output_file + ".pa2")
 
 # Cold-start learner
-print('\n=== WITHOUT ORACLE ===')
-cold_learner = QLearner()
-t2 = time.time()
-cold_learner.train(env, episode)
-t3 = time.time()
-
+# print('\n=== WITHOUT ORACLE ===')
+# cold_learner = QLearner()
+# t2 = time.time()
+# cold_learner.train(env, episode)
+# t3 = time.time()
 
 # Result
 print('\n=== SUMMARY ===')
 print(f'[Warm] Training time: {t1 - t0:.2f}s, # Entries: {warm_size_before} -> {warm_learner.get_size()}')
 print(f'       Value function: {warm_output_file.split('/')[-1]}')
-print(f'[Cold] Training time: {t3 - t2:.2f}s, # Entries: {cold_learner.get_size()}')
+#print(f'[Cold] Training time: {t3 - t2:.2f}s, # Entries: {cold_learner.get_size()}')
