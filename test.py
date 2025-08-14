@@ -62,23 +62,3 @@ print(f'[QTABLE] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
 if res[0]:
     print('[QTABLE] Goal reached!')
     # res[1].print_term()
-
-
-# ----- SEARCH WITH REGRESSION -----
-print('\n=== SEARCH WITH REGRESSION ===')
-
-# Load data, regression model
-reg = RegressionScore()
-reg.train(qtable_file)
-
-V_reg = reg.get_value_function()
-
-start_time = time.perf_counter()
-res_reg = Search().search(n0, V_reg, 9999)
-end_time = time.perf_counter()
-
-print('[REGRESSION] n_states:', res_reg[2])
-print(f'[REGRESSION] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
-if res_reg[0]:
-    print('[REGRESSION] Goal reached!')
-    # res_reg[1].print_term()
