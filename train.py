@@ -4,18 +4,20 @@ from AGCEL.QLearning import QLearner
 import sys
 import time
 
-# Usage: python3 train.py <maude_model> <init_term> <goal_prop> <episode> <trace_path> <output_prefix>
-# python3 train.py benchmarks/filter-analysis.maude init twoCrits 500 traces/filter-init3-twoCrits-1.trace trained/filter-init3-twoCrits-500
+# Usage: python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <trace_path> <output_file_prefix>
+# python3 train.py benchmarks/filter-analysis.maude init twoCrits 500 traces/filter-init4-twoCrits-1.trace trained/filter-init4-twoCrits-500
 
 model_path = sys.argv[1]
 init_term = sys.argv[2]
 goal_prop = sys.argv[3]
-episode = int(sys.argv[4])
+num_samples = int(sys.argv[4])
 trace_path = sys.argv[5]
 output_prefix = sys.argv[6]
 
+# === Extract suffix from trace file name ===
 trace_suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
-warm_output_file = output_prefix + trace_suffix
+oracle_output_file = output_prefix + trace_suffix + '.agcel'
+cold_output_file = output_prefix + "-cold" + trace_suffix[2:] + ".agcel"
 
 # === Setup ===
 maude.init()
@@ -28,31 +30,38 @@ print('\n=== TRAINING SETUP ===')
 print(f'Module: {m}')
 print(f'Init term: {init_term}')
 print(f'Goal proposition: {goal_prop}')
-print(f'Episodes: {episode}')
-print(f'Trace file: {trace_path}')
+print(f'Training samples: {num_samples}')
 print(f'Trace file: {trace_path}')
 print(f'Output prefix: {output_prefix}')
 
-# Warm-start (Oracle-pretrained) learner
-print('\n=== WITH ORACLE ===')
-warm_learner = QLearner()
-warm_learner.pretrain(env, trace_path)
-warm_size_before = warm_learner.get_size()
+# Oracle-pretrained learner
+print('\n=== [WITH ORACLE] ===')
+learner_oracle = QLearner()
 t0 = time.time()
-warm_learner.train(env, episode)
+learner_oracle.pretrain(env, trace_path)
+oracle_size_before = learner_oracle.get_size()
+#print(f'Oracle QTable size (Before Training): {oracle_size_before}')
+learner_oracle.train(env, num_samples)
 t1 = time.time()
-warm_learner.dump_value_function(warm_output_file + '.agcel')
-warm_learner.dump_abs_table(warm_output_file + ".abs")
+learner_oracle.dump_value_function(oracle_output_file)
+#print(f'Oracle QTable size (After Training): {learner_oracle.get_size()}')
+#print(f'Oracle training time: {t1 - t0:.2f}s')
+#print(f'Output: {oracle_output_file.split('/')[-1]}')
 
 # Cold-start learner
-# print('\n=== WITHOUT ORACLE ===')
-# cold_learner = QLearner()
-# t2 = time.time()
-# cold_learner.train(env, episode)
-# t3 = time.time()
+print('\n=== [WITHOUT ORACLE] ===')
+learner_cold = QLearner()
+t2 = time.time()
+learner_cold.train(env, num_samples)
+t3 = time.time()
+learner_cold.dump_value_function(cold_output_file)
+#print(f'Cold QTable size: {learner_cold.get_size()}')
+#print(f'Cold training time: {t3 - t2:.2f}s')
+#print(f'Output: {cold_output_file.split('/')[-1]}')
 
 # Result
 print('\n=== SUMMARY ===')
-print(f'[Warm] Training time: {t1 - t0:.2f}s, # Entries: {warm_size_before} -> {warm_learner.get_size()}')
-print(f'       Value function: {warm_output_file.split('/')[-1]}')
-#print(f'[Cold] Training time: {t3 - t2:.2f}s, # Entries: {cold_learner.get_size()}')
+print(f'[Oracle] Training time: {t1 - t0:.2f}s, # Entries: {oracle_size_before} -> {learner_oracle.get_size()}')
+print(f'         Value function: {oracle_output_file.split('/')[-1]}')
+print(f'[Cold]   Training time: {t3 - t2:.2f}s, # Entries: {learner_cold.get_size()}')
+print(f'         Value function: {cold_output_file.split('/')[-1]}')

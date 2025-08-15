@@ -246,8 +246,8 @@ class QLearner():
                         return a
         return -1
 
-    def pretrain(self, env, trace_path, repeat=100):
-        from AGCEL.Parser import parse_trace
+    def pretrain(self, env, trace_path, repeat=10):
+        from AGCEL.TraceParser import parse_trace
 
         trace = parse_trace(trace_path)
         matched = 0
@@ -291,7 +291,6 @@ class QLearner():
         print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
         self.make_v_dict()
         
-
     def train(self, env, n_training_episodes):
         for episode in tqdm(range(n_training_episodes)):
             # Reduce epsilon (because we need less and less exploration)

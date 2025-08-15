@@ -1,10 +1,5 @@
+AGCEL/__pychache__/
 old/
 trained/
 .DS_Store
 log/
-AGCEL/__pycache__/
-# Byte-compiled / cache
-__pycache__/
-*.pyc
-/log/
-.DS_Store
