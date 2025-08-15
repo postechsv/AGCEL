@@ -17,7 +17,6 @@ output_prefix = sys.argv[6]
 # === Extract suffix from trace file name ===
 trace_suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
 oracle_output_file = output_prefix + trace_suffix + '.agcel'
-cold_output_file = output_prefix + "-cold" + trace_suffix[2:] + ".agcel"
 
 # === Setup ===
 maude.init()
@@ -54,7 +53,6 @@ learner_cold = QLearner()
 t2 = time.time()
 learner_cold.train(env, num_samples)
 t3 = time.time()
-learner_cold.dump_value_function(cold_output_file)
 #print(f'Cold QTable size: {learner_cold.get_size()}')
 #print(f'Cold training time: {t3 - t2:.2f}s')
 #print(f'Output: {cold_output_file.split('/')[-1]}')
@@ -64,4 +62,3 @@ print('\n=== SUMMARY ===')
 print(f'[Oracle] Training time: {t1 - t0:.2f}s, # Entries: {oracle_size_before} -> {learner_oracle.get_size()}')
 print(f'         Value function: {oracle_output_file.split('/')[-1]}')
 print(f'[Cold]   Training time: {t3 - t2:.2f}s, # Entries: {learner_cold.get_size()}')
-print(f'         Value function: {cold_output_file.split('/')[-1]}')
