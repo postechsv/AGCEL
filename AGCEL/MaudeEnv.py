@@ -1,39 +1,5 @@
-"""
-Author : Byoungho Son (byhoson@postech.ac.kr)
-"""
 import random
 #from AGCEL.common import Action
-
-"""
-__init__ : Constructor for MaudeEnv
-------------------------------------
-- m (maude.Module) : Maude module to be analyzed
-- goal (string) : goal property for the reachability analysis
-- initializer (Unit -> string) : a function that returns the string for init term
-
-
-reset : reset the current state to a particular state
-------------------------------------
-
-get_obs : returns a dictionary of observations to the current state
-------------------------------------
-
-step : given an action a, apply a to the current state and update it
-------------------------------------
-
-obs : given a maude term t, apply obs to t in the Maude level
-------------------------------------
-
-obs_act : given a maude term t for an action, return the python object for that action
-------------------------------------
-
-get_rew : get the utility for the current state
-------------------------------------
-
-is_done : returns true iff current state is an endstate
-------------------------------------
-
-"""
 
 class MaudeEnv():
     def __init__(self, m, goal, initializer):

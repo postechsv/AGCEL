@@ -2,48 +2,65 @@ import maude
 from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
 import sys
+import time
 
-# e.g. python3 train.py ./benchmarks/filter-analysis.maude init twoCrits 500 trained/filter-init3-twoCrits-500.agcel
+# Usage: python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <trace_path> <output_file_prefix>
+# python3 train.py benchmarks/filter-analysis.maude init twoCrits 500 traces/filter-init4-twoCrits-1.trace trained/filter-init4-twoCrits-500
 
-model = sys.argv[1]
-init = sys.argv[2]
-prop = sys.argv[3]
-N = int(sys.argv[4])
-filename = sys.argv[5]
+model_path = sys.argv[1]
+init_term = sys.argv[2]
+goal_prop = sys.argv[3]
+num_samples = int(sys.argv[4])
+trace_path = sys.argv[5]
+output_prefix = sys.argv[6]
 
+# === Extract suffix from trace file name ===
+trace_suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
+oracle_output_file = output_prefix + trace_suffix + '.agcel'
+cold_output_file = output_prefix + "-cold" + trace_suffix[2:] + ".agcel"
+
+# === Setup ===
 maude.init()
-maude.load(model)
+maude.load(model_path)
 m = maude.getCurrentModule()
+env = MaudeEnv(m, goal_prop, lambda: init_term)
 
-env = MaudeEnv(m,prop,lambda : init)
+print('\n=== TRAINING SETUP ===')
+print(f'Module: {m}')
+print(f'Init term: {init_term}')
+print(f'Goal proposition: {goal_prop}')
+print(f'Training samples: {num_samples}')
+print(f'Trace file: {trace_path}')
+print(f'Output prefix: {output_prefix}')
 
-### Train
-print('=== TRAINING ===')
-learner = QLearner()
-print(f'TASK: Module({m}), Init({init}) |= Goal({prop})')
-print(f'NUM_DATA: {N} samples')
-learner.train(env, N)
-print('=== RESULT ===')
-print('qtable size :', learner.get_size())
-#learner.dump(f'qtable-{prop}.maude', str(m), prop)
-learner.dump_value_function(filename)
+# Oracle-pretrained learner
+print('\n=== [WITH ORACLE] ===')
+learner_oracle = QLearner()
+t0 = time.time()
+learner_oracle.pretrain(env, trace_path)
+oracle_size_before = learner_oracle.get_size()
+#print(f'Oracle QTable size (Before Training): {oracle_size_before}')
+learner_oracle.train(env, num_samples)
+t1 = time.time()
+learner_oracle.dump_value_function(oracle_output_file)
+#print(f'Oracle QTable size (After Training): {learner_oracle.get_size()}')
+#print(f'Oracle training time: {t1 - t0:.2f}s')
+#print(f'Output: {oracle_output_file.split('/')[-1]}')
 
+# Cold-start learner
+print('\n=== [WITHOUT ORACLE] ===')
+learner_cold = QLearner()
+t2 = time.time()
+learner_cold.train(env, num_samples)
+t3 = time.time()
+learner_cold.dump_value_function(cold_output_file)
+#print(f'Cold QTable size: {learner_cold.get_size()}')
+#print(f'Cold training time: {t3 - t2:.2f}s')
+#print(f'Output: {cold_output_file.split('/')[-1]}')
 
-#learner.dump2(f'score-{prop}.maude', m, prop)
-#print('dumped qtable : qtable.maude')
-
-
-### Search right after training ###
-from AGCEL.AStar import *
-
-#init = m.parseTerm('init3')
-#init.reduce()
-#n0 = Node(m, init)
-#V = learner.get_value_function()
-#res = Search().search(n0, V, 9999)
-
-#if res[0]:
-#    print('n_states:', res[2])
-#    res[1].print_term()
-
-
+# Result
+print('\n=== SUMMARY ===')
+print(f'[Oracle] Training time: {t1 - t0:.2f}s, # Entries: {oracle_size_before} -> {learner_oracle.get_size()}')
+print(f'         Value function: {oracle_output_file.split('/')[-1]}')
+print(f'[Cold]   Training time: {t3 - t2:.2f}s, # Entries: {learner_cold.get_size()}')
+print(f'         Value function: {cold_output_file.split('/')[-1]}')
