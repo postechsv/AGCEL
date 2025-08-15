@@ -132,7 +132,7 @@ class QLearner():
         return -1
 
     def pretrain(self, env, trace_path, repeat=10):
-        from AGCEL.Parser import parse_trace
+        from AGCEL.TraceParser import parse_trace
 
         trace = parse_trace(trace_path)
         matched = 0
@@ -175,51 +175,6 @@ class QLearner():
         print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
         self.make_v_dict()
         
-    def pretrain_multi(self, env, trace_paths, repeat=10):
-        from AGCEL.Parser import parse_trace
-        all_traces = []
-        for tp in trace_paths:
-            all_traces += parse_trace(tp)
-
-        matched = 0
-        total = 0
-        for _ in range(repeat):
-            for i in range(len(all_traces)):
-                s_str, _, ns_str = all_traces[i]
-                s_term = env.m.parseTerm(s_str)
-                ns_term = env.m.parseTerm(ns_str)
-                s_term.reduce()
-                ns_term.reduce()
-                env.reset(to_state=s_term)
-                obs_s = env.get_obs()
-                s = obs_s['state']
-                ns = env.obs(ns_term)
-                a = self.oracle_policy(s, ns, obs_s['actions'], env)
-                total += 1
-                if isinstance(a, int) and a == -1:
-                    continue
-                matched += 1
-
-                reward_term = env.m.parseTerm(f'reward({ns.prettyPrint(0)})')
-                reward_term.reduce()
-                r = reward_term.toFloat()
-
-                if i < len(all_traces) - 1:
-                    _, _, next_ns_str = all_traces[i + 1]
-                    next_s_term = env.m.parseTerm(next_ns_str)
-                    next_s_term.reduce()
-                    next_ns = env.obs(next_s_term)
-                    max_next_q = self.max_q(next_ns)
-                else:
-                    max_next_q = 0.0
-
-                q = self.get_q(s, a)
-                nq = q + learning_rate * (r + gamma * max_next_q - q)
-                self.set_q(s, a, nq)
-
-        print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
-        self.make_v_dict()
-
     def train(self, env, n_training_episodes):
         for episode in tqdm(range(n_training_episodes)):
             # Reduce epsilon (because we need less and less exploration)
