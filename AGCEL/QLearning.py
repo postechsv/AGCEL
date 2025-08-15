@@ -151,14 +151,18 @@ class QLearner():
         if not self.q_abs:
             return (lambda _: self.q_init)
 
-        ####################################################
         idx = {}
         for (keep, keep_vals), by_act in self.q_abs.items():
             d = idx.setdefault(keep, {})
             d[keep_vals] = max(by_act.values()) if by_act else self.q_init
-        ####################################################
 
+        cache = {}
+        
         def V_abs(obs_term):
+            key = obs_term.prettyPrint(0)
+            if key in cache:
+                return cache[key]
+            
             vals = self.parse_obs(obs_term)
             best = self.q_init
 
@@ -198,7 +202,6 @@ class QLearner():
                 value = float(value)
                 self.v_dict[state] = value
 
-    ####################################################
     def load_abs_table(self, filename):
         self.q_abs = {}
         with open(filename) as f:
@@ -215,7 +218,6 @@ class QLearner():
                         a,q = max_q.split(":")
                         by_act[a.strip().strip("'")] = float(q)
                 self.q_abs[(keep, keep_vals)] = by_act
-    ####################################################
 
     def greedy_policy(self, obs):
         # returns -1 for error
