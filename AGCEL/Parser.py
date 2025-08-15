@@ -1,3 +1,5 @@
+import re
+
 def parse_trace(file_path):
     trace = []
     with open(file_path, 'r') as f:
@@ -35,10 +37,25 @@ def parse_trace(file_path):
 
     for j in range(min(len(actions), len(states) - 1)):
         trace.append((states[j], actions[j], states[j + 1]))
-
-    # === DEBUG LOGS ===
-    # print(f'[TraceParser] Parsed {len(trace)} transitions from "{file_path}"')
-    # for idx, (s, a, ns) in enumerate(trace):
-    #     print(f'  {idx:2d}: {a:10s} | {s[:60]} -> {ns[:60]}{" ..." if len(s)>60 or len(ns)>60 else ""}')
-
+        
     return trace
+
+def parse_agcel_line(line):
+    state_match = re.search(r'<(.*)>', line)
+    if not state_match:
+        return None, None
+    state_str = state_match.group(1)
+    bool_values = [1 if 'true' in s else 0 for s in state_str.split(',')]
+    score_match = re.search(r'\|->\s*([0-9.]+)', line)
+    score = float(score_match.group(1)) if score_match else None
+    return bool_values, score
+
+def parse_agcel_file(filepath):
+    data = []
+    with open(filepath) as f:
+        for line in f:
+            if '<' in line and '|->' in line:
+                vec, score = parse_agcel_line(line)
+                if vec is not None and score is not None:
+                    data.append((vec, score))
+    return data
