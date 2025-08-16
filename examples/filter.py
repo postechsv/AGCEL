@@ -43,8 +43,8 @@ env.obs(obs['G_state'])
 # Test : MaudeEnv.obs_act
 [env.obs_act(label,sb) for label in env.rules for _, sb, _, _ in env.G_state.apply(label)]
 
-# Test : MaudeEnv.get_rew
-env.get_rew()
+# Test : MaudeEnv.get_reward
+env.get_reward()
 
 # Test : MaudeEnv.is_done
 env.is_done()
