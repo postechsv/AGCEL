@@ -17,7 +17,7 @@ class MaudeEnv():
         else:
             self.G_state = to_state
         self.state = self.obs(self.G_state)
-        self.curr_rew = self.get_rew()
+        self.curr_reward = self.get_reward()
         # nbrs = (rhs,action) where rhs is the result of applying action on the current state
         self.nbrs = [(rhs, self.obs_act(label,sb)) for label in self.rules for rhs, sb, _, _ in self.G_state.apply(label)] # concrete
         return self.get_obs() 
@@ -35,9 +35,9 @@ class MaudeEnv():
         next_states = [s for s,a in self.nbrs if a == action] # TODO : s,a =/= action computed by self.nbrs are wasted (fix: only match in nbrs)
         if next_states == []:
             raise Exception("invalid action")
-        reward = self.curr_rew
+        reward = self.curr_reward
         obs = self.reset(random.choice(next_states))
-        next_reward, done = self.curr_rew, self.is_done()
+        next_reward, done = self.curr_reward, self.is_done()
         return obs, next_reward, done
 
     # input: Maude.Term, output: Maude.Term
@@ -53,13 +53,13 @@ class MaudeEnv():
         act.reduce()
         return act
 
-    def get_rew(self): # FIXME: actually, this should be get_utility
+    def get_reward(self): # FIXME: actually, this should be get_utility
         t = self.m.parseTerm(f'reward({self.state.prettyPrint(0)})')
         t.reduce()
         return t.toFloat()
 
     def is_done(self):
-        if self.nbrs == [] or self.curr_rew > 0.0000001: # TODO: or rew > 0 ?
+        if self.nbrs == [] or self.curr_reward > 0.0000001: # TODO: or rew > 0 ?
             return True
         else:
             return False
