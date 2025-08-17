@@ -35,10 +35,5 @@ def parse_trace(file_path):
 
     for j in range(min(len(actions), len(states) - 1)):
         trace.append((states[j], actions[j], states[j + 1]))
-
-    # === DEBUG LOGS ===
-    # print(f'[TraceParser] Parsed {len(trace)} transitions from "{file_path}"')
-    # for idx, (s, a, ns) in enumerate(trace):
-    #     print(f'  {idx:2d}: {a:10s} | {s[:60]} -> {ns[:60]}{" ..." if len(s)>60 or len(ns)>60 else ""}')
-
+        
     return trace

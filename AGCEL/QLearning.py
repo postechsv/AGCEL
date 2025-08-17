@@ -247,8 +247,8 @@ class QLearner():
         return -1
 
     def pretrain(self, env, trace_path, repeat=10):
-        from AGCEL.TraceParser import parse_trace
-
+        from AGCEL.Parser import parse_trace
+ 
         trace = parse_trace(trace_path)
         matched = 0
         total = 0
@@ -256,14 +256,19 @@ class QLearner():
         for _ in range(repeat):
             for i in range(len(trace)):
                 s_str, _, ns_str = trace[i]
+
                 s_term = env.m.parseTerm(s_str)
-                ns_term = env.m.parseTerm(ns_str)
                 s_term.reduce()
+
+                ns_term = env.m.parseTerm(ns_str)
                 ns_term.reduce()
+
                 env.reset(to_state=s_term)
+
                 obs_s = env.get_obs()
                 s = obs_s['state']
                 ns = env.obs(ns_term)
+
                 a = self.oracle_policy(s, ns, obs_s['actions'], env)
                 total += 1
                 if isinstance(a, int) and a == -1:
