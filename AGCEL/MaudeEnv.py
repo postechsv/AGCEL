@@ -23,23 +23,24 @@ class MaudeEnv():
         return self.get_obs() 
     
     def get_obs(self):
-        acts = [a for _,a in self.nbrs]     # List of (available) action objects
-        acts = list(dict.fromkeys(acts))    # remove duplicates
+        acts = [a for _,a in self.nbrs] # List of (available) action objects
+        out = []
+        for t in acts:
+            if not any(t.equal(u) for u in out):
+                out.append(t)
         return {
-            'G_state' : self.G_state, # ground state for Rewrite Theory : Maude.Term
-            'state' : self.state, # observed state for MDP : Maude.Term
-            'actions' : acts
+            'G_state' : self.G_state,   # ground state for Rewrite Theory : Maude.Term
+            'state' : self.state,       # observed state for MDP : Maude.Term
+            'actions' : out
         }
 
     # action = Action obj = <rule label, abstract subs>
     def step(self, action):
-        next_states = [s for s,a in self.nbrs if a == action] # TODO : s,a =/= action computed by self.nbrs are wasted (fix: only match in nbrs)
+        next_states = [s for s,a in self.nbrs if a.equal(action)] # TODO : s,a =/= action computed by self.nbrs are wasted (fix: only match in nbrs)
         if next_states == []:
             raise Exception("invalid action")
-        reward = self.curr_reward
         obs = self.reset(random.choice(next_states))
-        next_reward, done = self.curr_reward, self.is_done()
-        return obs, next_reward, done
+        return obs, self.curr_reward, self.is_done()
 
     # input: Maude.Term, output: Maude.Term
     def obs(self, term):
@@ -60,7 +61,6 @@ class MaudeEnv():
         return t.toFloat()
 
     def is_done(self):
-        if self.nbrs == [] or self.curr_reward > 0.0000001: # TODO: or rew > 0 ?
+        if self.G_state.equal(self.goal):
             return True
-        else:
-            return False
+        return self.nbrs == [] or self.curr_reward > 1e-7
