@@ -24,11 +24,12 @@ class MaudeEnv():
         return self.get_obs() 
     
     def get_obs(self):
+        acts = [a for _,a in self.nbrs]     # List of (available) action objects
+        acts = list(dict.fromkeys(acts))    # remove duplicates
         return {
             'G_state' : self.G_state, # ground state for Rewrite Theory : Maude.Term
             'state' : self.state, # observed state for MDP : Maude.Term
-            'actions' : [a for s,a in self.nbrs] # List of (available) action objects
-            # FIXME: actions may contain duplicates. better remove them later.
+            'actions' : acts
         }
 
     # action = Action obj = <rule label, abstract subs>
