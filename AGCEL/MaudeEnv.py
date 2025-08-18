@@ -21,7 +21,15 @@ class MaudeEnv():
         self.curr_reward = self.get_reward()
         # nbrs = (rhs,action) where rhs is the result of applying action on the current state
         self.nbrs = [(rhs, self.obs_act(label,sb)) for label in self.rules for rhs, sb, _, _ in self.G_state.apply(label)] # concrete
-        return self.get_obs() 
+        return self.get_obs()
+
+    # action = Action obj = <rule label, abstract subs>
+    def step(self, action):
+        next_states = [s for s,a in self.nbrs if a.equal(action)] # TODO : s,a =/= action computed by self.nbrs are wasted (fix: only match in nbrs)
+        if next_states == []:
+            raise Exception("invalid action")
+        obs = self.reset(random.choice(next_states))
+        return obs, self.curr_reward, self.is_done()
     
     def get_obs(self):
         acts = [a for _,a in self.nbrs] # List of (available) action objects
@@ -35,13 +43,15 @@ class MaudeEnv():
             'actions' : out
         }
 
-    # action = Action obj = <rule label, abstract subs>
-    def step(self, action):
-        next_states = [s for s,a in self.nbrs if a.equal(action)] # TODO : s,a =/= action computed by self.nbrs are wasted (fix: only match in nbrs)
-        if next_states == []:
-            raise Exception("invalid action")
-        obs = self.reset(random.choice(next_states))
-        return obs, self.curr_reward, self.is_done()
+    def is_done(self):
+        if self.G_state.equal(self.goal):
+            return True
+        return self.nbrs == [] or self.curr_reward > 1e-7
+
+    def get_reward(self): # FIXME: actually, this should be get_utility
+        t = self.m.parseTerm(f'reward({self.state.prettyPrint(0)})')
+        t.reduce()
+        return t.toFloat()
 
     # input: Maude.Term, output: Maude.Term
     def obs(self, term):
@@ -55,13 +65,3 @@ class MaudeEnv():
         act = self.m.parseTerm("'" + label + " { " +  bindings + "}")
         act.reduce()
         return act
-
-    def get_reward(self): # FIXME: actually, this should be get_utility
-        t = self.m.parseTerm(f'reward({self.state.prettyPrint(0)})')
-        t.reduce()
-        return t.toFloat()
-
-    def is_done(self):
-        if self.G_state.equal(self.goal):
-            return True
-        return self.nbrs == [] or self.curr_reward > 1e-7
