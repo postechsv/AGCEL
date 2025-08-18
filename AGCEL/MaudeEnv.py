@@ -53,6 +53,12 @@ class MaudeEnv():
         t.reduce()
         return t.toFloat()
 
+    def action_mask(self):
+        pass
+
+    def step_by_index(self):
+        pass
+
     # input: Maude.Term, output: Maude.Term
     def obs(self, term):
         term = self.m.parseTerm('obs(' + term.prettyPrint(0) + ')')
