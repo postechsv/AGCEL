@@ -53,9 +53,17 @@ class MaudeEnv():
         t.reduce()
         return t.toFloat()
 
-    def action_mask(self):
-        pass
-
+    def action_mask(self): # mask legal(1)/illegal(0) rule labels(neighbors) at current state
+        legal = set()
+        rules_set = set(self.rules)
+        for _, act in self.nbrs:
+            head = str(act).split(' ', 1)[0].lstrip("'")
+            if head in rules_set:
+                legal.add(head)
+                if len(legal) == len(rules_set):
+                    break
+        return [1 if r in legal else 0 for r in self.rules]
+    
     def step_by_index(self):
         pass
 
