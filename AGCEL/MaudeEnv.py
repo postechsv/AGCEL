@@ -63,9 +63,10 @@ class MaudeEnv():
                     break
         return [1 if r in legal else 0 for r in self.rules]
     
-    def step_by_index(self):
-        pass
-
+    def step_by_index(self, action_idx):
+        l = self.rules[action_idx]
+        return [rhs for rhs, _, _, _ in self.G_state.apply(l)]
+    
     # input: Maude.Term, output: Maude.Term
     def obs(self, term):
         term = self.m.parseTerm('obs(' + term.prettyPrint(0) + ')')
