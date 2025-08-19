@@ -6,3 +6,9 @@ class DQN(nn.Module):
         # TODO
     def forward(self, x):
         pass  # TODO
+
+class DQNLearner():
+    def __init__(self, env, state_encoder, input_dim, num_actions,
+                 gamma, lr, tau):
+        self.env = env
+        self.encoder = state_encoder
