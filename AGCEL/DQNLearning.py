@@ -1,3 +1,5 @@
+import random
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -25,3 +27,18 @@ class DQNLearner():
         self.target_net = DQN(input_dim, num_actions).to(self.device)
         self.target_net.load_state_dict(self.q_net.state_dict())
         self.optimizer  = optim.Adam(self.q_net.parameters(), lr=lr)
+
+    def select_action(self, obs, epsilon):
+        s_term = obs['state']
+        x = self.encoder(s_term).unsqueeze(0).to(self.device)
+        q_values = self.q_net(x)[0] # q values for all action
+
+        mask = torch.tensor(self.env.action_mask(state=s_term), dtype=torch.bool, device=self.device)
+        q_values[~mask] = -1e9  # low q value for illegal actions
+
+        # eps_greedy_policy
+        if random.random() > epsilon:   # exploitation
+            return int(torch.argmax(q_values).item())   # choose action with max q value
+        else:                           # exploration
+            legal = torch.nonzero(mask, as_tuple=False).view(-1).tolist()
+            return random.choice(legal) # choose random legal action
