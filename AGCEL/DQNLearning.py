@@ -42,3 +42,13 @@ class DQNLearner():
         else:                           # exploration
             legal = torch.nonzero(mask, as_tuple=False).view(-1).tolist()
             return random.choice(legal) # choose random legal action
+        
+    def train(self, n_training_episodes):
+        for episode in range(n_training_episodes):
+            epsilon = 0
+
+            obs = self.env.reset()
+            done = False
+            
+            while not done:
+                break
