@@ -9,7 +9,7 @@ class DQN(nn.Module):
             nn.Linear(128, output_dim)
         )
     def forward(self, x):
-        pass  # TODO
+        return self.net(x)
 
 class DQNLearner():
     def __init__(self, env, state_encoder, input_dim, num_actions,
