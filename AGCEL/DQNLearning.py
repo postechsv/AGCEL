@@ -53,3 +53,16 @@ class DQNLearner():
             while not done:
                 a_idx = self.select_action(obs, epsilon)
                 next_terms = self.env.step_by_index(a_idx)
+
+                if not next_terms:
+                    next_q = 0.0    # if no next state, Q=0
+                else:
+                    with torch.no_grad():
+                        next_qs = []
+                        for nt in next_terms:   # for each (legal) next state
+                            nt_tensor = self.encoder(nt).unsqueeze(0).to(self.device)
+                            q = self.target_net(nt_tensor)[0]   # Q for next states from target net
+                            mask = torch.tensor(self.env.action_mask(state=nt), dtype=torch.bool, device=self.device)
+                            q[~mask] = -1e9     # mask illegal actions
+                            next_qs.append(torch.max(q).item()) # best Q for this next state
+                        next_q = sum(next_qs) / len(next_qs)    # mean Q over next states
