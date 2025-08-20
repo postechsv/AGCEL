@@ -51,4 +51,5 @@ class DQNLearner():
             done = False
             
             while not done:
-                break
+                a_idx = self.select_action(obs, epsilon)
+                next_terms = self.env.step_by_index(a_idx)
