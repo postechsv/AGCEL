@@ -53,10 +53,17 @@ class MaudeEnv():
         t.reduce()
         return t.toFloat()
 
-    def action_mask(self): # mask legal(1)/illegal(0) rule labels(neighbors) at current state
+    def action_mask(self, state=None): # mask legal(1)/illegal(0) rule labels(neighbors) at current state
+        if state is not None:
+            term = state
+            nbrs = [(rhs, self.obs_act(label, sb)) 
+                    for label in self.rules 
+                    for rhs, sb, _, _ in term.apply(label)]
+        else:
+            nbrs = self.nbrs
         legal = set()
         rules_set = set(self.rules)
-        for _, act in self.nbrs:
+        for _, act in nbrs:
             head = str(act).split(' ', 1)[0].lstrip("'")
             if head in rules_set:
                 legal.add(head)
