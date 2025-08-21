@@ -91,4 +91,13 @@ class DQNLearner():
 
     def soft_update(self):  # update target net
         for target_param, local_param in zip(self.target_net.parameters(), self.q_net.parameters()):
-            target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data) # tau=1 -> hard update
+            target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data) # tau=1 -> hard 
+            
+    def make_v_dict(self):  # V(s)=max_a Q(s,a)
+        self.v_dict = dict()
+        for s in self.q_dict_keys():
+            x = self.encoder(s).unsqueeze(0).to(self.device)
+            q = self.q_net(x)[0]
+            mask = torch.tensor(self.env.action_mask(state=s), dtype=torch.bool, device=self.device)
+            q[~mask] = -1e9
+            self.v_dict[s] = float(torch.max(q).item())
