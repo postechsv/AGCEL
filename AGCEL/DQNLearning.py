@@ -28,6 +28,9 @@ class DQNLearner():
         self.target_net.load_state_dict(self.q_net.state_dict())
         self.optimizer  = optim.Adam(self.q_net.parameters(), lr=lr)
 
+        self.gamma = gamma
+        self.tau = tau
+
     def select_action(self, obs, epsilon):
         s_term = obs['state']
         x = self.encoder(s_term).unsqueeze(0).to(self.device)
@@ -80,3 +83,12 @@ class DQNLearner():
                 loss.backward()         # backpropagation
                 torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)    # gradient clipping
                 self.optimizer.step()   # update weights
+
+                self.soft_update()            # update target net
+
+                if done:
+                    break
+
+    def soft_update(self):  # update target net
+        for target_param, local_param in zip(self.target_net.parameters(), self.q_net.parameters()):
+            target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data) # tau=1 -> hard update
