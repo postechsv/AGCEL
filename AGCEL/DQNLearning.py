@@ -68,6 +68,22 @@ class DQNLearner():
             legal = torch.nonzero(mask, as_tuple=False).view(-1).tolist()
             return random.choice(legal) # choose random legal action
         
+    def compute_target_q(self, batch):  # mean-max over next states
+        target_qs = []
+        for _, _, reward, next_states, done in batch:
+            if done or not next_states:
+                target_qs.append(torch.tensor(reward, device=self.device))
+            else:
+                qmaxes = []
+                for nt in next_states:   # for each (legal) next state
+                    q = self.target_net(nt.unsqueeze(0))[0]   # Q for next states from target net
+                    mask = torch.tensor(self.env.action_mask(state=None), dtype=torch.bool, device=self.device)
+                    q[~mask] = -1e9     # mask illegal actions
+                    qmaxes.append(torch.max(q).item())  # best Q for next state
+                q_mean = sum(qmaxes) / len(qmaxes)      # mean Q over next states
+                target_qs.append(torch.tensor(reward + self.gamma * q_mean, device=self.device))
+        return torch.stack(target_qs)
+
     def train(self, n_training_episodes):
         max_steps = 300
         max_epsilon = 1.0
@@ -89,13 +105,13 @@ class DQNLearner():
                 else:
                     with torch.no_grad():
                         next_qs = []
-                        for nt in next_terms:   # for each (legal) next state
+                        for nt in next_terms:
                             nt_tensor = self.encoder(nt).unsqueeze(0).to(self.device)
-                            q = self.target_net(nt_tensor)[0]   # Q for next states from target net
+                            q = self.target_net(nt_tensor)[0]
                             mask = torch.tensor(self.env.action_mask(state=nt), dtype=torch.bool, device=self.device)
-                            q[~mask] = -1e9     # mask illegal actions
-                            next_qs.append(torch.max(q).item()) # best Q for this next state
-                        next_q = sum(next_qs) / len(next_qs)    # mean Q over next states
+                            q[~mask] = -1e9
+                            next_qs.append(torch.max(q).item())
+                        next_q = sum(next_qs) / len(next_qs)
 
                 reward = self.env.curr_reward
                 done = self.env.is_done()       # check reward, termination from env
