@@ -1,5 +1,6 @@
+import numpy as np
 import random
-
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -52,7 +53,7 @@ class DQNLearner():
         min_epsilon = 0.05
         decay_rate = 0.0005
 
-        for episode in range(n_training_episodes):
+        for episode in tqdm(range(n_training_episodes)):
             epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
 
             obs = self.env.reset()
