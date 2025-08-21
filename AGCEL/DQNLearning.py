@@ -122,18 +122,18 @@ class DQNLearner():
 
                 next_terms = self.env.step_by_index(a_idx)
 
-                if not next_terms:
-                    next_q = 0.0    # if no next state, Q=0
-                else:
-                    with torch.no_grad():
-                        next_qs = []
-                        for nt in next_terms:
-                            nt_tensor = self.encoder(nt).unsqueeze(0).to(self.device)
-                            q = self.target_net(nt_tensor)[0]
-                            mask = torch.tensor(self.env.action_mask(state=nt), dtype=torch.bool, device=self.device)
-                            q[~mask] = -1e9
-                            next_qs.append(torch.max(q).item())
-                        next_q = sum(next_qs) / len(next_qs)
+                # if not next_terms:
+                #     next_q = 0.0    # if no next state, Q=0
+                # else:
+                #     with torch.no_grad():
+                #         next_qs = []
+                #         for nt in next_terms:
+                #             nt_tensor = self.encoder(nt).unsqueeze(0).to(self.device)
+                #             q = self.target_net(nt_tensor)[0]
+                #             mask = torch.tensor(self.env.action_mask(state=nt), dtype=torch.bool, device=self.device)
+                #             q[~mask] = -1e9
+                #             next_qs.append(torch.max(q).item())
+                #         next_q = sum(next_qs) / len(next_qs)
 
                 reward = self.env.curr_reward
                 done = self.env.is_done()       # check reward, termination from env
@@ -151,7 +151,7 @@ class DQNLearner():
 
                 self.optimize_model()
 
-                self.soft_update()            # update target net
+                #self.soft_update()            # update target net
                 obs = self.env.reset(random.choice(next_terms)) if next_terms else obs  # move to next state
 
                 if done:
