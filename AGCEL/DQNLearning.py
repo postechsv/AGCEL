@@ -66,3 +66,17 @@ class DQNLearner():
                             q[~mask] = -1e9     # mask illegal actions
                             next_qs.append(torch.max(q).item()) # best Q for this next state
                         next_q = sum(next_qs) / len(next_qs)    # mean Q over next states
+
+                reward = self.env.curr_reward
+                done = self.env.is_done()       # check reward, termination from env
+                s_tensor = self.encoder(obs['state']).to(self.device)
+                obs = self.env.reset(random.choice(next_terms)) if next_terms else obs  # move to next state
+
+                target = reward + self.gamma * next_q                   # target Q
+                pred_q = self.q_net(s_tensor.unsqueeze(0))[0][a_idx]    # predicted Q
+
+                loss = nn.functional.smooth_l1_loss(pred_q, torch.tensor(target, device=self.device))   # smooth l1 loss
+                self.optimizer.zero_grad()
+                loss.backward()         # backpropagation
+                torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)    # gradient clipping
+                self.optimizer.step()   # update weights
