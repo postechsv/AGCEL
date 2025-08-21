@@ -49,6 +49,9 @@ class DQNLearner():
 
         self.gamma = gamma
         self.tau = tau
+        
+        self.replay = ReplayBuffer(capacity=10000)
+        self.batch_size = 64
 
     def select_action(self, obs, epsilon):
         s_term = obs['state']
