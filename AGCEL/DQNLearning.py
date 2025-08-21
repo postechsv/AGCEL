@@ -106,3 +106,12 @@ class DQNLearner():
         with open(filename, 'w') as f:
             for s, v in self.v_dict.items():
                 f.write(f'{s} |-> {v}\n')
+
+    def load_value_function(self, filename, m):
+        self.v_dict = dict()
+        with open(filename, 'r') as f:
+            for line in f:
+                state, value = line.split(" |-> ")
+                state = m.parseTerm(state)
+                state.reduce()
+                self.v_dict[state] = float(value)
