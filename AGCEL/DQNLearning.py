@@ -49,7 +49,7 @@ class DQNLearner():
 
         self.gamma = gamma
         self.tau = tau
-        
+
         self.replay = ReplayBuffer(capacity=10000)
         self.batch_size = 64
 
@@ -99,6 +99,9 @@ class DQNLearner():
 
                 reward = self.env.curr_reward
                 done = self.env.is_done()       # check reward, termination from env
+
+                self.replay.push(s_tensor, a_idx, reward, [self.encoder(s).to(self.device) for s in next_terms], done)
+
                 s_tensor = self.encoder(obs['state']).to(self.device)
                 obs = self.env.reset(random.choice(next_terms)) if next_terms else obs  # move to next state
 
