@@ -101,3 +101,8 @@ class DQNLearner():
             mask = torch.tensor(self.env.action_mask(state=s), dtype=torch.bool, device=self.device)
             q[~mask] = -1e9
             self.v_dict[s] = float(torch.max(q).item())
+
+    def dump_value_function(self, filename):
+        with open(filename, 'w') as f:
+            for s, v in self.v_dict.items():
+                f.write(f'{s} |-> {v}\n')
