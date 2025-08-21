@@ -84,6 +84,25 @@ class DQNLearner():
                 target_qs.append(torch.tensor(reward + self.gamma * q_mean, device=self.device))
         return torch.stack(target_qs)
 
+    def optimize_model(self):
+        if len(self.replay) < self.batch_size:
+            return  # not enough samples to train
+
+        batch = self.replay.sample(self.batch_size)
+        batch = Transition(*zip(*batch))    # unpack transitions
+
+        state_batch  = torch.stack(batch.state)     # [B, D] states
+        action_batch = torch.tensor(batch.action, dtype=torch.long).unsqueeze(1).to(self.device)    # [B,1] actions
+        pred_q       = self.q_net(state_batch).gather(1, action_batch).squeeze(1)   # [B] predicted Q(s,a)
+
+        target_q     = self.compute_target_q(batch) # [B]
+        loss         = nn.functional.smooth_l1_loss(pred_q, target_q)
+
+        self.optimizer.zero_grad()
+        loss.backward()         # backpropagation
+        torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)
+        self.optimizer.step()   # update network
+
     def train(self, n_training_episodes):
         max_steps = 300
         max_epsilon = 1.0
