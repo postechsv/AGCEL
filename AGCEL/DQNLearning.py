@@ -1,9 +1,26 @@
+from collections import deque, namedtuple
 import numpy as np
 import random
 from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
+Transition = namedtuple('Transition', 
+                        ('state', 'action', 'reward', 'next_states', 'done'))
+
+class ReplayBuffer:
+    def __init__(self, capacity):
+        self.memory = deque(maxlen=capacity)
+
+    def push(self, *args):
+        self.memory.append(Transition(*args))
+
+    def sample(self, batch_size):
+        return random.sample(self.memory, batch_size)
+
+    def __len__(self):
+        return len(self.memory)
 
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
@@ -15,6 +32,7 @@ class DQN(nn.Module):
         )
     def forward(self, x):
         return self.net(x)
+
 
 class DQNLearner():
     def __init__(self, env, state_encoder, input_dim, num_actions,
