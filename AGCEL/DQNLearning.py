@@ -116,7 +116,10 @@ class DQNLearner():
             done = False
             
             for _ in range(max_steps):
+                s_term = obs['state']
+                s_tensor = self.encoder(s_term).to(self.device)
                 a_idx = self.select_action(obs, epsilon)
+                
                 next_terms = self.env.step_by_index(a_idx)
 
                 if not next_terms:
@@ -137,17 +140,18 @@ class DQNLearner():
 
                 self.replay.push(s_tensor, a_idx, reward, [self.encoder(s).to(self.device) for s in next_terms], done)
 
-                s_tensor = self.encoder(obs['state']).to(self.device)
-                obs = self.env.reset(random.choice(next_terms)) if next_terms else obs  # move to next state
+                # obs = self.env.reset(random.choice(next_terms)) if next_terms else obs  # move to next state
 
-                target = reward + self.gamma * next_q                   # target Q
-                pred_q = self.q_net(s_tensor.unsqueeze(0))[0][a_idx]    # predicted Q
+                # target = reward + self.gamma * next_q                   # target Q
+                # pred_q = self.q_net(s_tensor.unsqueeze(0))[0][a_idx]    # predicted Q
 
-                loss = nn.functional.smooth_l1_loss(pred_q, torch.tensor(target, device=self.device))   # smooth l1 loss
-                self.optimizer.zero_grad()
-                loss.backward()         # backpropagation
-                torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)    # gradient clipping
-                self.optimizer.step()   # update weights
+                # loss = nn.functional.smooth_l1_loss(pred_q, torch.tensor(target, device=self.device))   # smooth l1 loss
+                # self.optimizer.zero_grad()
+                # loss.backward()         # backpropagation
+                # torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)    # gradient clipping
+                # self.optimizer.step()   # update weights
+
+                self.optimize_model()
 
                 self.soft_update()            # update target net
 
