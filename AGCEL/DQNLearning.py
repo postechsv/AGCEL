@@ -47,13 +47,18 @@ class DQNLearner():
             return random.choice(legal) # choose random legal action
         
     def train(self, n_training_episodes):
+        max_steps = 300
+        max_epsilon = 1.0
+        min_epsilon = 0.05
+        decay_rate = 0.0005
+
         for episode in range(n_training_episodes):
-            epsilon = 0
+            epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
 
             obs = self.env.reset()
             done = False
             
-            while not done:
+            for _ in range(max_steps):
                 a_idx = self.select_action(obs, epsilon)
                 next_terms = self.env.step_by_index(a_idx)
 
