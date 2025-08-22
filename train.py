@@ -5,10 +5,10 @@ from AGCEL.DQNLearning import DQNLearner
 from AGCEL.common import build_vocab, make_encoder
 import sys
 import time
-import json, numpy as np
+import json
 
 # Usage: python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <trace_path> <output_file_prefix>
-# python3 train.py benchmarks/filter-analysis.maude init twoCrits 500 traces/filter-init4-twoCrits-1.trace trained/filter-init4-twoCrits-500
+# python3 train.py benchmarks/filter-analysis.maude init twoCrits 500 traces/filter-init3-twoCrits-1.trace trained/filter-init3-twoCrits-500
 
 model_path = sys.argv[1]
 init_term = sys.argv[2]
@@ -64,7 +64,7 @@ t3 = time.time()
 print('\n=== [DQN] ===')
 vocab = build_vocab(env)
 
-dqn = DQNLearner(env, encoder=make_encoder(vocab), input_dim=len(vocab), num_actions=len(env.rules), gamma=0.95, lr=1e-3, tau=0.01)
+dqn = DQNLearner(env, state_encoder=make_encoder(vocab), input_dim=len(vocab), num_actions=len(env.rules), gamma=0.95, lr=1e-3, tau=0.01)
 t4 = time.time()
 dqn.train(n_training_episodes=num_samples)
 t5 = time.time()
