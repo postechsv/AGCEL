@@ -82,4 +82,5 @@ print(f'[Oracle] Training time: {t1 - t0:.2f}s, # Entries: {oracle_size_before} 
 print(f'         Value function: {oracle_output_file.split('/')[-1]}')
 print(f'[Cold]   Training time: {t3 - t2:.2f}s, # Entries: {learner_cold.get_size()}')
 print(f'[DQN]    Training time: {t5 - t4:.2f}s')
-print(f'         Model: {dqn_model_file.split("/")[-1]}, Vocab: {dqn_vocab_file.split("/")[-1]}')
+print(f'         Model: {dqn_model_file.split("/")[-1]}')
+print(f'         Vocab: {dqn_vocab_file.split("/")[-1]}')
