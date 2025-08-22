@@ -62,7 +62,17 @@ t3 = time.time()
 # === DQN ===
 
 def extract_predicate_vector(obs_term):
-    pass
+    preds = []
+    pred_container = list(obs_term.arguments())[0]
+    def flatten(t):
+        sym = str(t.symbol())
+        if sym in ('_;_', 'and', '_`,_'):
+            for a in t.arguments(): flatten(a)
+        elif sym == '_:_' and len(list(t.arguments())) == 2:
+            p, b = list(t.arguments())
+            preds.append((str(p.symbol()), str(b.symbol()).lower() == 'true'))
+    flatten(pred_container)
+    return preds
 
 def build_vocab(env, steps):
     pass
