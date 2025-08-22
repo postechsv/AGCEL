@@ -5,12 +5,10 @@ from AGCEL.AStar import *
 from AGCEL.AStar import *
 from AGCEL.DQNLearning import DQNLearner
 from AGCEL.common import make_encoder
-import json
-import time
-import sys
+import json, re, sys, time
 
 # Usage: python3 test.py <maude_model> <init_term> <goal_prop> <qtable_file>
-# python3 test.py testcases/filter-4.maude init twoCrits trained/filter-init4-twoCrits-500-o1
+# python3 test.py testcases/filter-5.maude init twoCrits trained/filter-init3-twoCrits-500-o1
 
 model = sys.argv[1]
 init = sys.argv[2]
@@ -38,7 +36,6 @@ print('[BASELINE] n_states:', res0[2])
 print(f'[BASELINE] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
 if res0[0]:
     print('[BASELINE] Goal reached!')
-    res0[1].print_term()
 
 # Load pretrained value function
 learner = QLearner()
@@ -54,11 +51,13 @@ print('[TRAINED] n_states:', res[2])
 print(f'[TRAINED] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
 if res[0]:
     print('[TRAINED] Goal reached!')
-    res[1].print_term()
 
 
-dqn_model_file = qtable_file + '-dqn.pt'
-dqn_vocab_file = qtable_file + '-dqn-vocab.json'
+m = re.search(r'(.+?)(-o\d+|-oracle)?$', qtable_file)
+base_prefix = m.group(1) if m else qtable_file
+
+dqn_model_file = base_prefix + '-dqn.pt'
+dqn_vocab_file = base_prefix + '-dqn-vocab.json'
 
 with open(dqn_vocab_file, 'r') as f:
     vocab = json.load(f)
@@ -76,4 +75,3 @@ print('[DQN] n_states:', res_dqn[2])
 print(f'[DQN] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
 if res_dqn[0]:          
     print('[DQN] Goal reached!')
-    res_dqn[1].print_term()

@@ -57,19 +57,22 @@ class DQNLearner():
         x = self.encoder(s_term).unsqueeze(0).to(self.device)
         q_values = self.q_net(x)[0] # q values for all action
 
-        mask = torch.tensor(self.env.action_mask(state=s_term), dtype=torch.bool, device=self.device)
+        mask = torch.tensor(self.env.action_mask(), dtype=torch.bool, device=self.device)
         q_values[~mask] = -1e9  # low q value for illegal actions
 
+        legal = torch.nonzero(mask, as_tuple=False).view(-1).tolist()
+        if not legal:   # empty legal actions
+            return int(torch.argmax(q_values).item())
+        
         # eps_greedy_policy
         if random.random() > epsilon:   # exploitation
             return int(torch.argmax(q_values).item())   # choose action with max q value
         else:                           # exploration
-            legal = torch.nonzero(mask, as_tuple=False).view(-1).tolist()
             return random.choice(legal) # choose random legal action
-        
+
     def compute_target_q(self, batch):  # mean-max over next states
         target_qs = []
-        for _, _, reward, next_states, done in batch:
+        for reward, next_states, done in zip(batch.reward, batch.next_states, batch.done):
             if done or not next_states:
                 target_qs.append(torch.tensor(reward, device=self.device))
             else:
@@ -138,15 +141,6 @@ class DQNLearner():
     def soft_update(self):  # update target net
         for target_param, local_param in zip(self.target_net.parameters(), self.q_net.parameters()):
             target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data) # tau=1 -> hard 
-            
-    # def make_v_dict(self):  # V(s)=max_a Q(s,a)
-    #     self.v_dict = dict()
-    #     for s in self.q_dict_keys():
-    #         x = self.encoder(s).unsqueeze(0).to(self.device)
-    #         q = self.q_net(x)[0]
-    #         mask = torch.tensor(self.env.action_mask(state=s), dtype=torch.bool, device=self.device)
-    #         q[~mask] = -1e9
-    #         self.v_dict[s] = float(torch.max(q).item())
 
     def get_value_function(self):
         def V(s):
@@ -156,20 +150,6 @@ class DQNLearner():
             q[~mask] = -1e9
             return float(torch.max(q).item())
         return V
-
-    # def dump_value_function(self, filename):
-    #     with open(filename, 'w') as f:
-    #         for s, v in self.v_dict.items():
-    #             f.write(f'{s} |-> {v}\n')
-
-    # def load_value_function(self, filename, m):
-    #     self.v_dict = dict()
-    #     with open(filename, 'r') as f:
-    #         for line in f:
-    #             state, value = line.split(" |-> ")
-    #             state = m.parseTerm(state)
-    #             state.reduce()
-    #             self.v_dict[state] = float(value)
 
     def save_model(self, path):
         torch.save(self.q_net.state_dict(), path)
