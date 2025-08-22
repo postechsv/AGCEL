@@ -139,14 +139,14 @@ class DQNLearner():
         for target_param, local_param in zip(self.target_net.parameters(), self.q_net.parameters()):
             target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data) # tau=1 -> hard 
             
-    def make_v_dict(self):  # V(s)=max_a Q(s,a)
-        self.v_dict = dict()
-        for s in self.q_dict_keys():
-            x = self.encoder(s).unsqueeze(0).to(self.device)
-            q = self.q_net(x)[0]
-            mask = torch.tensor(self.env.action_mask(state=s), dtype=torch.bool, device=self.device)
-            q[~mask] = -1e9
-            self.v_dict[s] = float(torch.max(q).item())
+    # def make_v_dict(self):  # V(s)=max_a Q(s,a)
+    #     self.v_dict = dict()
+    #     for s in self.q_dict_keys():
+    #         x = self.encoder(s).unsqueeze(0).to(self.device)
+    #         q = self.q_net(x)[0]
+    #         mask = torch.tensor(self.env.action_mask(state=s), dtype=torch.bool, device=self.device)
+    #         q[~mask] = -1e9
+    #         self.v_dict[s] = float(torch.max(q).item())
 
     def get_value_function(self):
         def V(s):
@@ -157,19 +157,19 @@ class DQNLearner():
             return float(torch.max(q).item())
         return V
 
-    def dump_value_function(self, filename):
-        with open(filename, 'w') as f:
-            for s, v in self.v_dict.items():
-                f.write(f'{s} |-> {v}\n')
+    # def dump_value_function(self, filename):
+    #     with open(filename, 'w') as f:
+    #         for s, v in self.v_dict.items():
+    #             f.write(f'{s} |-> {v}\n')
 
-    def load_value_function(self, filename, m):
-        self.v_dict = dict()
-        with open(filename, 'r') as f:
-            for line in f:
-                state, value = line.split(" |-> ")
-                state = m.parseTerm(state)
-                state.reduce()
-                self.v_dict[state] = float(value)
+    # def load_value_function(self, filename, m):
+    #     self.v_dict = dict()
+    #     with open(filename, 'r') as f:
+    #         for line in f:
+    #             state, value = line.split(" |-> ")
+    #             state = m.parseTerm(state)
+    #             state.reduce()
+    #             self.v_dict[state] = float(value)
 
     def save_model(self, path):
         torch.save(self.q_net.state_dict(), path)
