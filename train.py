@@ -1,8 +1,10 @@
 import maude
 from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
+from AGCEL.DQNLearning import DQNLearner
 import sys
 import time
+import json, torch, numpy as np, random
 
 # Usage: python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <trace_path> <output_file_prefix>
 # python3 train.py benchmarks/filter-analysis.maude init twoCrits 500 traces/filter-init4-twoCrits-1.trace trained/filter-init4-twoCrits-500
@@ -56,8 +58,38 @@ t3 = time.time()
 #print(f'Cold training time: {t3 - t2:.2f}s')
 #print(f'Output: {cold_output_file.split('/')[-1]}')
 
-# Result
+
+# === DQN ===
+
+def extract_predicate_vector(obs_term):
+    pass
+
+def build_vocab(env, steps):
+    pass
+
+def make_encoder(vocab):
+    pass
+
+
+print('\n=== [DQN] ===')
+vocab = build_vocab(env, steps=200)
+
+dqn = DQNLearner(env, encoder=make_encoder(vocab), input_dim=len(vocab), num_actions=len(env.rules), gamma=0.95, lr=1e-3, tau=0.01)
+t4 = time.time()
+dqn.train(n_training_episodes=num_samples)
+t5 = time.time()
+
+dqn_model_file = output_prefix + '-dqn.pt'
+dqn_vocab_file = output_prefix + '-dqn-vocab.json'
+dqn.save_model(dqn_model_file)
+with open(dqn_vocab_file, 'w') as f:
+    json.dump(vocab, f)
+
+
+# === Result ===
 print('\n=== SUMMARY ===')
 print(f'[Oracle] Training time: {t1 - t0:.2f}s, # Entries: {oracle_size_before} -> {learner_oracle.get_size()}')
 print(f'         Value function: {oracle_output_file.split('/')[-1]}')
 print(f'[Cold]   Training time: {t3 - t2:.2f}s, # Entries: {learner_cold.get_size()}')
+print(f'[DQN]    Training time: {t5 - t4:.2f}s')
+print(f'         Model: {dqn_model_file.split("/")[-1]}, Vocab: {dqn_vocab_file.split("/")[-1]}')
