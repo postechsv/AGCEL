@@ -124,9 +124,10 @@ class DQNLearner():
                 reward = self.env.curr_reward
                 done = self.env.is_done()       # check reward, termination from env
 
-                self.replay.push(s_tensor, a_idx, reward, [self.encoder(s).to(self.device) for s in next_terms], done)
+                self.replay.push(s_tensor, a_idx, reward, next_terms, done)
 
                 self.optimize_model()
+                self.soft_update()
 
                 obs = self.env.reset(random.choice(next_terms)) if next_terms else obs  # move to next state
 
