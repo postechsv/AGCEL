@@ -33,7 +33,6 @@ class DQN(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-
 class DQNLearner():
     def __init__(self, env, state_encoder, input_dim, num_actions,
                  gamma, lr, tau):
@@ -122,36 +121,13 @@ class DQNLearner():
 
                 next_terms = self.env.step_by_index(a_idx)
 
-                # if not next_terms:
-                #     next_q = 0.0    # if no next state, Q=0
-                # else:
-                #     with torch.no_grad():
-                #         next_qs = []
-                #         for nt in next_terms:
-                #             nt_tensor = self.encoder(nt).unsqueeze(0).to(self.device)
-                #             q = self.target_net(nt_tensor)[0]
-                #             mask = torch.tensor(self.env.action_mask(state=nt), dtype=torch.bool, device=self.device)
-                #             q[~mask] = -1e9
-                #             next_qs.append(torch.max(q).item())
-                #         next_q = sum(next_qs) / len(next_qs)
-
                 reward = self.env.curr_reward
                 done = self.env.is_done()       # check reward, termination from env
 
                 self.replay.push(s_tensor, a_idx, reward, [self.encoder(s).to(self.device) for s in next_terms], done)
 
-                # target = reward + self.gamma * next_q                   # target Q
-                # pred_q = self.q_net(s_tensor.unsqueeze(0))[0][a_idx]    # predicted Q
-
-                # loss = nn.functional.smooth_l1_loss(pred_q, torch.tensor(target, device=self.device))   # smooth l1 loss
-                # self.optimizer.zero_grad()
-                # loss.backward()         # backpropagation
-                # torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)    # gradient clipping
-                # self.optimizer.step()   # update weights
-
                 self.optimize_model()
 
-                #self.soft_update()            # update target net
                 obs = self.env.reset(random.choice(next_terms)) if next_terms else obs  # move to next state
 
                 if done:
@@ -192,3 +168,11 @@ class DQNLearner():
                 state = m.parseTerm(state)
                 state.reduce()
                 self.v_dict[state] = float(value)
+
+    def save_model(self, path):
+        torch.save(self.q_net.state_dict(), path)
+
+    def load_model(self, path):
+        sd = torch.load(path, map_location=self.device)
+        self.q_net.load_state_dict(sd)
+        self.target_net.load_state_dict(sd)
