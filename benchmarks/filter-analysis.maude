@@ -70,8 +70,8 @@ mod FILTER-TEST is
   --- eq @NL = 3 .
 
   --- init5
-  eq init = init5 .
-  eq @NL = 4 .
+  --- eq init = init5 .
+  --- eq @NL = 4 .
 
   --- init6
   --- eq init = init6 .
