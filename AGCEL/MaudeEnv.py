@@ -1,5 +1,4 @@
 import random
-#from AGCEL.common import Action
 
 class MaudeEnv():
     def __init__(self, m, goal, initializer):
