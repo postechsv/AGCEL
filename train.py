@@ -75,15 +75,15 @@ def extract_predicate_vector(obs_term):
     flatten(pred_container)
     return preds
 
-def build_vocab(env, steps):
-    pass
+def build_vocab(env):   # build predicate list
+    return list({name for name, _ in extract_predicate_vector(env.get_obs()['state'])})
 
 def make_encoder(vocab):
     pass
 
 
 print('\n=== [DQN] ===')
-vocab = build_vocab(env, steps=200)
+vocab = build_vocab(env)
 
 dqn = DQNLearner(env, encoder=make_encoder(vocab), input_dim=len(vocab), num_actions=len(env.rules), gamma=0.95, lr=1e-3, tau=0.01)
 t4 = time.time()
