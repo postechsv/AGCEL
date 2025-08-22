@@ -74,9 +74,10 @@ class DQNLearner():
                 target_qs.append(torch.tensor(reward, device=self.device))
             else:
                 qmaxes = []
-                for nt in next_states:   # for each (legal) next state
-                    q = self.target_net(nt.unsqueeze(0))[0]   # Q for next states from target net
-                    mask = torch.tensor(self.env.action_mask(state=None), dtype=torch.bool, device=self.device)
+                for nt_term in next_states:   # for each (legal) next state
+                    nt_tensor = self.encoder(nt_term).unsqueeze(0).to(self.device)
+                    q = self.target_net(nt_tensor)[0]   # Q for next states from target net
+                    mask = torch.tensor(self.env.action_mask(state=nt_term), dtype=torch.bool, device=self.device)
                     q[~mask] = -1e9     # mask illegal actions
                     qmaxes.append(torch.max(q).item())  # best Q for next state
                 q_mean = sum(qmaxes) / len(qmaxes)      # mean Q over next states
