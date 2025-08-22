@@ -2,9 +2,10 @@ import maude
 from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
 from AGCEL.DQNLearning import DQNLearner
+from AGCEL.common import build_vocab, make_encoder
 import sys
 import time
-import json, torch, numpy as np, random
+import json, numpy as np
 
 # Usage: python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <trace_path> <output_file_prefix>
 # python3 train.py benchmarks/filter-analysis.maude init twoCrits 500 traces/filter-init4-twoCrits-1.trace trained/filter-init4-twoCrits-500
@@ -61,27 +62,6 @@ t3 = time.time()
 
 
 # === DQN ===
-
-def extract_predicate_vector(obs_term):
-    preds = []
-    pred_container = list(obs_term.arguments())[0]
-    def flatten(t):
-        sym = str(t.symbol())
-        if sym in ('_;_', 'and', '_`,_'):
-            for a in t.arguments(): flatten(a)
-        elif sym == '_:_' and len(list(t.arguments())) == 2:
-            p, b = list(t.arguments())
-            preds.append((str(p.symbol()), str(b.symbol()).lower() == 'true'))
-    flatten(pred_container)
-    return preds
-
-def build_vocab(env):   # build predicate list
-    return list({name for name, _ in extract_predicate_vector(env.get_obs()['state'])})
-
-def make_encoder(vocab):
-    pass
-
-
 print('\n=== [DQN] ===')
 vocab = build_vocab(env)
 
