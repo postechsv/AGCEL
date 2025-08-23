@@ -52,28 +52,25 @@ class MaudeEnv():
         t.reduce()
         return t.toFloat()
 
-    def action_mask(self, state=None): # mask legal(1)/illegal(0) rule labels(neighbors) at current state
-        if state is not None:
-            term = state
-            nbrs = [(rhs, self.obs_act(label, sb)) 
-                    for label in self.rules 
-                    for rhs, sb, _, _ in term.apply(label)]
-        else:
-            nbrs = self.nbrs
-        legal = set()
-        rules_set = set(self.rules)
-        for _, act in nbrs:
-            head = str(act).split(' ', 1)[0].lstrip("'")
-            if head in rules_set:
-                legal.add(head)
-                if len(legal) == len(rules_set):
-                    break
-        return [1 if r in legal else 0 for r in self.rules]
+    def action_mask(self, state=None):
+        term = state if state is not None else self.G_state
+        mask = []
+        for label in self.rules:
+            has_app = any(True for _ in term.apply(label))
+            mask.append(1 if has_app else 0)
+        return mask
     
-    def step_by_index(self, action_idx):
+    def step_indexed(self, action_idx):
         l = self.rules[action_idx]
-        return [rhs for rhs, _, _, _ in self.G_state.apply(l)]
-    
+        if not self.action_mask()[action_idx]:
+            raise Exception("invalid action")
+
+        next_states = [rhs for rhs, _, _, _ in self.G_state.apply(l)]
+        if not next_states:
+            raise Exception("invalid action")
+        obs = self.reset(random.choice(next_states))
+        return obs, self.curr_reward, self.is_done()
+
     # input: Maude.Term, output: Maude.Term
     def obs(self, term):
         term = self.m.parseTerm('obs(' + term.prettyPrint(0) + ')')

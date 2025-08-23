@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 Transition = namedtuple('Transition', 
-                        ('state', 'action', 'reward', 'next_states', 'done'))
+                        ('state', 'action', 'reward', 'next_obs', 'next_term', 'done'))
 
 class ReplayBuffer:
     def __init__(self, capacity):
@@ -53,39 +53,39 @@ class DQNLearner():
         self.batch_size = 64
 
     def select_action(self, obs, epsilon):
-        s_term = obs['state']
-        x = self.encoder(s_term).unsqueeze(0).to(self.device)
+        s_obs  = obs['state']
+        s_term = obs['G_state']
+        x = self.encoder(s_obs).unsqueeze(0).to(self.device)
+
         q_values = self.q_net(x)[0] # q values for all action
 
-        mask = torch.tensor(self.env.action_mask(), dtype=torch.bool, device=self.device)
+        mask = torch.tensor(self.env.action_mask(state=s_term), dtype=torch.bool, device=self.device)
+
         q_values[~mask] = -1e9  # low q value for illegal actions
 
         legal = torch.nonzero(mask, as_tuple=False).view(-1).tolist()
         if not legal:   # empty legal actions
-            return int(torch.argmax(q_values).item())
+            return None
         
         # eps_greedy_policy
         if random.random() > epsilon:   # exploitation
             return int(torch.argmax(q_values).item())   # choose action with max q value
         else:                           # exploration
             return random.choice(legal) # choose random legal action
-
-    def compute_target_q(self, batch):  # mean-max over next states
-        target_qs = []
-        for reward, next_states, done in zip(batch.reward, batch.next_states, batch.done):
-            if done or not next_states:
-                target_qs.append(torch.tensor(reward, device=self.device))
-            else:
-                qmaxes = []
-                for nt_term in next_states:   # for each (legal) next state
-                    nt_tensor = self.encoder(nt_term).unsqueeze(0).to(self.device)
-                    q = self.target_net(nt_tensor)[0]   # Q for next states from target net
-                    mask = torch.tensor(self.env.action_mask(state=nt_term), dtype=torch.bool, device=self.device)
-                    q[~mask] = -1e9     # mask illegal actions
-                    qmaxes.append(torch.max(q).item())  # best Q for next state
-                q_mean = sum(qmaxes) / len(qmaxes)      # mean Q over next states
-                target_qs.append(torch.tensor(reward + self.gamma * q_mean, device=self.device))
-        return torch.stack(target_qs)
+        
+    def compute_target_q(self, batch):
+        targets = []
+        with torch.no_grad():
+            for r, next_obs, next_term, done in zip(batch.reward, batch.next_obs, batch.next_term, batch.done):
+                r_t = torch.tensor(r, dtype=torch.float32, device=self.device)
+                if done:
+                    targets.append(r_t)
+                else:
+                    q_next = self.target_net(next_obs.unsqueeze(0).to(self.device))[0]
+                    mask = torch.tensor(self.env.action_mask(state=next_term), dtype=torch.bool, device=self.device)
+                    q_next[~mask] = -1e9
+                    targets.append(r_t + self.gamma * torch.max(q_next))
+        return torch.stack(targets)
 
     def optimize_model(self):
         if len(self.replay) < self.batch_size:
@@ -94,11 +94,11 @@ class DQNLearner():
         batch = self.replay.sample(self.batch_size)
         batch = Transition(*zip(*batch))    # unpack transitions
 
-        state_batch  = torch.stack(batch.state)     # [B, D] states
-        action_batch = torch.tensor(batch.action, dtype=torch.long).unsqueeze(1).to(self.device)    # [B,1] actions
-        pred_q       = self.q_net(state_batch).gather(1, action_batch).squeeze(1)   # [B] predicted Q(s,a)
-
+        action_batch = torch.tensor(batch.action, dtype=torch.long, device=self.device).unsqueeze(1)    # [B,1]
+        state_batch  = torch.stack(batch.state).to(self.device)     # [B, D]
+        pred_q       = self.q_net(state_batch).gather(1, action_batch).squeeze(1)
         target_q     = self.compute_target_q(batch) # [B]
+
         loss         = nn.functional.smooth_l1_loss(pred_q, target_q)
 
         self.optimizer.zero_grad()
@@ -119,21 +119,20 @@ class DQNLearner():
             done = False
             
             for _ in range(max_steps):
-                s_term = obs['state']
-                s_tensor = self.encoder(s_term).to(self.device)
+                s_tensor = self.encoder(obs['state']).to(self.device)
                 a_idx = self.select_action(obs, epsilon)
 
-                next_terms = self.env.step_by_index(a_idx)
+                if a_idx is None:
+                    break
 
-                reward = self.env.curr_reward
-                done = self.env.is_done()       # check reward, termination from env
-
-                self.replay.push(s_tensor, a_idx, reward, next_terms, done)
+                obs2, reward, done = self.env.step_indexed(a_idx)
+                next_tensor = self.encoder(obs2['state']).to(self.device)
+                self.replay.push(s_tensor, a_idx, reward, next_tensor, obs2['G_state'], done)
 
                 self.optimize_model()
                 self.soft_update()
 
-                obs = self.env.reset(random.choice(next_terms)) if next_terms else obs  # move to next state
+                obs = obs2
 
                 if done:
                     break
@@ -142,13 +141,21 @@ class DQNLearner():
         for target_param, local_param in zip(self.target_net.parameters(), self.q_net.parameters()):
             target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data) # tau=1 -> hard 
 
-    def get_value_function(self):
+    def get_value_function(self):        
         def V(s):
-            x = self.encoder(s).unsqueeze(0).to(self.device)
-            q = self.q_net(x)[0]
-            mask = torch.tensor(self.env.action_mask(state=s), dtype=torch.bool, device=self.device)
-            q[~mask] = -1e9
-            return float(torch.max(q).item())
+            s_str = s.prettyPrint(0)
+            if s_str and s_str[0] == '<':
+                x = self.encoder(s).unsqueeze(0).to(self.device)
+                q = self.q_net(x)[0]
+                return float(torch.max(q).item())
+            else:
+                obs_term = self.env.obs(s)
+                x = self.encoder(obs_term).unsqueeze(0).to(self.device)
+                q = self.q_net(x)[0]
+                mask = torch.tensor(self.env.action_mask(state=s), dtype=torch.bool, device=self.device)
+                q[~mask] = -1e9
+                return float(torch.max(q).item())
+
         return V
 
     def save_model(self, path):
