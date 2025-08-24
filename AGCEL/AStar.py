@@ -26,7 +26,7 @@ class Node():
     def get_score(self, V): # V: Value function (State -> Score)
         obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
         obs.reduce()
-        return V(obs)
+        return V(obs, self.t)
 
     def get_next(self):
         #returns (next state, action) where action is applied to the current state to produce next state

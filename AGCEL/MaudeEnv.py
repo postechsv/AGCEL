@@ -43,9 +43,9 @@ class MaudeEnv():
         }
 
     def is_done(self):
-        if self.G_state.equal(self.goal):
-            return True
-        return self.nbrs == [] or self.curr_reward > 1e-7
+        t = self.m.parseTerm(f'{self.G_state.prettyPrint(0)} |= {self.goal.prettyPrint(0)}')
+        t.reduce()
+        return (t.prettyPrint(0) == 'true') or self.nbrs == [] or self.curr_reward > 1e-7
 
     def get_reward(self): # FIXME: actually, this should be get_utility
         t = self.m.parseTerm(f'reward({self.state.prettyPrint(0)})')

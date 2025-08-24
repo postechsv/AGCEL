@@ -144,7 +144,7 @@ class QLearner():
             self.v_dict[s] = self.max_q(s)
 
     def get_value_function(self):
-        return (lambda s : self.v_dict.get(s, self.q_init))
+        return (lambda obs_term, g_state=None : self.v_dict.get(obs_term, self.q_init))
     
     # PA2: V(s) = max_{s' in matching(s)} { max_a Q(s', a) }
     def get_value_function_abs(self):
@@ -247,7 +247,7 @@ class QLearner():
         return -1
 
     def pretrain(self, env, trace_path, repeat=10):
-        from AGCEL.Parser import parse_trace
+        from AGCEL.common import parse_trace
  
         trace = parse_trace(trace_path)
         matched = 0
