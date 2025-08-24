@@ -78,9 +78,9 @@ with open(dqn_vocab_file, 'w') as f:
 
 # === Result ===
 print('\n=== SUMMARY ===')
-print(f'[Oracle] Training time: {t1 - t0:.2f}s, # Entries: {oracle_size_before} -> {learner_oracle.get_size()}')
-print(f'         Value function: {oracle_output_file.split('/')[-1]}')
-print(f'[Cold]   Training time: {t3 - t2:.2f}s, # Entries: {learner_cold.get_size()}')
-print(f'[DQN]    Training time: {t5 - t4:.2f}s')
-print(f'         Model: {dqn_model_file.split("/")[-1]}')
-print(f'         Vocab: {dqn_vocab_file.split("/")[-1]}')
+print(f'[Warm] Training time: {t1 - t0:.2f}s, # Entries: {oracle_size_before} -> {learner_oracle.get_size()}')
+print(f'       Value function: {oracle_output_file.split('/')[-1]}')
+print(f'[Cold] Training time: {t3 - t2:.2f}s, # Entries: {learner_cold.get_size()}')
+print(f'[DQN]  Training time: {t5 - t4:.2f}s')
+print(f'       Model: {dqn_model_file.split("/")[-1]}')
+print(f'       Vocab: {dqn_vocab_file.split("/")[-1]}')

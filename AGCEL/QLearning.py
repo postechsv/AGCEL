@@ -87,7 +87,7 @@ class QLearner():
 
 
     def get_value_function(self):
-        return (lambda s : self.v_dict.get(s, self.q_init))
+        return (lambda obs_term, g_state=None : self.v_dict.get(obs_term, self.q_init))
     
     def dump_value_function(self, filename):
         with open(filename, 'w') as f:
@@ -132,7 +132,7 @@ class QLearner():
         return -1
 
     def pretrain(self, env, trace_path, repeat=10):
-        from AGCEL.Parser import parse_trace
+        from AGCEL.common import parse_trace
  
         trace = parse_trace(trace_path)
         matched = 0
