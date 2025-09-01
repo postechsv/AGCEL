@@ -11,4 +11,4 @@ mod BAKERY-TEST is
 ---  eq @K = 4 .
 endm
 
-search [1] init =>* N:Nat ; M:Nat ; [crit(N1:Nat)] [crit(N2:Nat)] PS:ProcSet .
+--- search [1] init =>* N:Nat ; M:Nat ; [crit(N1:Nat)] [crit(N2:Nat)] PS:ProcSet .

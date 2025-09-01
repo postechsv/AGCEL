@@ -19,7 +19,11 @@ class MaudeEnv():
         self.state = self.obs(self.G_state)
         self.curr_reward = self.get_reward()
         # nbrs = (rhs,action) where rhs is the result of applying action on the current state
-        self.nbrs = [(rhs, self.obs_act(label,sb)) for label in self.rules for rhs, sb, _, _ in self.G_state.apply(label)] # concrete
+        self.nbrs = [
+            (rhs, self.obs_act(label,sb)) 
+            for label in self.rules 
+            for rhs, sb, _, _ in self.G_state.apply(label)
+        ] # concrete
         return self.get_obs()
 
     # action = Action obj = <rule label, abstract subs>

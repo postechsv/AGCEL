@@ -2,7 +2,6 @@ import maude
 from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
 from AGCEL.AStar import *
-from AGCEL.AStar import *
 from AGCEL.DQNLearning import DQNLearner
 from AGCEL.common import make_encoder
 import json, re, sys, time
