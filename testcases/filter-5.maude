@@ -1,4 +1,5 @@
 load ../benchmarks/filter-analysis .
+---load ../benchmarks/filter-analysis-focus .
 
 mod FILTER-INIT5 is
   pr MODEL .
