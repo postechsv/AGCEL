@@ -37,9 +37,27 @@ mod MODEL is
   eq VS ; proc(I, L, crit) PS |= exitLHS = true .
   eq S |= exitLHS = false [owise] .
 
+  --- op waitRHS : -> Prop [ctor] .
+  --- eq vict(s L, I) VS ; proc(I, s L, wait) PS |= waitRHS = true .
+  --- eq S |= waitRHS = false [owise] .
+
+  --- op filterRHS : -> Prop [ctor] .
+  --- ceq VS ; proc(I, L, on) PS |= filterRHS = true
+  ---   if L < @NL and not conflict(I, L, VS ; proc(I, L, wait) PS) .
+  --- eq S |= filterRHS = false [owise] .
+
+  --- op critRHS : -> Prop [ctor] .
+  --- ceq VS ; proc(I, L, crit) |= critRHS = true
+  ---   if s L = @NL .
+  --- eq S |= critRHS = false [owise] .
+
+  --- op exitRHS : -> Prop [ctor] .
+  --- eq VS ; proc(I, 0, on) PS |= exitRHS = true .
+  --- eq S |= exitRHS = false [owise] .
 
   --- Defining Observations ---
   eq obs(S) = < obsUpto(S, waitLHS ; filterLHS ; critLHS ; exitLHS ; twoCrits) > .
+  --- eq obs(S) = < obsUpto(S, waitLHS ; filterLHS ; critLHS ; exitLHS ; waitRHS ; filterRHS ; critRHS ; exitRHS ; twoCrits) > .
   eq reward(< FV:FeatVec , (twoCrits : true) , FV':FeatVec >) = 1.0 .
   eq reward(MS:MDPState) = 0.0 [owise] .
   var P : Prop . var B : Bool .
