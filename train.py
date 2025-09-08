@@ -55,11 +55,13 @@ if trace_path is not None:
     #print(f'Output: {oracle_output_file.split('/')[-1]}')
 
 # Cold-start learner
+cold_output_file = output_prefix + "-c" + '.agcel'
 print('\n=== [WITHOUT ORACLE] ===')
 learner_cold = QLearner()
 t2 = time.time()
 learner_cold.train(env, num_samples)
 t3 = time.time()
+learner_cold.dump_value_function(cold_output_file)
 #print(f'Cold QTable size: {learner_cold.get_size()}')
 #print(f'Cold training time: {t3 - t2:.2f}s')
 #print(f'Output: {cold_output_file.split('/')[-1]}')

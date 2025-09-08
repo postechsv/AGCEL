@@ -53,7 +53,7 @@ if res[0]:
     print('[TRAINED] Goal reached!')
 
 
-m = re.search(r'(.+?)(-o\d+|-oracle)?$', qtable_file)
+m = re.search(r'(.+?)(-c|-o\d+|-oracle)?$', qtable_file)
 base_prefix = m.group(1) if m else qtable_file
 
 dqn_model_file = base_prefix + '-dqn.pt'
