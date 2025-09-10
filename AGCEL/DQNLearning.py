@@ -57,7 +57,8 @@ class DQNLearner():
         s_term = obs['G_state']
         x = self.encoder(s_obs).unsqueeze(0).to(self.device)
 
-        q_values = self.q_net(x)[0] # q values for all action
+        with torch.no_grad():
+            q_values = self.q_net(x)[0] # q values for all action
 
         mask = torch.tensor(self.env.action_mask(state=s_term), dtype=torch.bool, device=self.device)
 
@@ -143,11 +144,12 @@ class DQNLearner():
 
     def get_value_function(self):
         def V(obs_term, g_state=None):
-            x = self.encoder(obs_term).unsqueeze(0).to(self.device)
-            q = self.q_net(x)[0]
-            if g_state is not None:
-                mask = torch.tensor(self.env.action_mask(state=g_state), dtype=torch.bool, device=self.device)
-                q[~mask] = -1e9
+            with torch.no_grad():
+                x = self.encoder(obs_term).unsqueeze(0).to(self.device)
+                q = self.q_net(x)[0]
+                if g_state is not None:
+                    mask = torch.tensor(self.env.action_mask(state=g_state), dtype=torch.bool, device=self.device)
+                    q[~mask] = -1e9
             return float(torch.max(q).item())
         return V
 
