@@ -142,15 +142,42 @@ class DQNLearner():
         for target_param, local_param in zip(self.target_net.parameters(), self.q_net.parameters()):
             target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data) # tau=1 -> hard 
 
+    # def get_value_function(self):
+    #     def V(obs_term, g_state=None):
+    #         with torch.no_grad():
+    #             x = self.encoder(obs_term).unsqueeze(0).to(self.device)
+    #             q = self.q_net(x)[0]
+    #             if g_state is not None:
+    #                 mask = torch.tensor(self.env.action_mask(state=g_state), dtype=torch.bool, device=self.device)
+    #                 q[~mask] = -1e9
+    #         return float(torch.max(q).item())
+    #     return V
+
     def get_value_function(self):
+        self.q_net.eval()
+        enc_cache  = {}
+        mask_cache = {}
+
         def V(obs_term, g_state=None):
-            with torch.no_grad():
+            obs_str = obs_term.prettyPrint(0)
+            x = enc_cache.get(obs_str)
+            if x is None:
                 x = self.encoder(obs_term).unsqueeze(0).to(self.device)
+                enc_cache[obs_str] = x
+
+            with torch.no_grad():
                 q = self.q_net(x)[0]
-                if g_state is not None:
-                    mask = torch.tensor(self.env.action_mask(state=g_state), dtype=torch.bool, device=self.device)
-                    q[~mask] = -1e9
-            return float(torch.max(q).item())
+
+            if g_state is not None:
+                g_str = g_state.prettyPrint(0)
+                mask = mask_cache.get(g_str)
+                if mask is None:
+                    mlist = self.env.action_mask(state=g_state)
+                    mask = torch.tensor(mlist, dtype=torch.bool, device=self.device)
+                    mask_cache[g_str] = mask
+                q = q.masked_fill(~mask, -1e9)
+
+            return float(q.max().item())
         return V
 
     def save_model(self, path):
