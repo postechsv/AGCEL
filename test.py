@@ -6,6 +6,10 @@ from AGCEL.DQNLearning import DQNLearner
 from AGCEL.common import make_encoder
 import json, re, sys, time
 
+import cProfile, pstats, io
+pr = cProfile.Profile()
+pr.enable()
+
 # Usage: python3 test.py <maude_model> <init_term> <goal_prop> <qtable_file>
 # python3 test.py testcases/filter-5.maude init twoCrits trained/filter-init3-twoCrits-500-o1
 
@@ -42,15 +46,15 @@ learner = QLearner()
 learner.load_value_function(qtable_file + '.agcel', m)
 V = learner.get_value_function()
 
-print('\n=== SEARCH WITH TRAINED VALUE FUNCTION ===')
+print('\n=== SEARCH WITH QTABLE ===')
 start_time = time.perf_counter()
 res = Search().search(n0, V, 9999)
 end_time = time.perf_counter()
 
-print('[TRAINED] n_states:', res[2])
-print(f'[TRAINED] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
+print('[QTABLE] n_states:', res[2])
+print(f'[QTABLE] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
 if res[0]:
-    print('[TRAINED] Goal reached!')
+    print('[QTABLE] Goal reached!')
 
 
 m = re.search(r'(.+?)(-c|-o\d+|-oracle)?$', qtable_file)
@@ -75,3 +79,9 @@ print('[DQN] n_states:', res_dqn[2])
 print(f'[DQN] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
 if res_dqn[0]:          
     print('[DQN] Goal reached!')
+
+pr.disable()
+s = io.StringIO()
+ps = pstats.Stats(pr, stream=s).sort_stats('cumtime')  # 누적시간 기준
+ps.print_stats(50)
+print(s.getvalue())
