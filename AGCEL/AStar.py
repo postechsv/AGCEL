@@ -7,7 +7,12 @@ class Node():
         t.reduce()
         self.t = t # Maude Term of sort State
         #self.score = self.get_score(t)
+        self.key = None
+        self._obs = None
 
+    def _ensure_key(self):
+        if self.key is None:
+            self.key = self.t.prettyPrint(0)
     def __hash__(self):
         return hash(self.t)
 
@@ -20,9 +25,14 @@ class Node():
         return 0
 
     def get_score(self, V): # V: Value function (State -> Score)
-        obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
-        obs.reduce()
-        return V(obs, self.t)
+        # obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
+        # obs.reduce()
+        # return V(obs, self.t)
+        if self._obs is None:
+            self._ensure_key()
+            self._obs = self.m.parseTerm('obs(' + self.key + ')')
+            self._obs.reduce()
+        return V(self._obs, self.t)
 
     def get_next(self):
         #returns (next state, action) where action is applied to the current state to produce next state
