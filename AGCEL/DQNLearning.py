@@ -142,17 +142,6 @@ class DQNLearner():
         for target_param, local_param in zip(self.target_net.parameters(), self.q_net.parameters()):
             target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data) # tau=1 -> hard 
 
-    # def get_value_function(self):
-    #     def V(obs_term, g_state=None):
-    #         with torch.no_grad():
-    #             x = self.encoder(obs_term).unsqueeze(0).to(self.device)
-    #             q = self.q_net(x)[0]
-    #             if g_state is not None:
-    #                 mask = torch.tensor(self.env.action_mask(state=g_state), dtype=torch.bool, device=self.device)
-    #                 q[~mask] = -1e9
-    #         return float(torch.max(q).item())
-    #     return V
-
     def get_value_function(self):
         self.q_net.eval()
         enc_cache  = {}

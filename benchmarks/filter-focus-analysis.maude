@@ -52,7 +52,7 @@ mod MODEL is
     if I =/= f1 and I =/= f2 .
   eq  S |= waitLHSStar = false [owise] .
   
-  
+
   ops filterLHSF1 filterLHSF2 filterLHSStar : -> Prop [ctor] .
   ceq VS ; proc(f1, L, wait) PS |= filterLHSF1 = true
     if L < @NL and not conflict(f1, L, VS ; proc(f1, L, wait) PS) .
