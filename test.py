@@ -6,6 +6,9 @@ from AGCEL.DQNLearning import DQNLearner
 from AGCEL.common import make_encoder
 import json, re, sys, time
 
+import torch
+torch.set_grad_enabled(False)
+
 import cProfile, pstats, io
 pr = cProfile.Profile()
 pr.enable()
@@ -67,6 +70,7 @@ with open(dqn_vocab_file, 'r') as f:
     vocab = json.load(f)
 dqn = DQNLearner(env, state_encoder=make_encoder(vocab), input_dim=len(vocab),
                  num_actions=len(env.rules), gamma=0.95, lr=1e-3, tau=0.01)
+dqn.q_net.eval()
 dqn.load_model(dqn_model_file)
 V_dqn = dqn.get_value_function()
 
@@ -79,6 +83,7 @@ print('[DQN] n_states:', res_dqn[2])
 print(f'[DQN] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
 if res_dqn[0]:          
     print('[DQN] Goal reached!')
+
 
 pr.disable()
 s = io.StringIO()

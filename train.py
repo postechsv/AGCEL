@@ -35,7 +35,7 @@ print(f'Trace file: {trace_path}')
 print(f'Output prefix: {output_prefix}')
 
 if trace_path is not None:
-    # === Extract suffix from trace file name ===
+    # Extract suffix from trace file name
     trace_suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
     oracle_output_file = output_prefix + trace_suffix + '.agcel'
 
@@ -45,13 +45,9 @@ if trace_path is not None:
     t0 = time.time()
     learner_oracle.pretrain(env, trace_path)
     oracle_size_before = learner_oracle.get_size()
-    #print(f'Oracle QTable size (Before Training): {oracle_size_before}')
     learner_oracle.train(env, num_samples)
     t1 = time.time()
     learner_oracle.dump_value_function(oracle_output_file)
-    #print(f'Oracle QTable size (After Training): {learner_oracle.get_size()}')
-    #print(f'Oracle training time: {t1 - t0:.2f}s')
-    #print(f'Output: {oracle_output_file.split('/')[-1]}')
 
 # Cold-start learner
 cold_output_file = output_prefix + "-c" + '.agcel'
@@ -61,12 +57,9 @@ t2 = time.time()
 learner_cold.train(env, num_samples)
 t3 = time.time()
 learner_cold.dump_value_function(cold_output_file)
-#print(f'Cold QTable size: {learner_cold.get_size()}')
-#print(f'Cold training time: {t3 - t2:.2f}s')
-#print(f'Output: {cold_output_file.split('/')[-1]}')
 
 
-# === DQN ===
+# DQN
 print('\n=== [DQN] ===')
 vocab = build_vocab(env)
 
@@ -82,7 +75,7 @@ with open(dqn_vocab_file, 'w') as f:
     json.dump(vocab, f)
 
 
-# === Result ===
+# Result
 print('\n=== SUMMARY ===')
 if trace_path is not None:
     print(f'[Warm] Training time: {t1 - t0:.2f}s, # Entries: {oracle_size_before} -> {learner_oracle.get_size()}')
