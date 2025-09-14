@@ -38,11 +38,12 @@ class DQNLearner():
                  gamma, lr, tau):
         self.env = env
         self.encoder = state_encoder
+        self.input_dim = input_dim
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.q_net      = DQN(input_dim, num_actions).to(self.device)
-        self.target_net = DQN(input_dim, num_actions).to(self.device)
+        self.q_net      = DQN(self.input_dim, num_actions).to(self.device)
+        self.target_net = DQN(self.input_dim, num_actions).to(self.device)
         self.target_net.load_state_dict(self.q_net.state_dict())
         self.optimizer  = optim.Adam(self.q_net.parameters(), lr=lr)
 
@@ -143,30 +144,29 @@ class DQNLearner():
             target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data) # tau=1 -> hard 
 
     def get_value_function(self):
-        self.q_net.eval()
-        enc_cache  = {}
-        mask_cache = {}
+        model = self.q_net.to('cpu').eval()
+        enc   = self.encoder
+        enc_cache = {}
 
+        @torch.no_grad()
         def V(obs_term, g_state=None):
             obs_str = obs_term.prettyPrint(0)
             x = enc_cache.get(obs_str)
             if x is None:
-                x = self.encoder(obs_term).unsqueeze(0).to(self.device)
+                x = enc(obs_term)
+                if x.ndim == 1:
+                    x = x.cpu()
+                    tmp = torch.empty(1, x.numel(), dtype=x.dtype)
+                    tmp[0].copy_(x)
+                    x = tmp
+                else:
+                    x = x.cpu()
                 enc_cache[obs_str] = x
 
-            with torch.no_grad():
-                q = self.q_net(x)[0]
-
-            if g_state is not None:
-                g_str = g_state.prettyPrint(0)
-                mask = mask_cache.get(g_str)
-                if mask is None:
-                    mlist = self.env.action_mask(state=g_state)
-                    mask = torch.tensor(mlist, dtype=torch.bool, device=self.device)
-                    mask_cache[g_str] = mask
-                q = q.masked_fill(~mask, -1e9)
-
+            q = model(x)[0]
             return float(q.max().item())
+        
+        V.needs_obs = True
         return V
 
     def save_model(self, path):

@@ -5,8 +5,8 @@ class Node():
         self.m = m # Maude Module
         t.reduce()
         self.t = t # Maude Term of sort State
-        # self.key = None
-        # self._obs = None
+        self.key = None
+        self._obs = None
 
     def _ensure_key(self):
         if self.key is None:
@@ -29,14 +29,14 @@ class Node():
         return obs
 
     def get_score(self, V): # V: Value function (State -> Score)
-        obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
-        obs.reduce()
-        return V(obs, self.t)
-        # if self._obs is None:
-        #     self._ensure_key()
-        #     self._obs = self.m.parseTerm('obs(' + self.key + ')')
-        #     self._obs.reduce()
-        # return V(self._obs, self.t)
+        # obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
+        # obs.reduce()
+        # return V(obs, self.t)
+        if self._obs is None:
+            self._ensure_key()
+            self._obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
+            self._obs.reduce()
+        return V(self._obs, self.t)
 
     def get_next(self):
         #returns (next state, action) where action is applied to the current state to produce next state
@@ -46,9 +46,10 @@ class Node():
         print(self.t.prettyPrint(0))
 
     def is_goal(self):
-        t = self.m.parseTerm(f'{self.t.prettyPrint(0)} |= goal')
+        #t = self.m.parseTerm(f'{self.t.prettyPrint(0)} |= goal')
+        self._ensure_key()
+        t = self.m.parseTerm(f'{self.key} |= goal')
         t.reduce()
-        #print(t.prettyPrint(0))
         return t.prettyPrint(0) == 'true'
 
 class NodeSet():
