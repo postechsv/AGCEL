@@ -33,6 +33,7 @@ n0 = Node(m, init_term)
 
 #V0 = lambda node: 0
 V0 = lambda obs_term, g_state=None: 0
+V0.needs_obs = False
 
 print('\n=== SEARCH WITHOUT TRAINING ===')
 start_time = time.perf_counter()
