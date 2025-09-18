@@ -32,11 +32,11 @@ class Node():
         # obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
         # obs.reduce()
         # return V(obs, self.t)
-        if getattr(V, 'needs_obs', True) is False:
-            return V(None, self.t)
+        # if getattr(V, 'needs_obs', True) is False:
+        #     return V(None, self.t)
         if self._obs is None:
             self._ensure_key()
-            self._obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
+            self._obs = self.m.parseTerm('obs(' + self.key + ')')
             self._obs.reduce()
         return V(self._obs, self.t)
 
@@ -48,7 +48,7 @@ class Node():
         print(self.t.prettyPrint(0))
 
     def is_goal(self):
-        #t = self.m.parseTerm(f'{self.t.prettyPrint(0)} |= goal')
+        # t = self.m.parseTerm(f'{self.t.prettyPrint(0)} |= goal')
         self._ensure_key()
         t = self.m.parseTerm(f'{self.key} |= goal')
         t.reduce()
