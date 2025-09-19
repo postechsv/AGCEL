@@ -92,7 +92,6 @@ if __name__ == "__main__":
         sys.exit(0)
 
     for mode in ["baseline", "qtable", "dqn"]:
-        # print(f'\n===== RUN ({mode.upper()}) in subprocess =====')
         envp = os.environ.copy(); envp["MODE"] = mode
         p = subprocess.Popen(
             [sys.executable, sys.argv[0], model, init, prop, qtable_file],

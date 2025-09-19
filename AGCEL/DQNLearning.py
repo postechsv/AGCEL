@@ -25,14 +25,25 @@ class ReplayBuffer:
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(DQN, self).__init__()
+        # self.net = nn.Sequential(
+        #     nn.Linear(input_dim, 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, output_dim)
+        # )
         self.net = nn.Sequential(
-            nn.Linear(input_dim, 128),
-            nn.ReLU(),
-            nn.Linear(128, output_dim)
+            nn.Linear(input_dim, 256), nn.ReLU(),
+            nn.Linear(256, 256), nn.ReLU(),
         )
-    def forward(self, x):
-        return self.net(x)
+        self.V = nn.Sequential(nn.Linear(256, 128), nn.ReLU(), nn.Linear(128, 1))
+        self.A = nn.Sequential(nn.Linear(256, 128), nn.ReLU(), nn.Linear(128, output_dim))
 
+    def forward(self, x):
+        # return self.net(x)
+        h = self.net(x)
+        v = self.V(h)
+        a = self.A(h)
+        return v + a - a.mean(dim=1, keepdim=True)
+    
 class DQNLearner():
     def __init__(self, env, state_encoder, input_dim, num_actions,
                  gamma, lr, tau):
@@ -77,16 +88,21 @@ class DQNLearner():
         
     def compute_target_q(self, batch):
         targets = []
-        with torch.no_grad():
-            for r, next_obs, next_term, done in zip(batch.reward, batch.next_obs, batch.next_term, batch.done):
-                r_t = torch.tensor(r, dtype=torch.float32, device=self.device)
-                if done:
-                    targets.append(r_t)
-                else:
-                    q_next = self.target_net(next_obs.unsqueeze(0).to(self.device))[0]
-                    mask = torch.tensor(self.env.action_mask(state=next_term), dtype=torch.bool, device=self.device)
-                    q_next[~mask] = -1e9
-                    targets.append(r_t + self.gamma * torch.max(q_next))
+        for r, next_obs, next_term, done in zip(batch.reward, batch.next_obs, batch.next_term, batch.done):
+            r_t = torch.tensor(r, dtype=torch.float32, device=self.device)
+            if done:
+                targets.append(r_t); continue
+
+            x = next_obs.unsqueeze(0).to(self.device)
+            mask = torch.tensor(self.env.action_mask(state=next_term), dtype=torch.bool, device=self.device)
+
+            q_online = self.q_net(x)[0]
+            q_online[~mask] = -1e9
+            a_star = int(torch.argmax(q_online).item())
+
+            q_targ = self.target_net(x)[0]
+            target = r_t + self.gamma * q_targ[a_star]
+            targets.append(target)
         return torch.stack(targets)
 
     def optimize_model(self):
@@ -112,9 +128,10 @@ class DQNLearner():
         max_steps = 300
         max_epsilon = 1.0
         min_epsilon = 0.05
-        decay_rate = 0.0005
+        decay_rate = 0.005
 
-        for episode in tqdm(range(n_training_episodes)):
+        #for episode in tqdm(range(n_training_episodes)):
+        for episode in range(n_training_episodes):
             epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
 
             obs = self.env.reset()
