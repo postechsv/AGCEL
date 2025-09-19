@@ -27,8 +27,8 @@ class Node():
         # obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
         # obs.reduce()
         # return V(obs, self.t)
-        # if getattr(V, 'needs_obs', True) is False:
-        #     return V(None, self.t)
+        if getattr(V, 'needs_obs', True) is False:
+            return V(None, self.t)
         if self._obs is None:
             self._ensure_key()
             self._obs = self.m.parseTerm('obs(' + self.key + ')')
