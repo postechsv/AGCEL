@@ -1,12 +1,12 @@
 import maude
 from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
-from AGCEL.DQNLearning import DQNLearner
+from AGCEL.DQNLearning   import DQNLearner
 from AGCEL.common import build_vocab, make_encoder
 import os, sys, json, time, subprocess
 
 # Usage: python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <output_file_prefix> [trace_path]
-# e.g., python3 train.py benchmarks/filter-analysis.maude init twoCrits 500 trained/filter-init3-twoCrits-500 traces/filter-init3-twoCrits-1.trace
+# e.g., python3 train.py benchmarks/filter-analysis.maude init twoCrits 500 trained/filter-init3-twoCrits-500 traces/filter-init3-twoCrits-3.trace
 
 def run_oracle():
     print('\n=== [WITH ORACLE] ===')
@@ -36,22 +36,41 @@ def run_cold():
 def run_dqn():
     print('\n=== [DQN] ===')
     vocab = build_vocab(env)
-    dqn = DQNLearner(env, state_encoder=make_encoder(vocab),
-                     input_dim=len(vocab), num_actions=len(env.rules),
-                     gamma=0.95, lr=1e-3, tau=0.01)
+    dqn = DQNLearner(
+        state_encoder=make_encoder(vocab),
+        input_dim=len(vocab),
+        num_actions=len(env.rules),
+        learning_rate=5e-4,
+        gamma=0.99,
+        tau=0.001,
+        epsilon_decay=0.0002,
+        target_update_frequency=500
+    )
+    
     t4 = time.time()
-    dqn.train(n_training_episodes=num_samples)
+    episode_rewards, _ = dqn.train(
+        env=env,
+        n_episodes=num_samples,
+        max_steps=300,
+        verbose=False
+    )
     t5 = time.time()
 
     model_file = output_pref + '-dqn.pt'
     vocab_file = output_pref + '-dqn-vocab.json'
-    dqn.save_model(model_file)
+    
+    dqn.save(model_file)
+    
     with open(vocab_file, 'w') as f:
         json.dump(vocab, f)
 
     print(f'[DQN]  Training time: {t5 - t4:.2f}s')
     print(f'       Model: {os.path.basename(model_file)}')
     print(f'       Vocab: {os.path.basename(vocab_file)}')
+    
+    if len(episode_rewards) > 0:
+        avg_reward = sum(episode_rewards[-100:]) / min(100, len(episode_rewards))
+        print(f'       Final avg reward (last 100 episodes): {avg_reward:.2f}')
 
 if __name__ == "__main__":
     model_path   = sys.argv[1]
