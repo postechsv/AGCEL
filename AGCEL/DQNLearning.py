@@ -1,195 +1,315 @@
-from collections import deque, namedtuple
-import numpy as np
-import random
-from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
+import numpy as np
+import random
+from collections import deque, namedtuple
+import datetime
+from typing import Dict, List, Tuple, Optional, Callable
+from tqdm import tqdm
 
-Transition = namedtuple('Transition', 
-                        ('state', 'action', 'reward', 'next_obs', 'next_term', 'done'))
+Experience = namedtuple('Experience', 
+                        ['state', 'action', 'reward', 'next_state', 'done'])
 
 class ReplayBuffer:
-    def __init__(self, capacity):
-        self.memory = deque(maxlen=capacity)
-
-    def push(self, *args):
-        self.memory.append(Transition(*args))
-
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
-
+    def __init__(self, capacity: int = 10000):
+        self.buffer = deque(maxlen=capacity)
+    
+    def push(self, state, action, reward, next_state, done):
+        self.buffer.append(Experience(state, action, reward, next_state, done))
+    
+    def sample(self, batch_size: int):
+        return random.sample(self.buffer, batch_size)
+    
     def __len__(self):
-        return len(self.memory)
+        return len(self.buffer)
 
 class DQN(nn.Module):
-    def __init__(self, input_dim, output_dim):
+    def __init__(self, input_dim: int, output_dim: int):
         super(DQN, self).__init__()
-        # self.net = nn.Sequential(
-        #     nn.Linear(input_dim, 128),
-        #     nn.ReLU(),
-        #     nn.Linear(128, output_dim)
-        # )
         self.net = nn.Sequential(
-            nn.Linear(input_dim, 256), nn.ReLU(),
-            nn.Linear(256, 256), nn.ReLU(),
+            nn.Linear(input_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, output_dim)
         )
-        self.V = nn.Sequential(nn.Linear(256, 128), nn.ReLU(), nn.Linear(128, 1))
-        self.A = nn.Sequential(nn.Linear(256, 128), nn.ReLU(), nn.Linear(128, output_dim))
-
-    def forward(self, x):
-        # return self.net(x)
-        h = self.net(x)
-        v = self.V(h)
-        a = self.A(h)
-        return v + a - a.mean(dim=1, keepdim=True)
     
-class DQNLearner():
-    def __init__(self, env, state_encoder, input_dim, num_actions,
-                 gamma, lr, tau):
-        self.env = env
-        self.encoder = state_encoder
+    def forward(self, x):
+        return self.net(x)
+
+class DQNLearner:
+    def __init__(self, 
+                 state_encoder: Callable,
+                 input_dim: int,
+                 num_actions: int,
+                 learning_rate: float = 1e-3,
+                 gamma: float = 0.95,
+                 tau: float = 0.005,
+                 epsilon_start: float = 1.0,
+                 epsilon_end: float = 0.05,
+                 epsilon_decay: float = 0.0005,
+                 batch_size: int = 64,
+                 buffer_size: int = 10000,
+                 update_frequency: int = 4,
+                 target_update_frequency: int = 100,
+                 device: Optional[str] = None):
+        
+        self.state_encoder = state_encoder
         self.input_dim = input_dim
-
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        self.q_net      = DQN(self.input_dim, num_actions).to(self.device)
-        self.target_net = DQN(self.input_dim, num_actions).to(self.device)
-        self.target_net.load_state_dict(self.q_net.state_dict())
-        self.optimizer  = optim.Adam(self.q_net.parameters(), lr=lr)
-
+        self.num_actions = num_actions
+        
+        if device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = torch.device(device)
+        
+        self.q_network = DQN(input_dim, num_actions).to(self.device)
+        self.target_network = DQN(input_dim, num_actions).to(self.device)
+        self.target_network.load_state_dict(self.q_network.state_dict())
+        self.target_network.eval()
+        
+        self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
+        
         self.gamma = gamma
         self.tau = tau
-
-        self.replay = ReplayBuffer(capacity=10000)
-        self.batch_size = 64
-
-    def select_action(self, obs, epsilon):
-        s_obs  = obs['state']
-        s_term = obs['G_state']
-        x = self.encoder(s_obs).unsqueeze(0).to(self.device)
-
-        with torch.no_grad():
-            q_values = self.q_net(x)[0] # q values for all action
-
-        mask = torch.tensor(self.env.action_mask(state=s_term), dtype=torch.bool, device=self.device)
-
-        q_values[~mask] = -1e9  # low q value for illegal actions
-
-        legal = torch.nonzero(mask, as_tuple=False).view(-1).tolist()
-        if not legal:   # empty legal actions
+        self.epsilon_start = epsilon_start
+        self.epsilon_end = epsilon_end
+        self.epsilon_decay = epsilon_decay
+        self.batch_size = batch_size
+        self.update_frequency = update_frequency
+        self.target_update_frequency = target_update_frequency
+        
+        self.replay_buffer = ReplayBuffer(buffer_size)
+        
+        self.training_step = 0
+        self.episode_count = 0
+        self.loss_history = []
+        
+        self.value_cache = {}
+        
+    def encode_state(self, maude_state) -> torch.Tensor:
+        return self.state_encoder(maude_state)
+    
+    def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
+        if epsilon is None:
+            epsilon = self.get_epsilon()
+        
+        state = obs['state']
+        g_state = obs.get('G_state')
+        if g_state is None:
+            raise KeyError("'G_state' not found in observation")
+        
+        action_mask = env.action_mask(state=g_state)
+        
+        if len(action_mask) != self.num_actions:
+            raise ValueError(f"Action mask length {len(action_mask)} != num_actions {self.num_actions}")
+        
+        legal_actions = [i for i, valid in enumerate(action_mask) if valid]
+        
+        if not legal_actions:
             return None
         
-        # eps_greedy_policy
-        if random.random() > epsilon:   # exploitation
-            return int(torch.argmax(q_values).item())   # choose action with max q value
-        else:                           # exploration
-            return random.choice(legal) # choose random legal action
+        if random.random() < epsilon:
+            return random.choice(legal_actions)
+        else:
+            with torch.no_grad():
+                state_tensor = self.encode_state(state).unsqueeze(0).to(self.device)
+                q_values = self.q_network(state_tensor).squeeze(0)
+                
+                masked_q_values = q_values.clone()
+                for i in range(self.num_actions):
+                    if not action_mask[i]:
+                        masked_q_values[i] = -float('inf')
+                
+                return masked_q_values.argmax().item()
         
-    def compute_target_q(self, batch):
-        targets = []
-        for r, next_obs, next_term, done in zip(batch.reward, batch.next_obs, batch.next_term, batch.done):
-            r_t = torch.tensor(r, dtype=torch.float32, device=self.device)
-            if done:
-                targets.append(r_t); continue
-
-            x = next_obs.unsqueeze(0).to(self.device)
-            mask = torch.tensor(self.env.action_mask(state=next_term), dtype=torch.bool, device=self.device)
-
-            q_online = self.q_net(x)[0]
-            q_online[~mask] = -1e9
-            a_star = int(torch.argmax(q_online).item())
-
-            q_targ = self.target_net(x)[0]
-            target = r_t + self.gamma * q_targ[a_star]
-            targets.append(target)
-        return torch.stack(targets)
-
-    def optimize_model(self):
-        if len(self.replay) < self.batch_size:
-            return  # not enough samples to train
-
-        batch = self.replay.sample(self.batch_size)
-        batch = Transition(*zip(*batch))    # unpack transitions
-
-        action_batch = torch.tensor(batch.action, dtype=torch.long, device=self.device).unsqueeze(1)    # [B,1]
-        state_batch  = torch.stack(batch.state).to(self.device)     # [B, D]
-        pred_q       = self.q_net(state_batch).gather(1, action_batch).squeeze(1)
-        target_q     = self.compute_target_q(batch) # [B]
-
-        loss         = nn.functional.smooth_l1_loss(pred_q, target_q)
-
-        self.optimizer.zero_grad()
-        loss.backward()         # backpropagation
-        torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)
-        self.optimizer.step()   # update network
-
-    def train(self, n_training_episodes):
-        max_steps = 300
-        max_epsilon = 1.0
-        min_epsilon = 0.05
-        decay_rate = 0.005
-
-        #for episode in tqdm(range(n_training_episodes)):
-        for episode in range(n_training_episodes):
-            epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
-
-            obs = self.env.reset()
-            done = False
+    def store_experience(self, state, action, reward, next_state, done, next_g_state=None):
+        state_tensor = self.encode_state(state)
+        next_state_tensor = self.encode_state(next_state) if next_state is not None else torch.zeros_like(state_tensor)
+        
+        self.replay_buffer.push(
+            state_tensor,
+            action,
+            reward,
+            next_state_tensor,
+            done
+        )
+    
+    def optimize_model(self, env=None):
+        if len(self.replay_buffer) < self.batch_size:
+            return
+        
+        batch = self.replay_buffer.sample(self.batch_size)
+        
+        state_batch = torch.stack([e.state for e in batch]).to(self.device)
+        action_batch = torch.tensor([e.action for e in batch], dtype=torch.long, device=self.device).unsqueeze(1)
+        reward_batch = torch.tensor([e.reward for e in batch], dtype=torch.float32, device=self.device)
+        next_state_batch = torch.stack([e.next_state for e in batch]).to(self.device)
+        done_batch = torch.tensor([e.done for e in batch], dtype=torch.float32, device=self.device)
+        
+        current_q_values = self.q_network(state_batch).gather(1, action_batch).squeeze(1)
+        
+        with torch.no_grad():
+            next_q_values_online = self.q_network(next_state_batch)
             
-            for _ in range(max_steps):
-                s_tensor = self.encoder(obs['state']).to(self.device)
-                a_idx = self.select_action(obs, epsilon)
-
-                if a_idx is None:
+            if env is not None and hasattr(env, 'get_batch_action_masks'):
+                masks = env.get_batch_action_masks(batch)
+                next_q_values_online = next_q_values_online.masked_fill(~masks, -float('inf'))
+            
+            next_actions = next_q_values_online.argmax(dim=1, keepdim=True)
+            
+            next_q_values_target = self.target_network(next_state_batch)
+            next_q_values = next_q_values_target.gather(1, next_actions).squeeze(1)
+            
+            target_q_values = reward_batch + self.gamma * next_q_values * (1 - done_batch)
+        
+        loss = F.smooth_l1_loss(current_q_values, target_q_values)
+        
+        self.optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), 1.0)
+        self.optimizer.step()
+        
+        self.loss_history.append(loss.item())
+        
+    def update_target_network(self):
+        for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
+            target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
+    
+    def get_epsilon(self) -> float:
+        return self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
+               np.exp(-self.epsilon_decay * self.episode_count)
+    
+    def train(self, env, n_episodes: int, max_steps: int = 300, verbose: bool = True):
+        episode_rewards = []
+        episode_lengths = []
+        
+        iterator = tqdm(range(n_episodes)) if verbose else range(n_episodes)
+        
+        for episode in iterator:
+            self.episode_count = episode
+            obs = env.reset()
+            episode_reward = 0
+            
+            for step in range(max_steps):
+                action_idx = self.select_action(env, obs)
+                
+                if action_idx is None:
                     break
-
-                obs2, reward, done = self.env.step_indexed(a_idx)
-                next_tensor = self.encoder(obs2['state']).to(self.device)
-                self.replay.push(s_tensor, a_idx, reward, next_tensor, obs2['G_state'], done)
-
-                self.optimize_model()
-                self.soft_update()
-
-                obs = obs2
-
+                
+                next_obs, reward, done = env.step_indexed(action_idx)
+                episode_reward += reward
+                
+                self.store_experience(
+                    obs['state'],
+                    action_idx,
+                    reward,
+                    next_obs['state'] if not done else None,
+                    done
+                )
+                
+                if self.training_step % self.update_frequency == 0:
+                    self.optimize_model()
+                
+                if self.training_step % self.target_update_frequency == 0:
+                    self.update_target_network()
+                
+                self.training_step += 1
+                obs = next_obs
+                
                 if done:
                     break
-
-    def soft_update(self):  # update target net
-        for target_param, local_param in zip(self.target_net.parameters(), self.q_net.parameters()):
-            target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data) # tau=1 -> hard 
-
-    def get_value_function(self):
-        model = self.q_net.to('cpu').eval()
-        enc   = self.encoder
-        enc_cache = {}
-
-        @torch.no_grad()
-        def V(obs_term, g_state=None):
-            obs_str = obs_term.prettyPrint(0)
-            x = enc_cache.get(obs_str)
-            if x is None:
-                x = enc(obs_term)
-                if x.ndim == 1:
-                    x = x.cpu()
-                    tmp = torch.empty(1, x.numel(), dtype=x.dtype)
-                    tmp[0].copy_(x)
-                    x = tmp
-                else:
-                    x = x.cpu()
-                enc_cache[obs_str] = x
-
-            q = model(x)[0]
-            return float(q.max().item())
+            
+            episode_rewards.append(episode_reward)
+            episode_lengths.append(step + 1)
+            
+            if verbose and episode % 100 == 0:
+                avg_reward = np.mean(episode_rewards[-100:]) if len(episode_rewards) >= 100 else np.mean(episode_rewards)
+                avg_length = np.mean(episode_lengths[-100:]) if len(episode_lengths) >= 100 else np.mean(episode_lengths)
+                print(f"Episode {episode}, Avg Reward: {avg_reward:.2f}, Avg Length: {avg_length:.1f}, "
+                      f"Epsilon: {self.get_epsilon():.3f}, Update ratio: {self.update_frequency}:{self.target_update_frequency}")
         
-        V.needs_obs = True
-        return V
-
-    def save_model(self, path):
-        torch.save(self.q_net.state_dict(), path)
-
-    def load_model(self, path):
-        sd = torch.load(path, map_location=self.device)
-        self.q_net.load_state_dict(sd)
-        self.target_net.load_state_dict(sd)
+        if verbose:
+            print("Training completed!")
+        
+        return episode_rewards, episode_lengths
+    
+    def get_value_function(self) -> Callable:
+        self.q_network.eval()
+        
+        @torch.no_grad()
+        def value_function(obs_term, g_state=None) -> float:
+            if obs_term is not None:
+                obs_str = obs_term.prettyPrint(0)
+                if obs_str in self.value_cache:
+                    return self.value_cache[obs_str]
+            
+            state_tensor = self.encode_state(obs_term).unsqueeze(0).to(self.device)
+            
+            q_values = self.q_network(state_tensor).squeeze(0)
+            max_q = q_values.max().item()
+            
+            if obs_term is not None:
+                self.value_cache[obs_str] = max_q
+            
+            return max_q
+        
+        value_function.needs_obs = True
+        return value_function
+    
+    def save(self, path: str):
+        checkpoint = {
+            'q_network_state_dict': self.q_network.state_dict(),
+            'target_network_state_dict': self.target_network.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'training_step': self.training_step,
+            'episode_count': self.episode_count,
+            'loss_history': self.loss_history,
+            'hyperparameters': {
+                'input_dim': self.input_dim,
+                'num_actions': self.num_actions,
+                'gamma': self.gamma,
+                'tau': self.tau,
+                'epsilon_start': self.epsilon_start,
+                'epsilon_end': self.epsilon_end,
+                'epsilon_decay': self.epsilon_decay,
+                'batch_size': self.batch_size
+            }
+        }
+        torch.save(checkpoint, path)
+        print(f"Model saved to {path}")
+    
+    def load(self, path: str):
+        checkpoint = torch.load(path, map_location=self.device)
+        
+        self.q_network.load_state_dict(checkpoint['q_network_state_dict'])
+        self.target_network.load_state_dict(checkpoint['target_network_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.training_step = checkpoint['training_step']
+        self.episode_count = checkpoint['episode_count']
+        self.loss_history = checkpoint['loss_history']
+        
+        if 'hyperparameters' in checkpoint:
+            hp = checkpoint['hyperparameters']
+            self.gamma = hp.get('gamma', self.gamma)
+            self.tau = hp.get('tau', self.tau)
+            self.batch_size = hp.get('batch_size', self.batch_size)
+        
+        print(f"Model loaded from {path}")
+    
+    def dump_value_function(self, filename: str, module_name: str, goal: str):
+        with open(filename, 'w') as f:
+            f.write(f'--- DQN-learned heuristic generated at {datetime.datetime.now()}\n')
+            f.write('mod DQN-HEURISTIC is\n')
+            f.write(f'  pr HEURISTIC-BASE . pr {module_name} .\n')
+            f.write('  var S : MDPState . var A : MDPAct .\n')
+            
+            for state_str, value in self.value_cache.items():
+                f.write(f'  eq score({goal}, {state_str}) = {value} .\n')
+            
+            f.write(f'  eq score({goal}, S) = 0.0 [owise] .\n')
+            f.write('endm\n')
+        
+        print(f"Value function exported to {filename}")

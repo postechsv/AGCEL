@@ -50,20 +50,33 @@ def run_dqn(m, env, n0, qtable_file):
 
     with open(dqn_vocab_file, 'r') as f:
         vocab = json.load(f)
-    dqn = DQNLearner(env, state_encoder=make_encoder(vocab), input_dim=len(vocab),
-                     num_actions=len(env.rules), gamma=0.95, lr=1e-3, tau=0.01)
-    dqn.q_net.eval()
-    dqn.load_model(dqn_model_file)
+    
+    dqn = DQNLearner(
+        state_encoder=make_encoder(vocab),
+        input_dim=len(vocab),
+        num_actions=len(env.rules),
+        learning_rate=5e-4,
+        gamma=0.99,
+        tau=0.001,
+        epsilon_decay=0.0002,
+        target_update_frequency=500
+    )
+    
+    dqn.load(dqn_model_file)
+    dqn.q_network.eval()
     V_dqn = dqn.get_value_function()
 
     # pr = cProfile.Profile(); pr.enable()
-    print('\n=== SEARCH WITH DQN VALUE FUNCTION ===')
+    print('\n=== SEARCH WITH DQN ===')
     start_time = time.perf_counter()
     res_dqn = Search().search(n0, V_dqn, 9999)
     end_time = time.perf_counter()
     print('[DQN] n_states:', res_dqn[2])
     print(f'[DQN] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
-    if res_dqn[0]: print('[DQN] Goal reached!')
+    if res_dqn[0]: 
+        print('[DQN] Goal reached!')
+    else:
+        print('[DQN] Goal not reached')
     # pr.disable(); s = io.StringIO()
     # pstats.Stats(pr, stream=s).sort_stats('cumtime').print_stats(50)
     # print(s.getvalue())
@@ -82,6 +95,12 @@ if __name__ == "__main__":
         env = MaudeEnv(m, prop, lambda: init)
         init_term = m.parseTerm(init); init_term.reduce()
         n0 = Node(m, init_term)
+
+        print('\n=== TEST SETUP ===')
+        print(f'Module: {m}')
+        print(f'Init term: {init}')
+        print(f'Goal proposition: {prop}')
+        print(f'QTable file: {qtable_file}')
 
         if mode == "baseline":
             run_baseline(m, env, n0)
