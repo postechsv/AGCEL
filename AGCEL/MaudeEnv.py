@@ -65,13 +65,18 @@ class MaudeEnv():
         return mask
     
     def step_indexed(self, action_idx):
-        l = self.rules[action_idx]
-        if not self.action_mask()[action_idx]:
-            raise Exception("invalid action")
+        if action_idx >= len(self.rules):
+            raise ValueError(f"Invalid action index: {action_idx}")
+        
+        label = self.rules[action_idx]
 
-        next_states = [rhs for rhs, _, _, _ in self.G_state.apply(l)]
+        next_states = [s for s, a in self.nbrs if str(a).startswith(f"'{label}")]
+        
         if not next_states:
-            raise Exception("invalid action")
+            next_states = [rhs for rhs, _, _, _ in self.G_state.apply(label)]
+            if not next_states:
+                raise ValueError(f"Action {label} not applicable")
+
         obs = self.reset(random.choice(next_states))
         return obs, self.curr_reward, self.is_done()
 

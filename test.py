@@ -63,12 +63,12 @@ def run_dqn(m, env, n0, qtable_file, extra_args):
         state_encoder=make_encoder(vocab),
         input_dim=len(vocab),
         num_actions=len(env.rules),
-        learning_rate=1e-3,
-        gamma=0.95,
-        tau=0.005,
+        learning_rate=5e-4,
+        gamma=0.99,
+        tau=0.001,
         epsilon_end=0.05,
-        epsilon_decay=0.0005,
-        target_update_frequency=100
+        epsilon_decay=0.0002,
+        target_update_frequency=500
     )
 
     dqn.load(dqn_model_file)

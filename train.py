@@ -36,12 +36,12 @@ def run_cold():
     print(f'       Value function: {os.path.basename(out_file)}')
 
 def run_dqn(sweep_mode=False, 
-            learning_rate=1e-3,
-            gamma=0.95,
-            tau=0.005,
+            learning_rate=5e-4,
+            gamma=0.99,
+            tau=0.001,
             epsilon_end=0.05,
-            epsilon_decay=0.0005,
-            target_update_frequency=100):
+            epsilon_decay=0.0002,
+            target_update_frequency=500):
     print('\n=== [DQN] ===')
     
     vocab = build_vocab(env)
@@ -66,6 +66,7 @@ def run_dqn(sweep_mode=False,
     t5 = time.time()
 
     suffix_parts = []
+    suffix = ""
     if sweep_mode:
         suffix_parts.append(f'lr={learning_rate}')
         suffix_parts.append(f'gamma={gamma}')
@@ -137,14 +138,15 @@ if __name__ == "__main__":
         m = maude.getCurrentModule()
         env = MaudeEnv(m, goal_prop, lambda: init_term)
 
-        print('\n=== TRAINING SETUP ===')
-        print(f'Module: {m}')
-        print(f'Init term: {init_term}')
-        print(f'Goal proposition: {goal_prop}')
-        print(f'Training samples: {num_samples}')
-        print(f'Sweep mode: {sweep_mode}')
-        print(f'Trace file: {trace_path}')
-        print(f'Output prefix: {output_pref}')
+        if not sweep_mode: 
+            print('\n=== TRAINING SETUP ===')
+            print(f'Module: {m}')
+            print(f'Init term: {init_term}')
+            print(f'Goal proposition: {goal_prop}')
+            print(f'Training samples: {num_samples}')
+            print(f'Sweep mode: {sweep_mode}')
+            print(f'Trace file: {trace_path}')
+            print(f'Output prefix: {output_pref}')
 
         if mode == "oracle":
             if trace_path is None:
