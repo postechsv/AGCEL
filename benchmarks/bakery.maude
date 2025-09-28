@@ -1,5 +1,6 @@
 --- Lamport's Bakery protocol in Maude.
 --- From: All About Maude - A High-Performance Logical Framework. 
+
 fmod BAKERY-SYNTAX is 
   pr NAT .
 
@@ -34,8 +35,19 @@ mod BAKERY is
   
   var PS : ProcSet .  vars N M : Nat . 
   
-  rl [wake] : N ; M ; [idle] PS    => s N rem @K ; M ; [wait(N)] PS .
-  rl [crit] : N ; M ; [wait(M)] PS => N ; M ; [crit(M)] PS .
-  rl [exit] : N ; M ; [crit(M)] PS => N ; s M rem @K ; [idle] PS .
+  rl [wake] : 
+    N ; M ; [idle] PS    
+    => 
+    s N rem @K ; M ; [wait(N)] PS .
+
+  rl [crit] : 
+    N ; M ; [wait(M)] PS 
+    => 
+    N ; M ; [crit(M)] PS .
+    
+  rl [exit] : 
+    N ; M ; [crit(M)] PS 
+    => 
+    N ; s M rem @K ; [idle] PS .
 endm
 

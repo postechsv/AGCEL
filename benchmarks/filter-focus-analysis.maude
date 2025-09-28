@@ -120,16 +120,16 @@ mod FILTER-TEST is
   eq init7 = vict(1,0) vict(2,0) vict(3,0) vict(4,0) vict(5,0) vict(6,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on) proc(6, 0, on) proc(7, 0, on) . --- error
 
   --- init3
-  eq init = init3 .
-  eq @NL = 2 .
+  --- eq init = init3 .
+  --- eq @NL = 2 .
 
   --- init4
   --- eq init = init4 .
   --- eq @NL = 3 .
 
   --- init5
-  --- eq init = init5 .
-  --- eq @NL = 4 .
+  eq init = init5 .
+  eq @NL = 4 .
 
   --- init6
   --- eq init = init6 .
