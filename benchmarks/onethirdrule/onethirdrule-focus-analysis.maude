@@ -184,7 +184,7 @@ mod ONETHIRDRULE-TEST is
     eq init7b = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F" ; "H"), (obA obB obC obD obE obF obH) } .
 
     --- init3
-    eq init = init5c .
+    eq init = init3 .
 
     --- init4
     --- eq init = init4 .
