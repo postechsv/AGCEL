@@ -60,7 +60,7 @@ class MaudeEnv():
         term = state if state is not None else self.G_state
         mask = []
         for label in self.rules:
-            has_app = any(True for _ in term.apply(label))
+            has_app = any(term.apply(label))
             mask.append(1 if has_app else 0)
         return mask
     

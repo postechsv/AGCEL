@@ -4,8 +4,7 @@ from AGCEL.QLearning import QLearner
 from AGCEL.AStar import *
 from AGCEL.DQNLearning import DQNLearner
 from AGCEL.common import make_encoder
-import os, sys, re, json, time, subprocess, io, cProfile, pstats, resource
-
+import os, sys, re, json, time, subprocess
 import torch
 torch.set_grad_enabled(False)
 
@@ -45,8 +44,8 @@ def run_qtable(m, env, n0, qtable_file):
 def run_dqn(m, env, n0, qtable_file):
     mobj = re.search(r'(.+?)(-c|-o\d+|-oracle)?$', qtable_file)
     base_prefix = mobj.group(1) if mobj else qtable_file
-    dqn_model_file = base_prefix + '-dqn.pt'
-    dqn_vocab_file = base_prefix + '-dqn-vocab.json'
+    dqn_model_file = base_prefix + '-d.pt'
+    dqn_vocab_file = base_prefix + '-v.json'
 
     with open(dqn_vocab_file, 'r') as f:
         vocab = json.load(f)
@@ -58,7 +57,8 @@ def run_dqn(m, env, n0, qtable_file):
         learning_rate=5e-4,
         gamma=0.99,
         tau=0.001,
-        epsilon_decay=0.0002,
+        epsilon_end=0.05,
+        epsilon_decay=0.0005,
         target_update_frequency=500
     )
     

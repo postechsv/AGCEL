@@ -6,8 +6,8 @@ import numpy as np
 import random
 from collections import deque, namedtuple
 import datetime
-from typing import Dict, List, Tuple, Optional, Callable
-from tqdm import tqdm
+from typing import Dict, Optional, Callable
+from AGCEL.MaudeEnv import *
 
 Experience = namedtuple('Experience', 
                         ['state', 'action', 'reward', 'next_state', 'done'])
@@ -88,13 +88,11 @@ class DQNLearner:
         self.loss_history = []
         
         self.value_cache = {}
-        
-    def encode_state(self, maude_state) -> torch.Tensor:
-        return self.state_encoder(maude_state)
     
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
         if epsilon is None:
-            epsilon = self.get_epsilon()
+            epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
+               np.exp(-self.epsilon_decay * self.episode_count)
         
         state = obs['state']
         g_state = obs.get('G_state')
@@ -115,7 +113,7 @@ class DQNLearner:
             return random.choice(legal_actions)
         else:
             with torch.no_grad():
-                state_tensor = self.encode_state(state).unsqueeze(0).to(self.device)
+                state_tensor = self.state_encoder(state).unsqueeze(0).to(self.device)
                 q_values = self.q_network(state_tensor).squeeze(0)
                 
                 masked_q_values = q_values.clone()
@@ -124,10 +122,10 @@ class DQNLearner:
                         masked_q_values[i] = -float('inf')
                 
                 return masked_q_values.argmax().item()
-        
-    def store_experience(self, state, action, reward, next_state, done, next_g_state=None):
-        state_tensor = self.encode_state(state)
-        next_state_tensor = self.encode_state(next_state) if next_state is not None else torch.zeros_like(state_tensor)
+    
+    def store_experience(self, state, action, reward, next_state, done):
+        state_tensor = self.state_encoder(state)
+        next_state_tensor = self.state_encoder(next_state) if next_state is not None else torch.zeros_like(state_tensor)
         
         self.replay_buffer.push(
             state_tensor,
@@ -178,17 +176,11 @@ class DQNLearner:
         for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
-    def get_epsilon(self) -> float:
-        return self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
-               np.exp(-self.epsilon_decay * self.episode_count)
-    
-    def train(self, env, n_episodes: int, max_steps: int = 300, verbose: bool = True):
+    def train(self, env, n_episodes: int, max_steps: int = 300):
         episode_rewards = []
         episode_lengths = []
         
-        iterator = tqdm(range(n_episodes)) if verbose else range(n_episodes)
-        
-        for episode in iterator:
+        for episode in range(n_episodes):
             self.episode_count = episode
             obs = env.reset()
             episode_reward = 0
@@ -225,14 +217,12 @@ class DQNLearner:
             episode_rewards.append(episode_reward)
             episode_lengths.append(step + 1)
             
-            if verbose and episode % 100 == 0:
-                avg_reward = np.mean(episode_rewards[-100:]) if len(episode_rewards) >= 100 else np.mean(episode_rewards)
-                avg_length = np.mean(episode_lengths[-100:]) if len(episode_lengths) >= 100 else np.mean(episode_lengths)
-                print(f"Episode {episode}, Avg Reward: {avg_reward:.2f}, Avg Length: {avg_length:.1f}, "
-                      f"Epsilon: {self.get_epsilon():.3f}, Update ratio: {self.update_frequency}:{self.target_update_frequency}")
+            # if episode % 100 == 0:
+            #     avg_reward = np.mean(episode_rewards[-100:]) if len(episode_rewards) >= 100 else np.mean(episode_rewards)
+            #     avg_length = np.mean(episode_lengths[-100:]) if len(episode_lengths) >= 100 else np.mean(episode_lengths)
+            #     print(f"    Episode {episode}, Avg Reward: {avg_reward:.2f}, Avg Length: {avg_length:.1f}, ")
         
-        if verbose:
-            print("Training completed!")
+        print("Training completed!")
         
         return episode_rewards, episode_lengths
     
@@ -240,13 +230,13 @@ class DQNLearner:
         self.q_network.eval()
         
         @torch.no_grad()
-        def value_function(obs_term, g_state=None) -> float:
+        def V(obs_term, g_state=None) -> float:
             if obs_term is not None:
                 obs_str = obs_term.prettyPrint(0)
                 if obs_str in self.value_cache:
                     return self.value_cache[obs_str]
             
-            state_tensor = self.encode_state(obs_term).unsqueeze(0).to(self.device)
+            state_tensor = self.state_encoder(obs_term).unsqueeze(0).to(self.device)
             
             q_values = self.q_network(state_tensor).squeeze(0)
             max_q = q_values.max().item()
@@ -256,8 +246,8 @@ class DQNLearner:
             
             return max_q
         
-        value_function.needs_obs = True
-        return value_function
+        V.needs_obs = True
+        return V
     
     def save(self, path: str):
         checkpoint = {
