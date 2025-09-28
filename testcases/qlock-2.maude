@@ -1,0 +1,13 @@
+--- load ../benchmarks/qlock-analysis .
+load ../benchmarks/qlock-focus-analysis .
+
+mod QLOCK-INIT2 is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = twoCrits .
+  
+  op init : -> Sys .
+  eq init = (pc[p1]: rs) (pc[p2]: rs) (queue: empty) (tmp[p1]: empty) (tmp[p2]: empty) .
+endm
+
+--- search [1] init =>* (pc[I:Pid]: cs) (pc[J:Pid]: cs) S:Sys such that I:Pid =/= J:Pid .
