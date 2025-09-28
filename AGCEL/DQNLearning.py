@@ -44,16 +44,16 @@ class DQNLearner:
                  state_encoder: Callable,
                  input_dim: int,
                  num_actions: int,
-                 learning_rate: float = 1e-3,
-                 gamma: float = 0.95,
-                 tau: float = 0.005,
+                 learning_rate: float = 5e-4,
+                 gamma: float = 0.9,
+                 tau: float = 0.001,
                  epsilon_start: float = 1.0,
                  epsilon_end: float = 0.05,
-                 epsilon_decay: float = 0.0005,
+                 epsilon_decay: float = 0.0002,
                  batch_size: int = 64,
                  buffer_size: int = 10000,
                  update_frequency: int = 4,
-                 target_update_frequency: int = 100,
+                 target_update_frequency: int = 500,
                  device: Optional[str] = None):
         
         self.state_encoder = state_encoder
@@ -264,7 +264,7 @@ class DQNLearner:
             }
         }
         torch.save(checkpoint, path)
-        print(f"Model saved to {path}")
+        #print(f"Model saved to {path}")
     
     def load(self, path: str):
         checkpoint = torch.load(path, map_location=self.device)
