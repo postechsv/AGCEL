@@ -297,7 +297,6 @@ class QLearner():
         self.make_v_dict()
         
     def train(self, env, n_training_episodes):
-        #for episode in tqdm(range(n_training_episodes)):
         for episode in range(n_training_episodes):
             # Reduce epsilon (because we need less and less exploration)
             epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)

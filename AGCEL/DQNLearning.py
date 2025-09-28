@@ -151,16 +151,11 @@ class DQNLearner:
         
         with torch.no_grad():
             next_q_values_online = self.q_network(next_state_batch)
-            
-            if env is not None and hasattr(env, 'get_batch_action_masks'):
-                masks = env.get_batch_action_masks(batch)
-                next_q_values_online = next_q_values_online.masked_fill(~masks, -float('inf'))
-            
             next_actions = next_q_values_online.argmax(dim=1, keepdim=True)
-            
+
             next_q_values_target = self.target_network(next_state_batch)
             next_q_values = next_q_values_target.gather(1, next_actions).squeeze(1)
-            
+
             target_q_values = reward_batch + self.gamma * next_q_values * (1 - done_batch)
         
         loss = F.smooth_l1_loss(current_q_values, target_q_values)
@@ -176,7 +171,7 @@ class DQNLearner:
         for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
-    def train(self, env, n_episodes: int, max_steps: int = 300):
+    def train(self, env, n_episodes: int, max_steps: int = 10000):
         episode_rewards = []
         episode_lengths = []
         
