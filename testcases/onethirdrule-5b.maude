@@ -1,0 +1,11 @@
+--- load ../benchmarks/onethirdrule-analysis .
+load ../benchmarks/onethirdrule-focus-analysis .
+
+mod ONETHIRDRULE-INIT5B is
+  pr ONETHIRDRULE-OBS .
+  op goal : -> Prop .
+  eq goal = disagree .
+  
+  op init : -> Global .
+  eq init = init5b .
+endm
