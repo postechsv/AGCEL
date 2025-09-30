@@ -1,0 +1,49 @@
+fmod READERS-WRITERS-SYNTAX is
+  protecting NAT .
+  
+  sorts Status ProcType .
+  ops idle reading writing waiting : -> Status [ctor] .
+  ops reader writer : -> ProcType [ctor] .
+  
+  sorts Proc ProcSet Resource .
+  subsort Proc < ProcSet .
+  
+  op proc : Nat ProcType Status -> Proc [ctor] .
+  op __ : ProcSet ProcSet -> ProcSet [assoc comm] .
+  
+  op resource : Nat Nat -> Resource [ctor] .
+  
+  sort Conf .
+  op _;_ : ProcSet Resource -> Conf .
+  
+  op none : -> ProcSet [ctor] .
+endfm
+
+mod READERS-WRITERS is
+  protecting READERS-WRITERS-SYNTAX .
+  
+  vars PS : ProcSet . vars I J : Nat .
+  vars AR AW : Nat .
+  
+  op @NP : -> Nat .
+  
+  rl [writer-enter] : 
+    proc(I, writer, idle) PS ; resource(0, 0)
+    => 
+    proc(I, writer, writing) PS ; resource(0, 1) .
+
+  rl [writer-exit] : 
+    proc(I, writer, writing) PS ; resource(AR, s(AW))
+    => 
+    proc(I, writer, idle) PS ; resource(AR, AW) .
+  
+  rl [reader-enter] : 
+    proc(I, reader, idle) PS ; resource(AR, 0)
+    => 
+    proc(I, reader, reading) PS ; resource(s(AR), 0) .
+  
+  rl [reader-exit] : 
+    proc(I, reader, reading) PS ; resource(s(AR), AW)
+    => 
+    proc(I, reader, idle) PS ; resource(AR, AW) .
+endm

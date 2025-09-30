@@ -94,8 +94,8 @@ def run_dqn(sweep_mode=False,
         print(f'       epsilon_decay: {epsilon_decay}')
         print(f'       target_update_frequency: {target_update_frequency}')
 
-    print(f'       Model: {os.path.basename(model_file)}')
-    print(f'       Vocab: {os.path.basename(vocab_file)}')
+    # print(f'       Model: {os.path.basename(model_file)}')
+    # print(f'       Vocab: {os.path.basename(vocab_file)}')
     
     if len(episode_rewards) > 0:
         print(f'       Final avg reward (last 100 episodes): {(sum(episode_rewards[-100:]) / min(100, len(episode_rewards))):.2f}')
