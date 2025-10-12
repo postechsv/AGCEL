@@ -62,6 +62,8 @@ class DQNLearner:
         
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            if not torch.cuda.is_available():
+                print("cuda is not available: cpu")
         else:
             self.device = torch.device(device)
         

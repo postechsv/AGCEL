@@ -54,6 +54,17 @@ class MaudeEnv():
     def get_reward(self): # FIXME: actually, this should be get_utility
         t = self.m.parseTerm(f'reward({self.state.prettyPrint(0)})')
         t.reduce()
+
+        # base_reward = t.toFloat()
+        
+        # if not self.use_shaped_reward:
+        #     return base_reward
+        
+        # if base_reward > 1e-7:
+        #     return 100.0
+        # else:
+        #     return -0.01
+        
         return t.toFloat()
 
     def action_mask(self, state=None):
@@ -69,14 +80,13 @@ class MaudeEnv():
             raise ValueError(f"Invalid action index: {action_idx}")
         
         label = self.rules[action_idx]
-
         next_states = [s for s, a in self.nbrs if str(a).startswith(f"'{label}")]
         
         if not next_states:
             next_states = [rhs for rhs, _, _, _ in self.G_state.apply(label)]
             if not next_states:
                 raise ValueError(f"Action {label} not applicable")
-
+            
         obs = self.reset(random.choice(next_states))
         return obs, self.curr_reward, self.is_done()
 
