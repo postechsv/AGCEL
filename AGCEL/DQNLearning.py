@@ -173,13 +173,20 @@ class DQNLearner:
         for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
-    def train(self, env, n_episodes: int, max_steps: int = 10000):
+    def train(self, env, n_episodes: int, max_steps: int = 10000, goal_start_prob: float = 0.0):
         episode_rewards = []
         episode_lengths = []
         
         for episode in range(n_episodes):
             self.episode_count = episode
-            obs = env.reset()
+            
+            if goal_start_prob > 0 and random.random() < goal_start_prob and len(self.replay_buffer) > 0:
+                sample_exp = random.choice(list(self.replay_buffer.buffer))
+                if sample_exp.reward > 1e-7:
+                    obs = env.reset(to_state=sample_exp.state)
+            else:
+                obs = env.reset()
+            
             episode_reward = 0
             
             for step in range(max_steps):
@@ -213,11 +220,6 @@ class DQNLearner:
             
             episode_rewards.append(episode_reward)
             episode_lengths.append(step + 1)
-            
-            # if episode % 100 == 0:
-            #     avg_reward = np.mean(episode_rewards[-100:]) if len(episode_rewards) >= 100 else np.mean(episode_rewards)
-            #     avg_length = np.mean(episode_lengths[-100:]) if len(episode_lengths) >= 100 else np.mean(episode_lengths)
-            #     print(f"    Episode {episode}, Avg Reward: {avg_reward:.2f}, Avg Length: {avg_length:.1f}, ")
         
         print("Training completed!")
         
@@ -266,7 +268,6 @@ class DQNLearner:
             }
         }
         torch.save(checkpoint, path)
-        #print(f"Model saved to {path}")
     
     def load(self, path: str):
         checkpoint = torch.load(path, map_location=self.device)
