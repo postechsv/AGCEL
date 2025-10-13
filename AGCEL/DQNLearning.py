@@ -91,6 +91,74 @@ class DQNLearner:
         
         self.value_cache = {}
     
+    def pretrain(self, env, trace_path, repeat=10):
+        from AGCEL.common import parse_trace
+        
+        trace = parse_trace(trace_path)
+        matched = 0
+        total = 0
+        
+        print(f'\n=== PRETRAINING FROM TRACE ===')
+        
+        for rep in range(repeat):
+            for i in range(len(trace)):
+                s_str, action_label, ns_str = trace[i]
+                
+                s_term = env.m.parseTerm(s_str)
+                s_term.reduce()
+                ns_term = env.m.parseTerm(ns_str)
+                ns_term.reduce()
+                
+                env.reset(to_state=s_term)
+                obs_s = env.get_obs()
+                s = obs_s['state']
+                ns = env.obs(ns_term)
+                
+                action_idx = None
+                for idx, label in enumerate(env.rules):
+                    if label == action_label:
+                        action_idx = idx
+                        break
+                
+                if action_idx is None:
+                    continue
+                
+                total += 1
+                
+                reward_term = env.m.parseTerm(f'reward({ns.prettyPrint(0)})')
+                reward_term.reduce()
+                reward = reward_term.toFloat()
+                
+                done = (i == len(trace) - 1) or reward > 1e-7
+                
+                state_tensor = self.state_encoder(s)
+                next_state_tensor = self.state_encoder(ns)
+                
+                self.replay_buffer.push(
+                    state_tensor,
+                    action_idx,
+                    reward,
+                    next_state_tensor,
+                    done
+                )
+                matched += 1
+        
+        print(f'Pretraining: {matched} transitions added to replay buffer')
+        print(f'Buffer size: {len(self.replay_buffer)}')
+        
+        pretrain_steps = min(1000, len(self.replay_buffer) // self.batch_size * 10)
+        print(f'Performing {pretrain_steps} pretraining optimization steps...')
+        
+        for _ in range(pretrain_steps):
+            self.optimize_model()
+            if self.training_step % self.target_update_frequency == 0:
+                self.update_target_network()
+            self.training_step += 1
+        
+        print(f'Pretraining complete!')
+        return matched, total
+
+    
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
         if epsilon is None:
             epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
