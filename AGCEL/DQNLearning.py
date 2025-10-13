@@ -25,6 +25,46 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
+class PrioritizedReplayBuffer:
+    def __init__(self, capacity: int = 10000, alpha: float = 0.6):
+        self.capacity = capacity
+        self.alpha = alpha
+        self.buffer = []
+        self.priorities = []
+        self.position = 0
+    
+    def push(self, state, action, reward, next_state, done):
+        experience = Experience(state, action, reward, next_state, done)
+        
+        if abs(reward) > 1e-7:
+            priority = 1.0
+        else:
+            priority = 0.1
+        
+        if len(self.buffer) < self.capacity:
+            self.buffer.append(experience)
+            self.priorities.append(priority)
+        else:
+            self.buffer[self.position] = experience
+            self.priorities[self.position] = priority
+        
+        self.position = (self.position + 1) % self.capacity
+    
+    def sample(self, batch_size: int):
+        if len(self.buffer) == 0:
+            return []
+        
+        priorities = np.array(self.priorities[:len(self.buffer)])
+        probs = priorities ** self.alpha
+        probs /= probs.sum()
+        
+        indices = np.random.choice(len(self.buffer), batch_size, p=probs, replace=False)
+        
+        return [self.buffer[idx] for idx in indices]
+    
+    def __len__(self):
+        return len(self.buffer)
+
 class DQN(nn.Module):
     def __init__(self, input_dim: int, output_dim: int):
         super(DQN, self).__init__()
@@ -84,6 +124,7 @@ class DQNLearner:
         self.target_update_frequency = target_update_frequency
         
         self.replay_buffer = ReplayBuffer(buffer_size)
+        # self.replay_buffer = PrioritizedReplayBuffer(buffer_size)
         
         self.training_step = 0
         self.episode_count = 0
