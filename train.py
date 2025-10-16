@@ -41,7 +41,8 @@ def run_dqn(sweep_mode=False,
             tau=0.001,
             epsilon_end=0.05,
             epsilon_decay=0.0002,
-            target_update_frequency=500):
+            target_update_frequency=500,
+            use_pretrain=True):
     print('\n=== [DQN] ===')
     
     vocab = build_vocab(env)
@@ -57,27 +58,44 @@ def run_dqn(sweep_mode=False,
         target_update_frequency=target_update_frequency
     )
     
+    if use_pretrain and trace_path is not None:
+        try:
+            matched, total = dqn.pretrain(env, trace_path, repeat=10)
+            print(f'Oracle pretraining: {matched}/{total*10} transitions')
+        except Exception as e:
+            print(f'Warning: Pretraining failed: {e}')
+            print('Continuing without pretraining...')
+    
     t4 = time.time()
     episode_rewards, episode_lengths = dqn.train(
         env=env,
         n_episodes=num_samples,
-        max_steps=10000
+        max_steps=10000,
+        goal_start_prob=0.0
     )
     t5 = time.time()
 
-    suffix_parts = []
-    suffix = ""
+    oracle_suffix = ""
+    param_suffix = ""
+    
+    if use_pretrain and trace_path:
+        oracle_suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
+    elif not sweep_mode:
+        oracle_suffix = "-c"
+    
     if sweep_mode:
-        suffix_parts.append(f'lr={learning_rate}')
-        suffix_parts.append(f'gamma={gamma}')
-        suffix_parts.append(f'tau={tau}')
-        suffix_parts.append(f'end={epsilon_end}')
-        suffix_parts.append(f'decay={epsilon_decay}')
-        suffix_parts.append(f'tf={target_update_frequency}')
-        suffix = '-' + '-'.join(suffix_parts)
-
-    model_file = output_pref + f'-d{suffix}.pt'
-    vocab_file = output_pref + f'-v{suffix}.json'
+        param_parts = [
+            f'lr={learning_rate}',
+            f'gamma={gamma}',
+            f'tau={tau}',
+            f'end={epsilon_end}',
+            f'decay={epsilon_decay}',
+            f'tf={target_update_frequency}'
+        ]
+        param_suffix = '-' + '-'.join(param_parts)
+    
+    model_file = output_pref + oracle_suffix + param_suffix + '-d.pt'
+    vocab_file = output_pref + oracle_suffix + param_suffix + '-v.json'
 
     dqn.save(model_file)
 
@@ -85,6 +103,7 @@ def run_dqn(sweep_mode=False,
         json.dump(vocab, f)
 
     print(f'[DQN]  Training time: {t5 - t4:.2f}s')
+    print(f'       Pretraining: {trace_path if (use_pretrain and trace_path) else "No"}')
 
     if sweep_mode:
         print(f'       learning_rate: {learning_rate}')
@@ -93,14 +112,18 @@ def run_dqn(sweep_mode=False,
         print(f'       epsilon_end: {epsilon_end}')
         print(f'       epsilon_decay: {epsilon_decay}')
         print(f'       target_update_frequency: {target_update_frequency}')
-
-    # print(f'       Model: {os.path.basename(model_file)}')
-    # print(f'       Vocab: {os.path.basename(vocab_file)}')
     
     if len(episode_rewards) > 0:
-        print(f'       Final avg reward (last 100 episodes): {(sum(episode_rewards[-100:]) / min(100, len(episode_rewards))):.2f}')
-    print(f'       Success rate: {sum(1 for r in episode_rewards if r > 0) / len(episode_rewards):.2%}')
-    print(f'       Episode steps -> min: {np.min(episode_lengths)}, max: {np.max(episode_lengths)}, mean: {np.mean(episode_lengths):.1f}')
+        success_count = sum(1 for r in episode_rewards if r > 1e-7)
+        print(f'       Success episodes: {success_count}/{len(episode_rewards)}')
+        print(f'       Success rate: {success_count / len(episode_rewards):.2%}')
+        
+        if success_count > 0:
+            successful_lengths = [episode_lengths[i] for i in range(len(episode_rewards)) if episode_rewards[i] > 1e-7]
+            print(f'       Successful episode steps -> min: {np.min(successful_lengths)}, max: {np.max(successful_lengths)}, mean: {np.mean(successful_lengths):.1f}')
+        
+        print(f'       Final avg reward (last 100): {(sum(episode_rewards[-100:]) / min(100, len(episode_rewards))):.2f}')
+        print(f'       All episode steps -> min: {np.min(episode_lengths)}, max: {np.max(episode_lengths)}, mean: {np.mean(episode_lengths):.1f}')
 
 if __name__ == "__main__":
     model_path   = sys.argv[1]
@@ -163,7 +186,8 @@ if __name__ == "__main__":
                 tau=tau,
                 epsilon_end=epsilon_end,
                 epsilon_decay=epsilon_decay,
-                target_update_frequency=target_update_frequency
+                target_update_frequency=target_update_frequency,
+                use_pretrain=(trace_path is not None)
             )
         sys.exit(0)
 
