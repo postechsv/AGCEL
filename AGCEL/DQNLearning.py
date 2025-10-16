@@ -101,9 +101,13 @@ class DQNLearner:
         self.num_actions = num_actions
         
         if device is None:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            if not torch.cuda.is_available():
-                print("cuda is not available: cpu")
+            if torch.backends.mps.is_available():
+                self.device = torch.device("mps")
+            elif torch.cuda.is_available():
+                self.device = torch.device("cuda")
+            else:
+                self.device = torch.device("cpu")
+                print("mps, cuda not available: cpu")
         else:
             self.device = torch.device(device)
         
