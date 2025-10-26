@@ -2,9 +2,9 @@ import random
 
 class MaudeEnv():
     def __init__(self, m, goal, initializer):
-        self.m = m # Maude module
-        self.goal = m.parseTerm(goal) # Maude Term
-        self.init = initializer # () -> String
+        self.m = m
+        self.goal = m.parseTerm(goal)
+        self.init = initializer
         self.rules = []
         for rl in m.getRules():
             if not rl.getLabel() == None:
@@ -18,31 +18,29 @@ class MaudeEnv():
             self.G_state = to_state
         self.state = self.obs(self.G_state)
         self.curr_reward = self.get_reward()
-        # nbrs = (rhs,action) where rhs is the result of applying action on the current state
         self.nbrs = [
             (rhs, self.obs_act(label,sb)) 
             for label in self.rules 
             for rhs, sb, _, _ in self.G_state.apply(label)
-        ] # concrete
+        ]
         return self.get_obs()
 
-    # action = Action obj = <rule label, abstract subs>
     def step(self, action):
-        next_states = [s for s,a in self.nbrs if a.equal(action)] # TODO : s,a =/= action computed by self.nbrs are wasted (fix: only match in nbrs)
+        next_states = [s for s,a in self.nbrs if a.equal(action)]
         if next_states == []:
             raise Exception("invalid action")
         obs = self.reset(random.choice(next_states))
         return obs, self.curr_reward, self.is_done()
     
     def get_obs(self):
-        acts = [a for _,a in self.nbrs] # List of (available) action objects
+        acts = [a for _,a in self.nbrs]
         out = []
         for t in acts:
             if not any(t.equal(u) for u in out):
                 out.append(t)
         return {
-            'G_state' : self.G_state,   # ground state for Rewrite Theory : Maude.Term
-            'state' : self.state,       # observed state for MDP : Maude.Term
+            'G_state' : self.G_state,
+            'state' : self.state,
             'actions' : out
         }
 
@@ -50,21 +48,10 @@ class MaudeEnv():
         t = self.m.parseTerm(f'{self.G_state.prettyPrint(0)} |= {self.goal.prettyPrint(0)}')
         t.reduce()
         return (t.prettyPrint(0) == 'true') or self.nbrs == [] or self.curr_reward > 1e-7
-
-    def get_reward(self): # FIXME: actually, this should be get_utility
+    
+    def get_reward(self):
         t = self.m.parseTerm(f'reward({self.state.prettyPrint(0)})')
         t.reduce()
-
-        # base_reward = t.toFloat()
-        
-        # if not self.use_shaped_reward:
-        #     return base_reward
-        
-        # if base_reward > 1e-7:
-        #     return 100.0
-        # else:
-        #     return -0.01
-        
         return t.toFloat()
 
     def action_mask(self, state=None):
@@ -75,7 +62,7 @@ class MaudeEnv():
             mask.append(1 if has_app else 0)
         return mask
     
-    def step_indexed(self, action_idx):
+    def step_indexed(self, action_idx, use_shaped_reward=False):
         if action_idx >= len(self.rules):
             raise ValueError(f"Invalid action index: {action_idx}")
         
@@ -88,15 +75,21 @@ class MaudeEnv():
                 raise ValueError(f"Action {label} not applicable")
             
         obs = self.reset(random.choice(next_states))
-        return obs, self.curr_reward, self.is_done()
+        
+        reward = self.curr_reward
+        if use_shaped_reward:
+            if reward > 1e-7:
+                reward = 100.0
+            else:
+                reward = -0.01
+        
+        return obs, reward, self.is_done()
 
-    # input: Maude.Term, output: Maude.Term
     def obs(self, term):
         term = self.m.parseTerm('obs(' + term.prettyPrint(0) + ')')
         term.reduce()
         return term
 
-    # input: Maude.Substitution, output: dict
     def obs_act(self, label, subs):
         bindings = ' ; '.join([f"obs('{label},'{var.getVarName()},data({val.prettyPrint(0)}))" for var, val in subs])
         act = self.m.parseTerm("'" + label + " { " +  bindings + "}")
