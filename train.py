@@ -42,7 +42,9 @@ def run_dqn(sweep_mode=False,
             epsilon_end=0.05,
             epsilon_decay=0.0002,
             target_update_frequency=500,
-            use_pretrain=True):
+            use_pretrain=True,
+            pretrain_repeat=10,
+            pretrain_epochs=10):
     print('\n=== [DQN] ===')
     
     vocab = build_vocab(env)
@@ -60,8 +62,13 @@ def run_dqn(sweep_mode=False,
     
     if use_pretrain and trace_path is not None:
         try:
-            matched, total = dqn.pretrain(env, trace_path, repeat=10)
-            print(f'Oracle pretraining: {matched}/{total*10} transitions')
+            matched, total = dqn.pretrain(
+                env, 
+                trace_path, 
+                repeat=pretrain_repeat,
+                pretrain_epochs=pretrain_epochs
+            )
+            print(f'Oracle pretraining: {matched}/{total} transitions matched')
         except Exception as e:
             print(f'Warning: Pretraining failed: {e}')
             print('Continuing without pretraining...')
@@ -71,7 +78,8 @@ def run_dqn(sweep_mode=False,
         env=env,
         n_episodes=num_samples,
         max_steps=10000,
-        goal_start_prob=0.0
+        goal_start_prob=0.0,
+        use_shaped_reward=True
     )
     t5 = time.time()
 
@@ -82,7 +90,7 @@ def run_dqn(sweep_mode=False,
         oracle_suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
     elif not sweep_mode:
         oracle_suffix = "-c"
-    
+
     if sweep_mode:
         param_parts = [
             f'lr={learning_rate}',
@@ -103,7 +111,7 @@ def run_dqn(sweep_mode=False,
         json.dump(vocab, f)
 
     print(f'[DQN]  Training time: {t5 - t4:.2f}s')
-    print(f'       Pretraining: {trace_path if (use_pretrain and trace_path) else "No"}')
+    print(f'       Pretraining: {"Yes" if (use_pretrain and trace_path) else "No"}')
 
     if sweep_mode:
         print(f'       learning_rate: {learning_rate}')
@@ -114,12 +122,12 @@ def run_dqn(sweep_mode=False,
         print(f'       target_update_frequency: {target_update_frequency}')
     
     if len(episode_rewards) > 0:
-        success_count = sum(1 for r in episode_rewards if r > 1e-7)
+        success_count = sum(1 for r in episode_rewards if r > 50)
         print(f'       Success episodes: {success_count}/{len(episode_rewards)}')
         print(f'       Success rate: {success_count / len(episode_rewards):.2%}')
         
         if success_count > 0:
-            successful_lengths = [episode_lengths[i] for i in range(len(episode_rewards)) if episode_rewards[i] > 1e-7]
+            successful_lengths = [episode_lengths[i] for i in range(len(episode_rewards)) if episode_rewards[i] > 50]
             print(f'       Successful episode steps -> min: {np.min(successful_lengths)}, max: {np.max(successful_lengths)}, mean: {np.mean(successful_lengths):.1f}')
         
         print(f'       Final avg reward (last 100): {(sum(episode_rewards[-100:]) / min(100, len(episode_rewards))):.2f}')
@@ -134,13 +142,16 @@ if __name__ == "__main__":
 
     sweep_mode = False
     trace_path = None
-
-    learning_rate=1e-3
-    gamma=0.95
+    
+    learning_rate=5e-4
+    gamma=0.99
     tau=0.005
-    epsilon_end=0.05
-    epsilon_decay=0.0005
-    target_update_frequency=100
+    epsilon_end=0.2
+    epsilon_decay=0.00005
+    target_update_frequency=50
+    
+    pretrain_repeat = 20
+    pretrain_epochs = 10
 
     if len(sys.argv) > 6:
         if sys.argv[6] == "sweep":
@@ -151,6 +162,8 @@ if __name__ == "__main__":
             epsilon_end = float(sys.argv[10])
             epsilon_decay = float(sys.argv[11])
             target_update_frequency = int(sys.argv[12])
+            if len(sys.argv) > 13:
+                trace_path = sys.argv[13]
         else:
             trace_path = sys.argv[6]
 
@@ -187,7 +200,9 @@ if __name__ == "__main__":
                 epsilon_end=epsilon_end,
                 epsilon_decay=epsilon_decay,
                 target_update_frequency=target_update_frequency,
-                use_pretrain=(trace_path is not None)
+                use_pretrain=(trace_path is not None),
+                pretrain_repeat=pretrain_repeat,
+                pretrain_epochs=pretrain_epochs
             )
         sys.exit(0)
 
@@ -203,9 +218,8 @@ if __name__ == "__main__":
         envp = os.environ.copy()
         envp["MODE"] = mname
         args = [sys.executable, sys.argv[0], model_path, init_term, goal_prop, str(num_samples), output_pref]
-        if trace_path:
-            args.append(trace_path)
-        elif sweep_mode:
+        
+        if sweep_mode:
             args += [
                 "sweep",
                 str(learning_rate),
@@ -215,6 +229,9 @@ if __name__ == "__main__":
                 str(epsilon_decay),
                 str(target_update_frequency)
             ]
+        
+        if trace_path:
+            args.append(trace_path)
 
         p = subprocess.run(
             args,

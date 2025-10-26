@@ -25,7 +25,7 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
-class PrioritizedReplayBuffer:
+# class PrioritizedReplayBuffer:
     def __init__(self, capacity: int = 10000, alpha: float = 0.6):
         self.capacity = capacity
         self.alpha = alpha
@@ -135,15 +135,18 @@ class DQNLearner:
         self.loss_history = []
         
         self.value_cache = {}
-    
-    def pretrain(self, env, trace_path, repeat=10):
+
+    def pretrain(self, env, trace_path, repeat=10, pretrain_epochs=10):
         from AGCEL.common import parse_trace
         
         trace = parse_trace(trace_path)
         matched = 0
         total = 0
         
-        print(f'\n=== PRETRAINING FROM TRACE ===')
+        print(f'\n=== PRETRAINING ===')
+        print(f'Trace file: {trace_path}')
+        print(f'Trace length: {len(trace)} transitions')
+        print(f'Repeat count: {repeat}')
         
         for rep in range(repeat):
             for i in range(len(trace)):
@@ -172,9 +175,14 @@ class DQNLearner:
                 
                 reward_term = env.m.parseTerm(f'reward({ns.prettyPrint(0)})')
                 reward_term.reduce()
-                reward = reward_term.toFloat()
+                base_reward = reward_term.toFloat()
                 
-                done = (i == len(trace) - 1) or reward > 1e-7
+                if base_reward > 1e-7:
+                    reward = 100.0  # Goal reached
+                else:
+                    reward = -0.01  # Step penalty
+                
+                done = (i == len(trace) - 1) or base_reward > 1e-7
                 
                 state_tensor = self.state_encoder(s)
                 next_state_tensor = self.state_encoder(ns)
@@ -188,22 +196,25 @@ class DQNLearner:
                 )
                 matched += 1
         
-        print(f'Pretraining: {matched} transitions added to replay buffer')
+        print(f'Pretraining: {matched} transitions added to replay buffer ({total} attempted)')
         print(f'Buffer size: {len(self.replay_buffer)}')
         
-        pretrain_steps = min(1000, len(self.replay_buffer) // self.batch_size * 10)
-        print(f'Performing {pretrain_steps} pretraining optimization steps...')
+        if len(self.replay_buffer) >= self.batch_size:
+            pretrain_steps = (len(self.replay_buffer) // self.batch_size) * pretrain_epochs
+            print(f'Performing {pretrain_steps} pretraining optimization steps ({pretrain_epochs} epochs)...')
+            
+            for step in range(pretrain_steps):
+                self.optimize_model()
+                if self.training_step % self.target_update_frequency == 0:
+                    self.update_target_network()
+                self.training_step += 1
+            
+            print(f'Pretraining complete!')
+        else:
+            print(f'Warning: Buffer size ({len(self.replay_buffer)}) < batch size ({self.batch_size}), skipping pretraining')
         
-        for _ in range(pretrain_steps):
-            self.optimize_model()
-            if self.training_step % self.target_update_frequency == 0:
-                self.update_target_network()
-            self.training_step += 1
-        
-        print(f'Pretraining complete!')
-        return matched, total
-
-    
+        return matched, total 
+   
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
         if epsilon is None:
             epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
@@ -286,29 +297,30 @@ class DQNLearner:
         for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
-    def train(self, env, n_episodes: int, max_steps: int = 10000, goal_start_prob: float = 0.0):
+    def train(self, env, n_episodes: int, max_steps: int = 10000, goal_start_prob: float = 0.0, use_shaped_reward: bool = True):
         episode_rewards = []
         episode_lengths = []
-        
+        success_count = 0
+
         for episode in range(n_episodes):
             self.episode_count = episode
             
             if goal_start_prob > 0 and random.random() < goal_start_prob and len(self.replay_buffer) > 0:
                 sample_exp = random.choice(list(self.replay_buffer.buffer))
                 if sample_exp.reward > 1e-7:
-                    obs = env.reset(to_state=sample_exp.state)
+                    obs = env.reset()
             else:
                 obs = env.reset()
             
             episode_reward = 0
-            
+
             for step in range(max_steps):
                 action_idx = self.select_action(env, obs)
                 
                 if action_idx is None:
                     break
                 
-                next_obs, reward, done = env.step_indexed(action_idx)
+                next_obs, reward, done = env.step_indexed(action_idx, use_shaped_reward=use_shaped_reward)
                 episode_reward += reward
                 
                 self.store_experience(
@@ -329,10 +341,13 @@ class DQNLearner:
                 obs = next_obs
                 
                 if done:
+                    if reward > 1e-7 or (use_shaped_reward and reward > 50):
+                        success_count += 1
                     break
             
             episode_rewards.append(episode_reward)
             episode_lengths.append(step + 1)
+
         
         print("Training completed!")
         
