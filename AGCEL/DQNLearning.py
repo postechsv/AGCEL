@@ -25,7 +25,7 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
-# class PrioritizedReplayBuffer:
+class PrioritizedReplayBuffer:
     def __init__(self, capacity: int = 10000, alpha: float = 0.6):
         self.capacity = capacity
         self.alpha = alpha
@@ -36,7 +36,7 @@ class ReplayBuffer:
     def push(self, state, action, reward, next_state, done):
         experience = Experience(state, action, reward, next_state, done)
         
-        if abs(reward) > 1e-7:
+        if reward > 0:
             priority = 1.0
         else:
             priority = 0.1
@@ -64,6 +64,31 @@ class ReplayBuffer:
     
     def __len__(self):
         return len(self.buffer)
+
+class ProtectedReplayBuffer:
+    def __init__(self, capacity: int = 10000, protected_size: int = 500):
+        self.capacity = capacity
+        self.protected_size = protected_size
+        self.protected_buffer = []
+        self.normal_buffer = deque(maxlen=capacity - protected_size)
+        
+    def push(self, state, action, reward, next_state, done, protected=False):
+        experience = Experience(state, action, reward, next_state, done)
+        
+        if protected and len(self.protected_buffer) < self.protected_size:
+            self.protected_buffer.append(experience)
+        else:
+            self.normal_buffer.append(experience)
+    
+    def sample(self, batch_size: int):
+        all_experiences = self.protected_buffer + list(self.normal_buffer)
+        if len(all_experiences) < batch_size:
+            return all_experiences
+        return random.sample(all_experiences, batch_size)
+    
+    def __len__(self):
+        return len(self.protected_buffer) + len(self.normal_buffer)
+
 
 class DQN(nn.Module):
     def __init__(self, input_dim: int, output_dim: int):
@@ -127,14 +152,36 @@ class DQNLearner:
         self.update_frequency = update_frequency
         self.target_update_frequency = target_update_frequency
         
-        self.replay_buffer = ReplayBuffer(buffer_size)
+        # self.replay_buffer = ReplayBuffer(buffer_size)
         # self.replay_buffer = PrioritizedReplayBuffer(buffer_size)
-        
+        self.replay_buffer = ProtectedReplayBuffer(buffer_size, protected_size=1000)
+
         self.training_step = 0
         self.episode_count = 0
         self.loss_history = []
         
         self.value_cache = {}
+
+    def diagnose_buffer(self):
+        if len(self.replay_buffer) == 0:
+            return
+        
+        if hasattr(self.replay_buffer, 'protected_buffer'):
+            protected_rewards = [exp.reward for exp in self.replay_buffer.protected_buffer]
+            normal_rewards = [exp.reward for exp in self.replay_buffer.normal_buffer]
+            
+            protected_goal = sum(1 for r in protected_rewards if r > 50)
+            normal_goal = sum(1 for r in normal_rewards if r > 50)
+            
+            print(f'\n=== BUFFER DIAGNOSTICS ===')
+            print(f'Protected: {len(protected_rewards)} trans, {protected_goal} goals ({protected_goal/max(1,len(protected_rewards))*100:.1f}%)')
+            print(f'Normal: {len(normal_rewards)} trans, {normal_goal} goals ({normal_goal/max(1,len(normal_rewards))*100:.1f}%)')
+            print(f'Total: {len(self.replay_buffer)} transitions')
+        else:
+            rewards = [exp.reward for exp in self.replay_buffer.buffer]
+            goal_count = sum(1 for r in rewards if r > 0)
+            print(f'\n=== BUFFER DIAGNOSTICS ===')
+            print(f'Total: {len(self.replay_buffer)}, Goals: {goal_count} ({goal_count/len(self.replay_buffer)*100:.1f}%)')
 
     def pretrain(self, env, trace_path, repeat=10, pretrain_epochs=10):
         from AGCEL.common import parse_trace
@@ -192,7 +239,8 @@ class DQNLearner:
                     action_idx,
                     reward,
                     next_state_tensor,
-                    done
+                    done,
+                    protected=True
                 )
                 matched += 1
         
@@ -213,6 +261,7 @@ class DQNLearner:
         else:
             print(f'Warning: Buffer size ({len(self.replay_buffer)}) < batch size ({self.batch_size}), skipping pretraining')
         
+        self.diagnose_buffer()
         return matched, total 
    
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
@@ -258,9 +307,10 @@ class DQNLearner:
             action,
             reward,
             next_state_tensor,
-            done
+            done,
+            protected=False
         )
-    
+
     def optimize_model(self, env=None):
         if len(self.replay_buffer) < self.batch_size:
             return
@@ -350,6 +400,7 @@ class DQNLearner:
 
         
         print("Training completed!")
+        self.diagnose_buffer()
         
         return episode_rewards, episode_lengths
     
