@@ -38,10 +38,7 @@ def run_dqn(learning_rate=5e-4,
             tau=0.001,
             epsilon_end=0.05,
             epsilon_decay=0.0002,
-            target_update_frequency=500,
-            use_pretrain=True,
-            pretrain_repeat=10,
-            pretrain_epochs=10):
+            target_update_frequency=500):
     print('\n=== [DQN] ===')
     
     vocab = build_vocab(env)
@@ -56,39 +53,18 @@ def run_dqn(learning_rate=5e-4,
         epsilon_decay=epsilon_decay,
         target_update_frequency=target_update_frequency
     )
-    
-    if use_pretrain and trace_path is not None:
-        try:
-            matched, total = dqn.pretrain(
-                env, 
-                trace_path, 
-                repeat=pretrain_repeat,
-                pretrain_epochs=pretrain_epochs
-            )
-            print(f'Oracle pretraining: {matched}/{total} transitions matched')
-        except Exception as e:
-            print(f'Warning: Pretraining failed: {e}')
-            print('Continuing without pretraining...')
-    
+
     t4 = time.time()
     episode_rewards, episode_lengths = dqn.train(
         env=env,
         n_episodes=num_samples,
         max_steps=10000,
-        goal_start_prob=0.0,
-        use_shaped_reward=True
+        goal_start_prob=0.0
     )
     t5 = time.time()
 
-    oracle_suffix = ""
-    
-    if use_pretrain and trace_path:
-        oracle_suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
-    else:
-        oracle_suffix = "-c"
-    
-    model_file = output_pref + oracle_suffix + '-d.pt'
-    vocab_file = output_pref + oracle_suffix + '-v.json'
+    model_file = output_pref + "-c-d.pt"
+    vocab_file = output_pref + "-c-v.json"
 
     dqn.save(model_file)
 
@@ -96,7 +72,6 @@ def run_dqn(learning_rate=5e-4,
         json.dump(vocab, f)
 
     print(f'[DQN]  Training time: {t5 - t4:.2f}s')
-    print(f'       Pretraining: {"Yes" if (use_pretrain and trace_path) else "No"}')
     
     if len(episode_rewards) > 0:
         success_count = sum(1 for r in episode_rewards if r > 50)
@@ -125,9 +100,6 @@ if __name__ == "__main__":
     epsilon_end=0.2
     epsilon_decay=0.00005
     target_update_frequency=50
-    
-    pretrain_repeat = 20
-    pretrain_epochs = 10
 
     if len(sys.argv) > 6:
         trace_path = sys.argv[6]
@@ -161,10 +133,7 @@ if __name__ == "__main__":
                 tau=tau,
                 epsilon_end=epsilon_end,
                 epsilon_decay=epsilon_decay,
-                target_update_frequency=target_update_frequency,
-                use_pretrain=(trace_path is not None),
-                pretrain_repeat=pretrain_repeat,
-                pretrain_epochs=pretrain_epochs
+                target_update_frequency=target_update_frequency
             )
         sys.exit(0)
 
