@@ -62,7 +62,7 @@ class MaudeEnv():
             mask.append(1 if has_app else 0)
         return mask
     
-    def step_indexed(self, action_idx, use_shaped_reward=False):
+    def step_indexed(self, action_idx):
         if action_idx >= len(self.rules):
             raise ValueError(f"Invalid action index: {action_idx}")
         
@@ -75,13 +75,7 @@ class MaudeEnv():
                 raise ValueError(f"Action {label} not applicable")
             
         obs = self.reset(random.choice(next_states))
-        
         reward = self.curr_reward
-        if use_shaped_reward:
-            if reward > 1e-7:
-                reward = 100.0
-            else:
-                reward = -0.01
         
         return obs, reward, self.is_done()
 

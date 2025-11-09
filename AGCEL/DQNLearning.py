@@ -25,71 +25,6 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
-class PrioritizedReplayBuffer:
-    def __init__(self, capacity: int = 10000, alpha: float = 0.6):
-        self.capacity = capacity
-        self.alpha = alpha
-        self.buffer = []
-        self.priorities = []
-        self.position = 0
-    
-    def push(self, state, action, reward, next_state, done):
-        experience = Experience(state, action, reward, next_state, done)
-        
-        if reward > 0:
-            priority = 1.0
-        else:
-            priority = 0.1
-        
-        if len(self.buffer) < self.capacity:
-            self.buffer.append(experience)
-            self.priorities.append(priority)
-        else:
-            self.buffer[self.position] = experience
-            self.priorities[self.position] = priority
-        
-        self.position = (self.position + 1) % self.capacity
-    
-    def sample(self, batch_size: int):
-        if len(self.buffer) == 0:
-            return []
-        
-        priorities = np.array(self.priorities[:len(self.buffer)])
-        probs = priorities ** self.alpha
-        probs /= probs.sum()
-        
-        indices = np.random.choice(len(self.buffer), batch_size, p=probs, replace=False)
-        
-        return [self.buffer[idx] for idx in indices]
-    
-    def __len__(self):
-        return len(self.buffer)
-
-class ProtectedReplayBuffer:
-    def __init__(self, capacity: int = 10000, protected_size: int = 500):
-        self.capacity = capacity
-        self.protected_size = protected_size
-        self.protected_buffer = []
-        self.normal_buffer = deque(maxlen=capacity - protected_size)
-        
-    def push(self, state, action, reward, next_state, done, protected=False):
-        experience = Experience(state, action, reward, next_state, done)
-        
-        if protected and len(self.protected_buffer) < self.protected_size:
-            self.protected_buffer.append(experience)
-        else:
-            self.normal_buffer.append(experience)
-    
-    def sample(self, batch_size: int):
-        all_experiences = self.protected_buffer + list(self.normal_buffer)
-        if len(all_experiences) < batch_size:
-            return all_experiences
-        return random.sample(all_experiences, batch_size)
-    
-    def __len__(self):
-        return len(self.protected_buffer) + len(self.normal_buffer)
-
-
 class DQN(nn.Module):
     def __init__(self, input_dim: int, output_dim: int):
         super(DQN, self).__init__()
@@ -152,37 +87,14 @@ class DQNLearner:
         self.update_frequency = update_frequency
         self.target_update_frequency = target_update_frequency
         
-        # self.replay_buffer = ReplayBuffer(buffer_size)
-        # self.replay_buffer = PrioritizedReplayBuffer(buffer_size)
-        self.replay_buffer = ProtectedReplayBuffer(buffer_size, protected_size=1000)
+        self.replay_buffer = ReplayBuffer(buffer_size)
 
         self.training_step = 0
         self.episode_count = 0
         self.loss_history = []
         
         self.value_cache = {}
-
-    def diagnose_buffer(self):
-        if len(self.replay_buffer) == 0:
-            return
         
-        if hasattr(self.replay_buffer, 'protected_buffer'):
-            protected_rewards = [exp.reward for exp in self.replay_buffer.protected_buffer]
-            normal_rewards = [exp.reward for exp in self.replay_buffer.normal_buffer]
-            
-            protected_goal = sum(1 for r in protected_rewards if r > 50)
-            normal_goal = sum(1 for r in normal_rewards if r > 50)
-            
-            print(f'\n=== BUFFER DIAGNOSTICS ===')
-            print(f'Protected: {len(protected_rewards)} trans, {protected_goal} goals ({protected_goal/max(1,len(protected_rewards))*100:.1f}%)')
-            print(f'Normal: {len(normal_rewards)} trans, {normal_goal} goals ({normal_goal/max(1,len(normal_rewards))*100:.1f}%)')
-            print(f'Total: {len(self.replay_buffer)} transitions')
-        else:
-            rewards = [exp.reward for exp in self.replay_buffer.buffer]
-            goal_count = sum(1 for r in rewards if r > 0)
-            print(f'\n=== BUFFER DIAGNOSTICS ===')
-            print(f'Total: {len(self.replay_buffer)}, Goals: {goal_count} ({goal_count/len(self.replay_buffer)*100:.1f}%)')
-
     def pretrain(self, env, trace_path, repeat=10, pretrain_epochs=10):
         from AGCEL.common import parse_trace
         
@@ -225,9 +137,9 @@ class DQNLearner:
                 base_reward = reward_term.toFloat()
                 
                 if base_reward > 1e-7:
-                    reward = 100.0  # Goal reached
+                    reward = 1  # Goal reached
                 else:
-                    reward = -0.01  # Step penalty
+                    reward = 0 # Step penalty
                 
                 done = (i == len(trace) - 1) or base_reward > 1e-7
                 
@@ -347,7 +259,7 @@ class DQNLearner:
         for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
-    def train(self, env, n_episodes: int, max_steps: int = 10000, goal_start_prob: float = 0.0, use_shaped_reward: bool = True):
+    def train(self, env, n_episodes: int, max_steps: int = 10000, goal_start_prob: float = 0.0):
         episode_rewards = []
         episode_lengths = []
         success_count = 0
@@ -370,7 +282,7 @@ class DQNLearner:
                 if action_idx is None:
                     break
                 
-                next_obs, reward, done = env.step_indexed(action_idx, use_shaped_reward=use_shaped_reward)
+                next_obs, reward, done = env.step_indexed(action_idx)
                 episode_reward += reward
                 
                 self.store_experience(
@@ -391,7 +303,7 @@ class DQNLearner:
                 obs = next_obs
                 
                 if done:
-                    if reward > 1e-7 or (use_shaped_reward and reward > 50):
+                    if reward > 1e-7:
                         success_count += 1
                     break
             

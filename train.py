@@ -7,8 +7,6 @@ import os, sys, json, time, subprocess, numpy as np
 
 # Usage:
 # python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <output_file_prefix> [trace_path]
-# or
-# python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <output_file_prefix> sweep <lr> <gamma> <tau> <epsilon_end> <decay> <target_freq>
 
 def run_oracle():
     print('\n=== [WITH ORACLE] ===')
@@ -35,8 +33,7 @@ def run_cold():
     print(f'[Cold] Training time: {t3 - t2:.2f}s, # Entries: {learner.get_size()}')
     print(f'       Value function: {os.path.basename(out_file)}')
 
-def run_dqn(sweep_mode=False, 
-            learning_rate=5e-4,
+def run_dqn(learning_rate=5e-4,
             gamma=0.99,
             tau=0.001,
             epsilon_end=0.05,
@@ -84,26 +81,14 @@ def run_dqn(sweep_mode=False,
     t5 = time.time()
 
     oracle_suffix = ""
-    param_suffix = ""
     
     if use_pretrain and trace_path:
         oracle_suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
-    elif not sweep_mode:
+    else:
         oracle_suffix = "-c"
-
-    if sweep_mode:
-        param_parts = [
-            f'lr={learning_rate}',
-            f'gamma={gamma}',
-            f'tau={tau}',
-            f'end={epsilon_end}',
-            f'decay={epsilon_decay}',
-            f'tf={target_update_frequency}'
-        ]
-        param_suffix = '-' + '-'.join(param_parts)
     
-    model_file = output_pref + oracle_suffix + param_suffix + '-d.pt'
-    vocab_file = output_pref + oracle_suffix + param_suffix + '-v.json'
+    model_file = output_pref + oracle_suffix + '-d.pt'
+    vocab_file = output_pref + oracle_suffix + '-v.json'
 
     dqn.save(model_file)
 
@@ -112,14 +97,6 @@ def run_dqn(sweep_mode=False,
 
     print(f'[DQN]  Training time: {t5 - t4:.2f}s')
     print(f'       Pretraining: {"Yes" if (use_pretrain and trace_path) else "No"}')
-
-    if sweep_mode:
-        print(f'       learning_rate: {learning_rate}')
-        print(f'       gamma: {gamma}')
-        print(f'       tau: {tau}')
-        print(f'       epsilon_end: {epsilon_end}')
-        print(f'       epsilon_decay: {epsilon_decay}')
-        print(f'       target_update_frequency: {target_update_frequency}')
     
     if len(episode_rewards) > 0:
         success_count = sum(1 for r in episode_rewards if r > 50)
@@ -140,7 +117,6 @@ if __name__ == "__main__":
     num_samples  = int(sys.argv[4])
     output_pref  = sys.argv[5]
 
-    sweep_mode = False
     trace_path = None
     
     learning_rate=5e-4
@@ -154,18 +130,7 @@ if __name__ == "__main__":
     pretrain_epochs = 10
 
     if len(sys.argv) > 6:
-        if sys.argv[6] == "sweep":
-            sweep_mode = True
-            learning_rate = float(sys.argv[7])
-            gamma = float(sys.argv[8])
-            tau = float(sys.argv[9])
-            epsilon_end = float(sys.argv[10])
-            epsilon_decay = float(sys.argv[11])
-            target_update_frequency = int(sys.argv[12])
-            if len(sys.argv) > 13:
-                trace_path = sys.argv[13]
-        else:
-            trace_path = sys.argv[6]
+        trace_path = sys.argv[6]
 
     mode = os.environ.get("MODE")
     if mode:
@@ -174,15 +139,13 @@ if __name__ == "__main__":
         m = maude.getCurrentModule()
         env = MaudeEnv(m, goal_prop, lambda: init_term)
 
-        if not sweep_mode: 
-            print('\n=== TRAINING SETUP ===')
-            print(f'Module: {m}')
-            print(f'Init term: {init_term}')
-            print(f'Goal proposition: {goal_prop}')
-            print(f'Training samples: {num_samples}')
-            print(f'Sweep mode: {sweep_mode}')
-            print(f'Trace file: {trace_path}')
-            print(f'Output prefix: {output_pref}')
+        print('\n=== TRAINING SETUP ===')
+        print(f'Module: {m}')
+        print(f'Init term: {init_term}')
+        print(f'Goal proposition: {goal_prop}')
+        print(f'Training samples: {num_samples}')
+        print(f'Trace file: {trace_path}')
+        print(f'Output prefix: {output_pref}')
 
         if mode == "oracle":
             if trace_path is None:
@@ -193,7 +156,6 @@ if __name__ == "__main__":
             run_cold()
         elif mode == "dqn":
             run_dqn(
-                sweep_mode=sweep_mode,
                 learning_rate=learning_rate,
                 gamma=gamma,
                 tau=tau,
@@ -207,28 +169,14 @@ if __name__ == "__main__":
         sys.exit(0)
 
     modes = []
-    if sweep_mode:
-        modes = ["dqn"]
-    else:
-        if trace_path is not None:
-            modes.append("oracle")
-        modes += ["cold", "dqn"]
+    if trace_path is not None:
+        modes.append("oracle")
+    modes += ["cold", "dqn"]
 
     for mname in modes:
         envp = os.environ.copy()
         envp["MODE"] = mname
         args = [sys.executable, sys.argv[0], model_path, init_term, goal_prop, str(num_samples), output_pref]
-        
-        if sweep_mode:
-            args += [
-                "sweep",
-                str(learning_rate),
-                str(gamma),
-                str(tau),
-                str(epsilon_end),
-                str(epsilon_decay),
-                str(target_update_frequency)
-            ]
         
         if trace_path:
             args.append(trace_path)
