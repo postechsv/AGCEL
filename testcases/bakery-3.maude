@@ -1,5 +1,5 @@
---- load ../benchmarks/bakery-analysis .
-load ../benchmarks/bakery-focus-analysis .
+load ../benchmarks/bakery-analysis .
+--- load ../benchmarks/bakery-focus-analysis .
 
 mod BAKERY-INIT3 is
   pr MODEL .
