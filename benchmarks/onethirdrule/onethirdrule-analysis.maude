@@ -115,10 +115,10 @@ mod ONETHIRDRULE-TEST is
     --- eq init = init5a .
 
     --- init5b
-    eq init = init5b .
+    --- eq init = init5b .
 
     --- init5c
-    --- eq init = init5c .
+    eq init = init5c .
 endm
 
 
