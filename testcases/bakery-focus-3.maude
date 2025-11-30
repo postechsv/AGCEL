@@ -1,0 +1,14 @@
+--- load ../benchmarks/bakery-analysis .
+load ../benchmarks/bakery-focus-analysis .
+
+mod BAKERY-INIT3 is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = twoCrits .
+  
+  op init : -> Conf .
+  eq init = 0 ; 0 ; [idle] [idle] [idle] .
+  eq @K = 3 .
+endm
+
+--- search [1] init =>* N:Nat ; M:Nat ; [crit(N':Nat)] [crit(M':Nat)] PS:ProcSet such that N':Nat =/= M':Nat .
