@@ -6,6 +6,9 @@ mod MODEL is
     inc SATISFACTION .
     inc OBSERVATION .
 
+    protecting STRING .
+    subsort String < Oid .
+
     subsort Global < State .
 
     vars O O' : Oid . vars CF : Configuration . var C : Cid .
@@ -25,7 +28,7 @@ mod MODEL is
 
     op voteLHS : Value -> Prop [ctor] .
     eq {TH, V ; VS, O ; OS,
-        < O : Node | status : [R, init], value : V, decision : nilValue, votes : VOTE, ATTS > 
+        < O : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
         CF
     } |= voteLHS(V) = true .
     eq S |= voteLHS(V) = false [owise] .
@@ -53,25 +56,25 @@ mod MODEL is
     eq S |= updateLHS(V, V') = false [owise] .
 
     --- Focus IDs ---
-    ops f1 f2 : -> String .
+    ops f1 f2 : -> Oid .
     eq f1 = "A" .  eq f2 = "B" .
 
     --- Focus/Star LHS Propositions ---
     ops voteLHSF1 voteLHSF2 voteLHSStar : Value -> Prop [ctor] .
     eq {TH, V ; VS, f1 ; OS,
-        < f1 : Node | status : [R, init], value : V, decision : nilValue, votes : VOTE, ATTS > 
+        < f1 : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
         CF
     } |= voteLHSF1(V) = true .
     eq S |= voteLHSF1(V) = false [owise] .
 
     eq {TH, V ; VS, f2 ; OS,
-        < f2 : Node | status : [R, init], value : V, decision : nilValue, votes : VOTE, ATTS > 
+        < f2 : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
         CF
     } |= voteLHSF2(V) = true .
     eq S |= voteLHSF2(V) = false [owise] .
 
     ceq {TH, V ; VS, O ; OS,
-        < O : Node | status : [R, init], value : V, decision : nilValue, votes : VOTE, ATTS > 
+        < O : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
         CF
     } |= voteLHSStar(V) = true if O =/= f1 and O =/= f2 .
     eq S |= voteLHSStar(V) = false [owise] .
@@ -164,14 +167,14 @@ mod ONETHIRDRULE-TEST is
     ops obA obB obC obD obE obF obG obH : -> InitObject .
     ops init3 init4 init5a init5b init5c init6a init6b init7a init7b init : -> Global .
 
-    eq obA = < "A" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obB = < "B" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obC = < "C" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obD = < "D" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obE = < "E" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obF = < "F" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obG = < "G" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obH = < "H" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obA = < "A" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obB = < "B" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obC = < "C" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obD = < "D" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obE = < "E" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obF = < "F" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obG = < "G" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obH = < "H" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
 
     eq init3 = {2, (0 ; 1), ("A" ; "B" ; "C"), (obA obB obC) } .
     eq init4 = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .

@@ -35,7 +35,7 @@ def run_qtable(m, env, n0, qtable_file):
 
 def run_dqn(m, env, n0, qtable_file, extra_args):
     mobj = re.search(r'(.+?)(-c|-o\d+|-oracle)?$', qtable_file)
-    base_prefix = mobj.group(1) if mobj else qtable_file
+    base_prefix = mobj.group(1) + mobj.group(2) if mobj.group(2) else qtable_file
 
     if len(extra_args) == 6:
         lr = float(extra_args[0])
@@ -115,7 +115,8 @@ if __name__ == "__main__":
             run_dqn(m, env, n0, qtable_file, extra_args)
         sys.exit(0)
 
-    for mode in ["baseline", "qtable", "dqn"]:
+    # for mode in ["baseline", "qtable", "dqn"]:
+    for mode in ["qtable", "dqn"]:
         envp = os.environ.copy(); envp["MODE"] = mode
         p = subprocess.Popen(
             [sys.executable, sys.argv[0], model, init, prop, qtable_file] + extra_args,

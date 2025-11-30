@@ -27,7 +27,7 @@ class MaudeEnv():
 
     def step(self, action):
         next_states = [s for s,a in self.nbrs if a.equal(action)]
-        if next_states == []:
+        if  next_states == []:
             raise Exception("invalid action")
         obs = self.reset(random.choice(next_states))
         return obs, self.curr_reward, self.is_done()
@@ -35,7 +35,7 @@ class MaudeEnv():
     def get_obs(self):
         acts = [a for _,a in self.nbrs]
         out = []
-        for t in acts:
+        for t in acts:  # t = self.obs_act(rule label, substitution)
             if not any(t.equal(u) for u in out):
                 out.append(t)
         return {

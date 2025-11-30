@@ -40,7 +40,7 @@ mod MODEL is
   eq  f2 ; M ; [idle] PS |= wakeLHSF2 = true .
   eq  S |= wakeLHSF2 = false [owise] .
   
-  ceq  N ; M ; [idle] PS |= wakeLHSStar = true .
+  ceq  N ; M ; [idle] PS |= wakeLHSStar = true 
     if N =/= f1 and N =/= f2 .
   eq  S |= wakeLHSStar = false [owise] .
 
@@ -51,7 +51,7 @@ mod MODEL is
   eq  f2 ; M ; [wait(M)] PS |= critLHSF2 = true .
   eq  S |= critLHSF2 = false [owise] .
   
-  ceq  N ; M ; [wait(M)] PS |= critLHSStar = true .
+  ceq  N ; M ; [wait(M)] PS |= critLHSStar = true 
     if N =/= f1 and N =/= f2 .
   eq  S |= critLHSStar = false [owise] .
 
@@ -62,7 +62,7 @@ mod MODEL is
   eq  f2 ; M ; [crit(M)] PS |= exitLHSF2 = true .
   eq  S |= exitLHSF2 = false [owise] .
   
-  ceq  N ; M ; [crit(M)] PS |= exitLHSStar = true .
+  ceq  N ; M ; [crit(M)] PS |= exitLHSStar = true 
     if N =/= f1 and N =/= f2 .
   eq  S |= exitLHSStar = false [owise] .
   

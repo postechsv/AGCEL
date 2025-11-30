@@ -5,6 +5,9 @@ mod MODEL is
     pr ONETHIRDRULE-NO-MSG-LOSS .
     inc SATISFACTION .
     inc OBSERVATION .
+    inc GLOBAL .
+    inc FUNCTIONS .
+    pr MULTICAST .
 
     subsort Global < State .
 
@@ -29,7 +32,7 @@ mod MODEL is
 
     op voteLHS : Value -> Prop [ctor] .
     eq {TH, V ; VS, O ; OS,
-        < O : Node | status : [R, init], value : V, decision : nilValue, votes : VOTE, ATTS > 
+        < O : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
         CF
     } |= voteLHS(V) = true .
     eq S |= voteLHS(V) = false [owise] .
@@ -83,14 +86,14 @@ mod ONETHIRDRULE-TEST is
     ops obA obB obC obD obE obF obG obH : -> InitObject .
     ops init3 init4 init5a init5b init5c init6a init6b init7a init7b init : -> Global .
 
-    eq obA = < "A" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obB = < "B" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obC = < "C" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obD = < "D" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obE = < "E" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obF = < "F" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obG = < "G" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obH = < "H" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obA = < "A" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obB = < "B" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obC = < "C" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obD = < "D" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obE = < "E" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obF = < "F" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obG = < "G" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obH = < "H" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
 
     eq init3 = {2, (0 ; 1), ("A" ; "B" ; "C"), (obA obB obC) } .
     eq init4 = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .
@@ -103,7 +106,7 @@ mod ONETHIRDRULE-TEST is
     eq init7b = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F" ; "H"), (obA obB obC obD obE obF obH) } .
 
     --- init3
-    eq init = init3 .
+    --- eq init = init3 .
 
     --- init4
     --- eq init = init4 .
@@ -112,7 +115,7 @@ mod ONETHIRDRULE-TEST is
     --- eq init = init5a .
 
     --- init5b
-    --- eq init = init5b .
+    eq init = init5b .
 
     --- init5c
     --- eq init = init5c .
