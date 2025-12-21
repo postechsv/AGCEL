@@ -8,7 +8,7 @@ import os, sys, re, json, time, subprocess, random
 import torch
 torch.set_grad_enabled(False)
 
-def run_baseline(m, env, n0):
+def run_bfs(m, env, n0):
     V0 = lambda obs_term, g_state=None: 0
     V0.needs_obs = False
 
@@ -131,8 +131,8 @@ if __name__ == "__main__":
         if extra_args:
             print(f'Sweep parameters: {extra_args}')
 
-        if mode == "baseline":
-            run_baseline(m, env, n0)
+        if mode == "bfs":
+            run_bfs(m, env, n0)
         elif mode == "random":
             run_random(m, env, n0)
         elif mode == "qtable":
@@ -142,7 +142,7 @@ if __name__ == "__main__":
             run_dqn_mode(m, env, n0, qtable_file, extra_args, mode=dqn_mode)
         sys.exit(0)
     
-    for mode in ["baseline", "random", "qtable", "dqn-zero", "dqn-random", "dqn"]:
+    for mode in ["bfs", "random", "qtable", "dqn-zero", "dqn-random", "dqn"]:
         envp = os.environ.copy(); envp["MODE"] = mode
         p = subprocess.Popen(
             [sys.executable, sys.argv[0], model, init, prop, qtable_file] + extra_args,
