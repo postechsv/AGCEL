@@ -91,12 +91,14 @@ def compare_qtable_dqn(qtable_file, dqn, m):
     V_dqn = dqn.get_value_function(mode="dqn")
 
     for state_str, q_val in qtable.items():
-        obs_term = m.parseTerm('obs(' + state_str + ')')
+        obs_term = m.parseTerm(state_str)
+        if obs_term is None:
+            continue
         obs_term.reduce()
         dqn_val = V_dqn(obs_term)
         q_vals.append(q_val)
         dqn_vals.append(dqn_val)
-
+        
     if len(q_vals) < 2:
         print(f'[ALIGN] Only {len(q_vals)} entries')
         return
