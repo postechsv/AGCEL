@@ -21,6 +21,8 @@ def run_baseline(m, env, n0):
     if res0[0]: print('[BFS] Goal reached!')
 
 def run_random(m, env, n0):
+    Vr = lambda obs_term, g_state=None: random.random()
+    Vr.needs_obs = False
     pass
 
 def run_qtable(m, env, n0, qtable_file):
