@@ -69,5 +69,8 @@ def parse_trace(file_path):
         
     return trace
 
+def parse_qtable_file(filepath):
+    pass
+
 def compare_qtable_dqn(qtable_learner, dqn, env):
     q_values = qtable_learner.q_table
