@@ -84,3 +84,6 @@ def compare_qtable_dqn(qtable_file, dqn, env):
     if not qtable:
         print('[ALIGN] No Q-table entries found')
         return
+
+    q_vals, dqn_vals = [], []
+    V_dqn = dqn.get_value_function(mode="dqn")
