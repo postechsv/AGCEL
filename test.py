@@ -20,6 +20,9 @@ def run_baseline(m, env, n0):
     print(f'[BFS] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
     if res0[0]: print('[BFS] Goal reached!')
 
+def run_random(m, env, n0):
+    pass
+
 def run_qtable(m, env, n0, qtable_file):
     learner = QLearner()
     learner.load_value_function(qtable_file + '.agcel', m)
