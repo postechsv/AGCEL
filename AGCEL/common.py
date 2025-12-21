@@ -68,3 +68,6 @@ def parse_trace(file_path):
         trace.append((states[j], actions[j], states[j + 1]))
         
     return trace
+
+def compare_qtable_dqn(qtable_learner, dqn, env):
+    pass

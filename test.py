@@ -3,7 +3,7 @@ from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
 from AGCEL.AStar import *
 from AGCEL.DQNLearning import DQNLearner
-from AGCEL.common import make_encoder
+from AGCEL.common import make_encoder, compare_qtable_dqn
 import os, sys, re, json, time, subprocess, random
 import torch
 torch.set_grad_enabled(False)
@@ -101,9 +101,6 @@ def run_dqn_mode(m, env, n0, qtable_file, extra_args, mode="dqn"):
     print(f'[DQN-{label}] n_states:', res[2])
     print(f'[DQN-{label}] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
     print(f'[DQN-{label}] Goal reached!' if res[0] else f'[DQN-{label}] Goal not reached')
-
-def compare_qtable_dqn(qtable_learner, dqn, env):
-    pass
 
 
 if __name__ == "__main__":
