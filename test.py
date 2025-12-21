@@ -85,15 +85,8 @@ def run_dqn(m, env, n0, qtable_file, extra_args):
 
     dqn.load(dqn_model_file)
     dqn.q_network.eval()
-    V_dqn = dqn.get_value_function()
-
-    print('\n=== SEARCH WITH DQN ===')
-    start_time = time.perf_counter()
-    res_dqn = Search().search(n0, V_dqn, 9999)
-    end_time = time.perf_counter()
-    print('[DQN] n_states:', res_dqn[2])
-    print(f'[DQN] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
-    print('[DQN] Goal reached!' if res_dqn[0] else '[DQN] Goal not reached')
+    
+    return dqn
 
 def run_dqn_mode(m, env, n0, qtable_file, extra_args, mode="dqn"):
     pass
