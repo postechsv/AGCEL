@@ -80,6 +80,8 @@ def parse_qtable_file(filepath):
     return entries
 
 def compare_qtable_dqn(qtable_file, dqn, m):
+    from scipy.stats import spearmanr
+
     qtable = parse_qtable_file(qtable_file + '.agcel')
     if not qtable:
         print('[ALIGN] No Q-table entries found')
@@ -98,3 +100,5 @@ def compare_qtable_dqn(qtable_file, dqn, m):
     if len(q_vals) < 2:
         print(f'[ALIGN] Only {len(q_vals)} entries')
         return
+    
+    corr, pval = spearmanr(q_vals, dqn_vals)
