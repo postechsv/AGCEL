@@ -138,8 +138,7 @@ if __name__ == "__main__":
             run_dqn_mode(m, env, n0, qtable_file, extra_args, mode=dqn_mode)
         sys.exit(0)
     
-    #for mode in ["baseline", "random", "dqn-zero", "dqn-random", "dqn"]:
-    for mode in ["qtable", "dqn"]:
+    for mode in ["baseline", "random", "qtable", "dqn-zero", "dqn-random", "dqn"]:
         envp = os.environ.copy(); envp["MODE"] = mode
         p = subprocess.Popen(
             [sys.executable, sys.argv[0], model, init, prop, qtable_file] + extra_args,

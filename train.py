@@ -58,8 +58,7 @@ def run_dqn(learning_rate=5e-4,
     episode_rewards, episode_lengths = dqn.train(
         env=env,
         n_episodes=num_samples,
-        max_steps=10000,
-        goal_start_prob=0.0
+        max_steps=10000
     )
     t5 = time.time()
 
