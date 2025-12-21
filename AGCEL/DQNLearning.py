@@ -177,7 +177,7 @@ class DQNLearner:
         
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), 1.0)
+
         self.optimizer.step()
         
         self.loss_history.append(loss.item())
@@ -192,6 +192,11 @@ class DQNLearner:
         success_count = 0
 
         for episode in range(n_episodes):
+            if episode % 50 == 0:
+                print(f'[Ep {episode}] epsilon={self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode):.3f}, '
+                    f'Buf={len(self.replay_buffer)}, Goals={sum(1 for e in self.replay_buffer.buffer if e.reward > 1e-7)}, '
+                    f'AvgSteps={np.mean(episode_lengths[-50:]) if episode_lengths else 0:.0f}')
+
             self.episode_count = episode
             
             if goal_start_prob > 0 and random.random() < goal_start_prob and len(self.replay_buffer) > 0:
