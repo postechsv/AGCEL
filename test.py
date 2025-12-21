@@ -23,7 +23,14 @@ def run_baseline(m, env, n0):
 def run_random(m, env, n0):
     Vr = lambda obs_term, g_state=None: random.random()
     Vr.needs_obs = False
-    pass
+    
+    print('\n=== SEARCH WITH RANDOM ===')
+    start_time = time.perf_counter()
+    res = Search().search(n0, Vr, 9999)
+    end_time = time.perf_counter()
+    print('[RANDOM] n_states:', res[2])
+    print(f'[RANDOM] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
+    if res[0]: print('[RANDOM] Goal reached!')
 
 def run_qtable(m, env, n0, qtable_file):
     learner = QLearner()
