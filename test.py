@@ -95,6 +95,9 @@ def run_dqn(m, env, n0, qtable_file, extra_args):
     print(f'[DQN] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
     print('[DQN] Goal reached!' if res_dqn[0] else '[DQN] Goal not reached')
 
+def run_dqn_mode(m, env, n0, qtable_file, extra_args, mode="dqn"):
+    pass
+
 if __name__ == "__main__":
     model = sys.argv[1]
     init  = sys.argv[2]
