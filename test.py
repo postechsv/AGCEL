@@ -89,7 +89,9 @@ def run_dqn(m, env, n0, qtable_file, extra_args):
     return dqn
 
 def run_dqn_mode(m, env, n0, qtable_file, extra_args, mode="dqn"):
-    pass
+    dqn = run_dqn(m, env, n0, qtable_file, extra_args)
+    dqn.value_cache.clear()
+    V_dqn = dqn.get_value_function(mode=mode)
 
 if __name__ == "__main__":
     model = sys.argv[1]
