@@ -186,7 +186,7 @@ class DQNLearner:
         for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
-    def train(self, env, n_episodes: int, max_steps: int = 10000, goal_start_prob: float = 0.0):
+    def train(self, env, n_episodes: int, max_steps: int = 10000):
         episode_rewards = []
         episode_lengths = []
         success_count = 0
@@ -198,14 +198,7 @@ class DQNLearner:
                     f'AvgSteps={np.mean(episode_lengths[-50:]) if episode_lengths else 0:.0f}')
 
             self.episode_count = episode
-            
-            if goal_start_prob > 0 and random.random() < goal_start_prob and len(self.replay_buffer) > 0:
-                sample_exp = random.choice(list(self.replay_buffer.buffer))
-                if sample_exp.reward > 1e-7:
-                    obs = env.reset()
-            else:
-                obs = env.reset()
-            
+            obs = env.reset()
             episode_reward = 0
 
             for step in range(max_steps):
