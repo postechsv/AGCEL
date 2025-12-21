@@ -93,6 +93,16 @@ def run_dqn_mode(m, env, n0, qtable_file, extra_args, mode="dqn"):
     dqn.value_cache.clear()
     V_dqn = dqn.get_value_function(mode=mode)
 
+    label = mode.upper()
+    print(f'\n=== SEARCH WITH DQN ({label}) ===')
+    start_time = time.perf_counter()
+    res = Search().search(n0, V_dqn, 9999)
+    end_time = time.perf_counter()
+    print(f'[DQN-{label}] n_states:', res[2])
+    print(f'[DQN-{label}] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
+    print(f'[DQN-{label}] Goal reached!' if res[0] else f'[DQN-{label}] Goal not reached')
+
+
 if __name__ == "__main__":
     model = sys.argv[1]
     init  = sys.argv[2]
