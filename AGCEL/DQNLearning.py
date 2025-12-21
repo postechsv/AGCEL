@@ -241,7 +241,7 @@ class DQNLearner:
         
         return episode_rewards, episode_lengths
     
-    def get_value_function(self) -> Callable:
+    def get_value_function(self, mode: str = "dqn") -> Callable:
         self.q_network.eval()
         
         @torch.no_grad()
@@ -252,14 +252,19 @@ class DQNLearner:
                     return self.value_cache[obs_str]
             
             state_tensor = self.state_encoder(obs_term).unsqueeze(0).to(self.device)
-            
             q_values = self.q_network(state_tensor).squeeze(0)
-            max_q = q_values.max().item()
-            
+
+            if mode == "zero":
+                result = 0.0
+            elif mode == "random":
+                result = random.random()
+            else:  # original dqn
+                result = q_values.max().item()
+
             if obs_term is not None:
-                self.value_cache[obs_str] = max_q
-            
-            return max_q
+                self.value_cache[obs_str] = result
+                
+            return result
         
         V.needs_obs = True
         return V
