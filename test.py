@@ -4,7 +4,7 @@ from AGCEL.QLearning import QLearner
 from AGCEL.AStar import *
 from AGCEL.DQNLearning import DQNLearner
 from AGCEL.common import make_encoder
-import os, sys, re, json, time, subprocess
+import os, sys, re, json, time, subprocess, random
 import torch
 torch.set_grad_enabled(False)
 
