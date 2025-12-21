@@ -79,5 +79,8 @@ def parse_qtable_file(filepath):
                 entries[key.strip()] = float(val.strip())
     return entries
 
-def compare_qtable_dqn(qtable_learner, dqn, env):
-    q_values = qtable_learner.q_table
+def compare_qtable_dqn(qtable_file, dqn, env):
+    qtable = parse_qtable_file(qtable_file + '.agcel')
+    if not qtable:
+        print('[ALIGN] No Q-table entries found')
+        return
