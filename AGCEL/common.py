@@ -84,7 +84,7 @@ def compare_qtable_dqn(qtable_file, dqn, m):
 
     qtable = parse_qtable_file(qtable_file + '.agcel')
     if not qtable:
-        print('[ALIGN] No Q-table entries found')
+        print('[ALIGN] No QTable entries found')
         return
 
     q_vals, dqn_vals = [], []
@@ -102,3 +102,7 @@ def compare_qtable_dqn(qtable_file, dqn, m):
         return
     
     corr, pval = spearmanr(q_vals, dqn_vals)
+
+    print(f'\n=== QTABLE vs DQN ALIGNMENT ===')
+    print(f'[ALIGN] Entries compared: {len(q_vals)}')
+    print(f'[ALIGN] Rank correlation: {corr:.4f} (rho={pval:.4f})')
