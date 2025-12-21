@@ -70,7 +70,14 @@ def parse_trace(file_path):
     return trace
 
 def parse_qtable_file(filepath):
-    pass
+    entries = {}
+    with open(filepath, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if '|->' in line:
+                key, val = line.rsplit('|->', 1)
+                entries[key.strip()] = float(val.strip())
+    return entries
 
 def compare_qtable_dqn(qtable_learner, dqn, env):
     q_values = qtable_learner.q_table
