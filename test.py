@@ -133,11 +133,12 @@ if __name__ == "__main__":
             run_random(m, env, n0)
         elif mode == "qtable":
             run_qtable(m, env, n0, qtable_file)
-        elif mode == "dqn":
-            run_dqn(m, env, n0, qtable_file, extra_args)
+        elif mode in ("dqn", "dqn-zero", "dqn-random"):
+            dqn_mode = mode.replace("dqn-", "") if "-" in mode else "dqn"
+            run_dqn_mode(m, env, n0, qtable_file, extra_args, mode=dqn_mode)
         sys.exit(0)
-
-    # for mode in ["baseline", "random", "qtable", "dqn"]:
+    
+    #for mode in ["baseline", "random", "dqn-zero", "dqn-random", "dqn"]:
     for mode in ["qtable", "dqn"]:
         envp = os.environ.copy(); envp["MODE"] = mode
         p = subprocess.Popen(
