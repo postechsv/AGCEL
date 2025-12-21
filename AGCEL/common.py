@@ -79,7 +79,7 @@ def parse_qtable_file(filepath):
                 entries[key.strip()] = float(val.strip())
     return entries
 
-def compare_qtable_dqn(qtable_file, dqn, env):
+def compare_qtable_dqn(qtable_file, dqn, m):
     qtable = parse_qtable_file(qtable_file + '.agcel')
     if not qtable:
         print('[ALIGN] No Q-table entries found')
@@ -87,3 +87,14 @@ def compare_qtable_dqn(qtable_file, dqn, env):
 
     q_vals, dqn_vals = [], []
     V_dqn = dqn.get_value_function(mode="dqn")
+
+    for state_str, q_val in qtable.items():
+        obs_term = m.parseTerm('obs(' + state_str + ')')
+        obs_term.reduce()
+        dqn_val = V_dqn(obs_term)
+        q_vals.append(q_val)
+        dqn_vals.append(dqn_val)
+
+    if len(q_vals) < 2:
+        print(f'[ALIGN] Only {len(q_vals)} entries')
+        return
