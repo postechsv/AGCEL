@@ -12,13 +12,13 @@ def run_baseline(m, env, n0):
     V0 = lambda obs_term, g_state=None: 0
     V0.needs_obs = False
 
-    print('\n=== SEARCH WITHOUT TRAINING ===')
+    print('\n=== SEARCH WITHOUT TRAINING (BFS) ===')
     start_time = time.perf_counter()
     res0 = Search().search(n0, V0, 9999)
     end_time = time.perf_counter()
-    print('[BASELINE] n_states:', res0[2])
-    print(f'[BASELINE] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
-    if res0[0]: print('[BASELINE] Goal reached!')
+    print('[BFS] n_states:', res0[2])
+    print(f'[BFS] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
+    if res0[0]: print('[BFS] Goal reached!')
 
 def run_qtable(m, env, n0, qtable_file):
     learner = QLearner()
