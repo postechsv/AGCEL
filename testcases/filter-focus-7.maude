@@ -1,0 +1,13 @@
+--- load ../benchmarks/filter-analysis .
+load ../benchmarks/filter-focus-analysis .
+
+mod FILTER-INIT7 is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = twoCrits .
+
+  op init : -> Conf .
+  eq init = vict(1,0) vict(2,0) vict(3,0) vict(4,0) vict(5,0) vict(6,0) ;
+            proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on) proc(6, 0, on) proc(7, 0, on) .
+  eq @NL = 6 .
+endm
