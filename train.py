@@ -95,7 +95,7 @@ if __name__ == "__main__":
     
     learning_rate=5e-4
     gamma=0.99
-    tau=0.005
+    tau=0.01
     epsilon_end=0.2
     epsilon_decay=0.01
     target_update_frequency=50

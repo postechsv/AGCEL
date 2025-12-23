@@ -61,7 +61,7 @@ class DQNLearner:
                  num_actions: int,
                  learning_rate: float = 5e-4,
                  gamma: float = 0.9,
-                 tau: float = 0.001,
+                 tau: float = 0.01,
                  epsilon_start: float = 1.0,
                  epsilon_end: float = 0.05,
                  epsilon_decay: float = 0.01,

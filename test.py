@@ -77,9 +77,9 @@ def run_dqn(m, env, n0, qtable_file, extra_args):
         num_actions=len(env.rules),
         learning_rate=5e-4,
         gamma=0.99,
-        tau=0.001,
+        tau=0.01,
         epsilon_end=0.05,
-        epsilon_decay=0.0002,
+        epsilon_decay=0.01,
         target_update_frequency=500
     )
 
