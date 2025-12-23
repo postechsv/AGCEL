@@ -56,19 +56,19 @@ mod MODEL is
     eq S |= updateLHS(V, V') = false [owise] .
 
     --- Focus IDs ---
-    ops f1 f2 : -> Oid .
-    eq f1 = "A" .  eq f2 = "B" .
+    --- ops f1 f2 : -> Oid .
+    --- eq f1 = "A" .  eq f2 = "B" .
 
     --- Focus/Star LHS Propositions ---
     ops voteLHSF1 voteLHSF2 voteLHSStar : Value -> Prop [ctor] .
-    eq {TH, V ; VS, f1 ; OS,
-        < f1 : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
+    eq {TH, V ; VS, "A" ; OS,
+        < "A" : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
         CF
     } |= voteLHSF1(V) = true .
     eq S |= voteLHSF1(V) = false [owise] .
 
-    eq {TH, V ; VS, f2 ; OS,
-        < f2 : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
+    eq {TH, V ; VS, "B" ; OS,
+        < "B" : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
         CF
     } |= voteLHSF2(V) = true .
     eq S |= voteLHSF2(V) = false [owise] .
@@ -76,20 +76,20 @@ mod MODEL is
     ceq {TH, V ; VS, O ; OS,
         < O : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
         CF
-    } |= voteLHSStar(V) = true if O =/= f1 and O =/= f2 .
+    } |= voteLHSStar(V) = true if O =/= "A" and O =/= "B" .
     eq S |= voteLHSStar(V) = false [owise] .
 
     ops receiveLHSF1 receiveLHSF2 receiveLHSStar : Value -> Prop [ctor] .
     eq {TH, V ; VS, OS,
-        < f1 : Node | status : [R, wait], decision : nilValue, votes : VOTE, ATTS > 
-        (multicast vote(V, R) from O' to (f1 ; OS'))
+        < "A" : Node | status : [R, wait], decision : nilValue, votes : VOTE, ATTS > 
+        (multicast vote(V, R) from O' to ("A" ; OS'))
         CF
     } |= receiveLHSF1(V) = true .
     eq S |= receiveLHSF1(V) = false [owise] .
 
     eq {TH, V ; VS, OS,
-        < f2 : Node | status : [R, wait], decision : nilValue, votes : VOTE, ATTS > 
-        (multicast vote(V, R) from O' to (f2 ; OS'))
+        < "B" : Node | status : [R, wait], decision : nilValue, votes : VOTE, ATTS > 
+        (multicast vote(V, R) from O' to ("B" ; OS'))
         CF
     } |= receiveLHSF2(V) = true .
     eq S |= receiveLHSF2(V) = false [owise] .
@@ -98,18 +98,18 @@ mod MODEL is
         < O : Node | status : [R, wait], decision : nilValue, votes : VOTE, ATTS > 
         (multicast vote(V, R) from O' to (O ; OS'))
         CF
-    } |= receiveLHSStar(V) = true if O =/= f1 and O =/= f2 .
+    } |= receiveLHSStar(V) = true if O =/= "A" and O =/= "B" .
     eq S |= receiveLHSStar(V) = false [owise] .
 
     ops decideLHSF1 decideLHSF2 decideLHSStar : Value -> Prop [ctor] .
    ceq {TH, VS, OS,
-        < f1 : Node | status : [R, wait], decision : nilValue, votes : [(V |-> N ; VM), VA], ATTS > 
+        < "A" : Node | status : [R, wait], decision : nilValue, votes : [(V |-> N ; VM), VA], ATTS > 
         CF
     } |= decideLHSF1(V) = true if TH <= N .
     eq S |= decideLHSF1(V) = false [owise] .
 
    ceq {TH, VS, OS,
-        < f2 : Node | status : [R, wait], decision : nilValue, votes : [(V |-> N ; VM), VA], ATTS > 
+        < "B" : Node | status : [R, wait], decision : nilValue, votes : [(V |-> N ; VM), VA], ATTS > 
         CF
     } |= decideLHSF2(V) = true if TH <= N .
     eq S |= decideLHSF2(V) = false [owise] .
@@ -117,18 +117,18 @@ mod MODEL is
    ceq {TH, VS, OS,
         < O : Node | status : [R, wait], decision : nilValue, votes : [(V |-> N ; VM), VA], ATTS > 
         CF
-    } |= decideLHSStar(V) = true if O =/= f1 and O =/= f2 and TH <= N .
+    } |= decideLHSStar(V) = true if O =/= "A" and O =/= "B" and TH <= N .
     eq S |= decideLHSStar(V) = false [owise] .
 
     ops updateLHSF1 updateLHSF2 updateLHSStar : Value Value -> Prop [ctor] .
    ceq {TH, V' ; VS, OS,
-        < f1 : Node | status : [R, wait], value : V, decision : nilValue, votes : [V' |-> N ; VM, VA], ATTS >
+        < "A" : Node | status : [R, wait], value : V, decision : nilValue, votes : [V' |-> N ; VM, VA], ATTS >
         CF
     } |= updateLHSF1(V, V') = true if (N < TH) and (TH <= VA) and genConst(V', N, VM, VS) .
     eq S |= updateLHSF1(V, V') = false [owise] .
 
    ceq {TH, V' ; VS, OS,
-        < f2 : Node | status : [R, wait], value : V, decision : nilValue, votes : [V' |-> N ; VM, VA], ATTS >
+        < "B" : Node | status : [R, wait], value : V, decision : nilValue, votes : [V' |-> N ; VM, VA], ATTS >
         CF
     } |= updateLHSF2(V, V') = true if (N < TH) and (TH <= VA) and genConst(V', N, VM, VS) .
     eq S |= updateLHSF2(V, V') = false [owise] .
@@ -136,7 +136,7 @@ mod MODEL is
    ceq {TH, V' ; VS, OS,
         < O : Node | status : [R, wait], value : V, decision : nilValue, votes : [V' |-> N ; VM, VA], ATTS >
         CF
-    } |= updateLHSStar(V, V') = true if O =/= f1 and O =/= f2 and (N < TH) and (TH <= VA) and genConst(V', N, VM, VS) .
+    } |= updateLHSStar(V, V') = true if O =/= "A" and O =/= "B" and (N < TH) and (TH <= VA) and genConst(V', N, VM, VS) .
     eq S |= updateLHSStar(V, V') = false [owise] .
 
     --- Defining Observations ---
