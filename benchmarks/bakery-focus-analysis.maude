@@ -29,41 +29,41 @@ mod MODEL is
   eq S |= exitLHS = false [owise] .
 
   --- Focus IDs ---
-  ops f1 f2 : -> Nat .
-  eq f1 = 1 .  eq f2 = 2 .
+  --- ops f1 f2 : -> Nat .
+  --- eq f1 = 1 .  eq f2 = 2 .
 
   --- Focus/Star LHS Propositions ---
   ops wakeLHSF1 wakeLHSF2 wakeLHSStar : -> Prop [ctor] .
-  eq  f1 ; M ; [idle] PS |= wakeLHSF1 = true .
+  eq  1 ; M ; [idle] PS |= wakeLHSF1 = true .
   eq  S |= wakeLHSF1 = false [owise] .
   
-  eq  f2 ; M ; [idle] PS |= wakeLHSF2 = true .
+  eq  2 ; M ; [idle] PS |= wakeLHSF2 = true .
   eq  S |= wakeLHSF2 = false [owise] .
   
   ceq  N ; M ; [idle] PS |= wakeLHSStar = true 
-    if N =/= f1 and N =/= f2 .
+    if N =/= 1 and N =/= 2 .
   eq  S |= wakeLHSStar = false [owise] .
 
   ops critLHSF1 critLHSF2 critLHSStar : -> Prop [ctor] .
-  eq  f1 ; M ; [wait(M)] PS |= critLHSF1 = true .
+  eq  1 ; M ; [wait(M)] PS |= critLHSF1 = true .
   eq  S |= critLHSF1 = false [owise] .
   
-  eq  f2 ; M ; [wait(M)] PS |= critLHSF2 = true .
+  eq  2 ; M ; [wait(M)] PS |= critLHSF2 = true .
   eq  S |= critLHSF2 = false [owise] .
   
   ceq  N ; M ; [wait(M)] PS |= critLHSStar = true 
-    if N =/= f1 and N =/= f2 .
+    if N =/= 1 and N =/= 2 .
   eq  S |= critLHSStar = false [owise] .
 
   ops exitLHSF1 exitLHSF2 exitLHSStar : -> Prop [ctor] .
-  eq  f1 ; M ; [crit(M)] PS |= exitLHSF1 = true .
+  eq  1 ; M ; [crit(M)] PS |= exitLHSF1 = true .
   eq  S |= exitLHSF1 = false [owise] .
   
-  eq  f2 ; M ; [crit(M)] PS |= exitLHSF2 = true .
+  eq  2 ; M ; [crit(M)] PS |= exitLHSF2 = true .
   eq  S |= exitLHSF2 = false [owise] .
   
   ceq  N ; M ; [crit(M)] PS |= exitLHSStar = true 
-    if N =/= f1 and N =/= f2 .
+    if N =/= 1 and N =/= 2 .
   eq  S |= exitLHSStar = false [owise] .
   
   --- Defining Observations ---
