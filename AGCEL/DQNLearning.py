@@ -64,7 +64,7 @@ class DQNLearner:
                  tau: float = 0.001,
                  epsilon_start: float = 1.0,
                  epsilon_end: float = 0.05,
-                 epsilon_decay: float = 0.0002,
+                 epsilon_decay: float = 0.01,
                  batch_size: int = 64,
                  buffer_size: int = 10000,
                  update_frequency: int = 4,

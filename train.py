@@ -97,7 +97,7 @@ if __name__ == "__main__":
     gamma=0.99
     tau=0.005
     epsilon_end=0.2
-    epsilon_decay=0.00005
+    epsilon_decay=0.01
     target_update_frequency=50
 
     if len(sys.argv) > 6:
