@@ -82,7 +82,7 @@ def run_dqn(learning_rate=5e-4,
             print(f'       Successful episode steps -> min: {np.min(successful_lengths)}, max: {np.max(successful_lengths)}, mean: {np.mean(successful_lengths):.1f}')
         
         print(f'       Final avg reward (last 100): {(sum(episode_rewards[-100:]) / min(100, len(episode_rewards))):.2f}')
-        print(f'       All episode steps -> min: {np.min(episode_lengths)}, max: {np.max(episode_lengths)}, mean: {np.mean(episode_lengths):.1f}')
+        print(f'       All episode steps: min={np.min(episode_lengths)}, max={np.max(episode_lengths)}, mean={np.mean(episode_lengths):.1f}')
 
 if __name__ == "__main__":
     model_path   = sys.argv[1]

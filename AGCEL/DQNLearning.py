@@ -104,8 +104,7 @@ class DQNLearner:
         
         rewards = [exp.reward for exp in self.replay_buffer.buffer]
         goal_count = sum(1 for r in rewards if r > 0)
-        print(f'Buffer diagnostics:')
-        print(f'  Total: {len(self.replay_buffer)}, Goals: {goal_count} ({goal_count/len(self.replay_buffer)*100:.1f}%)')
+        print(f'Buffer: total={len(self.replay_buffer)}, {goal_count} goals ({goal_count/len(self.replay_buffer)*100:.1f}%)')
 
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
         if epsilon is None:
