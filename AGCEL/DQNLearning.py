@@ -15,12 +15,27 @@ Experience = namedtuple('Experience',
 class ReplayBuffer:
     def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
+        self.goal_buffer = deque(maxlen=capacity)
     
     def push(self, state, action, reward, next_state, done):
-        self.buffer.append(Experience(state, action, reward, next_state, done))
-    
-    def sample(self, batch_size: int):
-        return random.sample(self.buffer, batch_size)
+        #self.buffer.append(Experience(state, action, reward, next_state, done))
+        exp = Experience(state, action, reward, next_state, done)
+        self.buffer.append(exp)
+        if reward > 1e-7:
+            self.goal_buffer.append(exp)
+
+    def sample(self, batch_size: int, goal_ratio: float = 0.5):
+        #return random.sample(self.buffer, batch_size)
+        if len(self.goal_buffer) == 0 or len(self.buffer) < batch_size:
+            return random.sample(self.buffer, min(batch_size, len(self.buffer)))
+
+        n_goal = min(int(batch_size * goal_ratio), len(self.goal_buffer))
+        n_normal = batch_size - n_goal
+
+        goal_samples = random.sample(list(self.goal_buffer), n_goal)
+        normal_samples = random.sample(list(self.buffer), n_normal)
+
+        return goal_samples + normal_samples
     
     def __len__(self):
         return len(self.buffer)
@@ -40,7 +55,7 @@ class DQN(nn.Module):
         return self.net(x)
 
 class DQNLearner:
-    def __init__(self, 
+    def __init__(self,
                  state_encoder: Callable,
                  input_dim: int,
                  num_actions: int,
@@ -54,6 +69,7 @@ class DQNLearner:
                  buffer_size: int = 10000,
                  update_frequency: int = 4,
                  target_update_frequency: int = 500,
+                 goal_ratio: float = 0.5,
                  device: Optional[str] = None):
         
         self.state_encoder = state_encoder
@@ -89,6 +105,7 @@ class DQNLearner:
         self.batch_size = batch_size
         self.update_frequency = update_frequency
         self.target_update_frequency = target_update_frequency
+        self.goal_ratio = goal_ratio
         
         self.replay_buffer = ReplayBuffer(buffer_size)
 
@@ -104,7 +121,10 @@ class DQNLearner:
         
         rewards = [exp.reward for exp in self.replay_buffer.buffer]
         goal_count = sum(1 for r in rewards if r > 0)
-        print(f'Buffer: total={len(self.replay_buffer)}, {goal_count} goals ({goal_count/len(self.replay_buffer)*100:.1f}%)')
+        if goal_count != len(self.replay_buffer.goal_buffer):
+            print("goal_count differ from len(self.replay_buffer.goal_buffer)")
+            return
+        print(f'Buffer: replay_buffer={len(self.replay_buffer)}, goal_buffer={len(self.replay_buffer.goal_buffer)} ({goal_count/len(self.replay_buffer)*100:.1f}%)')
 
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
         if epsilon is None:
@@ -156,7 +176,7 @@ class DQNLearner:
         if len(self.replay_buffer) < self.batch_size:
             return
         
-        batch = self.replay_buffer.sample(self.batch_size)
+        batch = self.replay_buffer.sample(self.batch_size, goal_ratio=self.goal_ratio)
         
         state_batch = torch.stack([e.state for e in batch]).to(self.device)
         action_batch = torch.tensor([e.action for e in batch], dtype=torch.long, device=self.device).unsqueeze(1)
@@ -196,8 +216,10 @@ class DQNLearner:
         print("Training:")
         for episode in range(n_episodes):
             if episode % 50 == 0:
-                print(f'  Ep {episode}: epsilon={self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode):.3f}, '
-                    f'Buf={len(self.replay_buffer)}, Goals={sum(1 for e in self.replay_buffer.buffer if e.reward > 1e-7)}, '
+                eps = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode)
+                n_goals = len(self.replay_buffer.goal_buffer)
+                print(f'  Ep {episode}: epsilon={eps:.3f}, '
+                    f'Buf={len(self.replay_buffer)}, GoalBuf={n_goals}, '
                     f'AvgSteps={np.mean(episode_lengths[-50:]) if episode_lengths else 0:.0f}')
 
             self.episode_count = episode
