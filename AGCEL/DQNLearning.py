@@ -60,6 +60,9 @@ class DQNLearner:
         self.input_dim = input_dim
         self.num_actions = num_actions
         
+        print("Input dimension (self.input_dim):", self.input_dim)  # input_dim = len(vocab) = number of predicates
+        print("Output dimension (self.num_actions):", self.num_actions) # output_dim = num_actions = len(env.rules) = number of rules
+
         if device is None:
             if torch.backends.mps.is_available():
                 self.device = torch.device("mps")
@@ -191,9 +194,10 @@ class DQNLearner:
         episode_lengths = []
         success_count = 0
 
+        print("Training:")
         for episode in range(n_episodes):
             if episode % 50 == 0:
-                print(f'[Ep {episode}] epsilon={self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode):.3f}, '
+                print(f'  Ep {episode}: epsilon={self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode):.3f}, '
                     f'Buf={len(self.replay_buffer)}, Goals={sum(1 for e in self.replay_buffer.buffer if e.reward > 1e-7)}, '
                     f'AvgSteps={np.mean(episode_lengths[-50:]) if episode_lengths else 0:.0f}')
 
@@ -236,7 +240,7 @@ class DQNLearner:
             episode_lengths.append(step + 1)
 
         
-        print("Training completed!")
+        print("training completed!")
         self.diagnose_buffer()
         
         return episode_rewards, episode_lengths
