@@ -37,63 +37,63 @@ mod MODEL is
   eq S |= dq2LHS = false [owise] .
 
   --- Focus IDs ---
-  ops f1 f2 : -> Pid .
-  eq f1 = p1 .  eq f2 = p2 .
+  --- ops f1 f2 : -> Pid .
+  --- eq f1 = p1 .  eq f2 = p2 .
 
   --- Focus/Star LHS Propositions ---
   ops eq1LHSF1 eq1LHSF2 eq1LHSStar : -> Prop [ctor] .
-  eq  (pc[f1]: rs) (queue: Q) (tmp[f1]: R) |= eq1LHSF1 = true .
+  eq  (pc[p1]: rs) (queue: Q) (tmp[p1]: R) |= eq1LHSF1 = true .
   eq  S |= eq1LHSF1 = false [owise] .
   
-  eq  (pc[f2]: rs) (queue: Q) (tmp[f2]: R) |= eq1LHSF2 = true .
+  eq  (pc[p2]: rs) (queue: Q) (tmp[p2]: R) |= eq1LHSF2 = true .
   eq  S |= eq1LHSF2 = false [owise] .
   
   ceq (pc[I]: rs) (queue: Q) (tmp[I]: R) |= eq1LHSStar = true
-    if I =/= f1 and I =/= f2 .
+    if I =/= p1 and I =/= p2 .
   eq  S |= eq1LHSStar = false [owise] .
 
   ops eq2LHSF1 eq2LHSF2 eq2LHSStar : -> Prop [ctor] .
-  eq  (pc[f1]: es) (queue: Q) (tmp[f1]: R) |= eq2LHSF1 = true .
+  eq  (pc[p1]: es) (queue: Q) (tmp[p1]: R) |= eq2LHSF1 = true .
   eq  S |= eq2LHSF1 = false [owise] .
   
-  eq  (pc[f2]: es) (queue: Q) (tmp[f2]: R) |= eq2LHSF2 = true .
+  eq  (pc[p2]: es) (queue: Q) (tmp[p2]: R) |= eq2LHSF2 = true .
   eq  S |= eq2LHSF2 = false [owise] .
   
   ceq (pc[I]: es) (queue: Q) (tmp[I]: R) |= eq2LHSStar = true
-    if I =/= f1 and I =/= f2 .
+    if I =/= p1 and I =/= p2 .
   eq  S |= eq2LHSStar = false [owise] .
 
   ops wtLHSF1 wtLHSF2 wtLHSStar : -> Prop [ctor] .
-  ceq (pc[f1]: ws) (queue: Q) |= wtLHSF1 = true if top(Q) = f1 .
+  ceq (pc[p1]: ws) (queue: Q) |= wtLHSF1 = true if top(Q) = p1 .
   eq  S |= wtLHSF1 = false [owise] .
   
-  ceq (pc[f2]: ws) (queue: Q) |= wtLHSF2 = true if top(Q) = f2 .
+  ceq (pc[p2]: ws) (queue: Q) |= wtLHSF2 = true if top(Q) = p2 .
   eq  S |= wtLHSF2 = false [owise] .
   
   ceq (pc[I]: ws) (queue: Q) |= wtLHSStar = true
-    if I =/= f1 and I =/= f2 and top(Q) = I .
+    if I =/= p1 and I =/= p2 and top(Q) = I .
   eq  S |= wtLHSStar = false [owise] .
 
   ops dq1LHSF1 dq1LHSF2 dq1LHSStar : -> Prop [ctor] .
-  eq  (pc[f1]: cs) (queue: Q) (tmp[f1]: R) |= dq1LHSF1 = true .
+  eq  (pc[p1]: cs) (queue: Q) (tmp[p1]: R) |= dq1LHSF1 = true .
   eq  S |= dq1LHSF1 = false [owise] .
   
-  eq  (pc[f2]: cs) (queue: Q) (tmp[f2]: R) |= dq1LHSF2 = true .
+  eq  (pc[p2]: cs) (queue: Q) (tmp[p2]: R) |= dq1LHSF2 = true .
   eq  S |= dq1LHSF2 = false [owise] .
   
   ceq (pc[I]: cs) (queue: Q) (tmp[I]: R) |= dq1LHSStar = true
-    if I =/= f1 and I =/= f2 .
+    if I =/= p1 and I =/= p2 .
   eq  S |= dq1LHSStar = false [owise] .
 
   ops dq2LHSF1 dq2LHSF2 dq2LHSStar : -> Prop [ctor] .
-  eq  (pc[f1]: ds) (queue: Q) (tmp[f1]: R) |= dq2LHSF1 = true .
+  eq  (pc[p1]: ds) (queue: Q) (tmp[p1]: R) |= dq2LHSF1 = true .
   eq  S |= dq2LHSF1 = false [owise] .
   
-  eq  (pc[f2]: ds) (queue: Q) (tmp[f2]: R) |= dq2LHSF2 = true .
+  eq  (pc[p2]: ds) (queue: Q) (tmp[p2]: R) |= dq2LHSF2 = true .
   eq  S |= dq2LHSF2 = false [owise] .
   
   ceq (pc[I]: ds) (queue: Q) (tmp[I]: R) |= dq2LHSStar = true
-    if I =/= f1 and I =/= f2 .
+    if I =/= p1 and I =/= p2 .
   eq  S |= dq2LHSStar = false [owise] .
  
   --- Defining Observations ---
