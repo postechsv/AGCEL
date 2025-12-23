@@ -33,7 +33,12 @@ class ReplayBuffer:
         n_normal = batch_size - n_goal
 
         goal_samples = random.sample(list(self.goal_buffer), n_goal)
-        normal_samples = random.sample(list(self.buffer), n_normal)
+        #normal_samples = random.sample(list(self.buffer), n_normal)
+        non_goal_buffer = [e for e in self.buffer if e.reward <= 1e-7]
+        if len(non_goal_buffer) >= n_normal:
+            normal_samples = random.sample(non_goal_buffer, n_normal)
+        else:
+            normal_samples = random.sample(list(self.buffer), n_normal)
 
         return goal_samples + normal_samples
     
