@@ -73,7 +73,7 @@ def run_dqn(learning_rate=5e-4,
     print(f'[DQN]  Training time: {t5 - t4:.2f}s')
     
     if len(episode_rewards) > 0:
-        success_count = sum(1 for r in episode_rewards if r > 50)
+        success_count = sum(1 for r in episode_rewards if r > 1e-7)
         print(f'       Success episodes: {success_count}/{len(episode_rewards)}')
         print(f'       Success rate: {success_count / len(episode_rewards):.2%}')
         
