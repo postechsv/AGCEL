@@ -107,4 +107,4 @@ def compare_qtable_dqn(qtable_file, dqn, m):
 
     print(f'\n=== QTABLE vs DQN ALIGNMENT ===')
     print(f'[ALIGN] Entries compared: {len(q_vals)}')
-    print(f'[ALIGN] Rank correlation: {corr:.4f} (rho={pval:.4f})')
+    print(f'[ALIGN] Rank correlation: {corr:.4f} (pval={pval:.4f})')
