@@ -37,58 +37,58 @@ mod MODEL is
 
 
   --- Focus IDs ---
-  ops f1 f2 : -> Nat .
-  eq f1 = 1 .  eq f2 = 2 .
+  --- ops f1 f2 : -> Nat .
+  --- eq f1 = 1 .  eq f2 = 2 .
 
   --- Focus/Star LHS Propositions ---
   ops waitLHSF1 waitLHSF2 waitLHSStar : -> Prop [ctor] .
-  eq  vict(s L, J) VS ; proc(f1, L, on) PS |= waitLHSF1 = true .
+  eq  vict(s L, J) VS ; proc(1, L, on) PS |= waitLHSF1 = true .
   eq  S |= waitLHSF1 = false [owise] .
   
-  eq  vict(s L, J) VS ; proc(f2, L, on) PS |= waitLHSF2 = true .
+  eq  vict(s L, J) VS ; proc(2, L, on) PS |= waitLHSF2 = true .
   eq  S |= waitLHSF2 = false [owise] .
   
   ceq vict(s L, J) VS ; proc(I,  L, on) PS |= waitLHSStar = true
-    if I =/= f1 and I =/= f2 .
+    if I =/= 1 and I =/= 2 .
   eq  S |= waitLHSStar = false [owise] .
   
 
   ops filterLHSF1 filterLHSF2 filterLHSStar : -> Prop [ctor] .
-  ceq VS ; proc(f1, L, wait) PS |= filterLHSF1 = true
-    if L < @NL and not conflict(f1, L, VS ; proc(f1, L, wait) PS) .
+  ceq VS ; proc(1, L, wait) PS |= filterLHSF1 = true
+    if L < @NL and not conflict(1, L, VS ; proc(1, L, wait) PS) .
   eq  S |= filterLHSF1 = false [owise] .
   
-  ceq VS ; proc(f2, L, wait) PS |= filterLHSF2 = true
-    if L < @NL and not conflict(f2, L, VS ; proc(f2, L, wait) PS) .
+  ceq VS ; proc(2, L, wait) PS |= filterLHSF2 = true
+    if L < @NL and not conflict(2, L, VS ; proc(2, L, wait) PS) .
   eq  S |= filterLHSF2 = false [owise] .
   
   ceq VS ; proc(I,  L, wait) PS |= filterLHSStar = true
-    if I =/= f1 and I =/= f2
+    if I =/= 1 and I =/= 2
        and L < @NL and not conflict(I, L, VS ; proc(I, L, wait) PS) .
   eq  S |= filterLHSStar = false [owise] .
   
   
   ops critLHSF1 critLHSF2 critLHSStar : -> Prop [ctor] .
-  ceq VS ; proc(f1, L, on) PS |= critLHSF1 = true  if s L = @NL .
+  ceq VS ; proc(1, L, on) PS |= critLHSF1 = true  if s L = @NL .
   eq  S |= critLHSF1 = false [owise] .
   
-  ceq VS ; proc(f2, L, on) PS |= critLHSF2 = true  if s L = @NL .
+  ceq VS ; proc(2, L, on) PS |= critLHSF2 = true  if s L = @NL .
   eq  S |= critLHSF2 = false [owise] .
   
   ceq VS ; proc(I,  L, on) PS |= critLHSStar = true
-    if I =/= f1 and I =/= f2 and s L == @NL .
+    if I =/= 1 and I =/= 2 and s L == @NL .
   eq  S |= critLHSStar = false [owise] .
   
   
   ops exitLHSF1 exitLHSF2 exitLHSStar : -> Prop [ctor] .
-  eq  VS ; proc(f1, L, crit) PS |= exitLHSF1 = true .
+  eq  VS ; proc(1, L, crit) PS |= exitLHSF1 = true .
   eq  S |= exitLHSF1 = false [owise] .
   
-  eq  VS ; proc(f2, L, crit) PS |= exitLHSF2 = true .
+  eq  VS ; proc(2, L, crit) PS |= exitLHSF2 = true .
   eq  S |= exitLHSF2 = false [owise] .
   
   ceq VS ; proc(I,  L, crit) PS |= exitLHSStar = true
-    if I =/= f1 and I =/= f2 .
+    if I =/= 1 and I =/= 2 .
   eq  S |= exitLHSStar = false [owise] .
   
   --- Defining Observations ---
