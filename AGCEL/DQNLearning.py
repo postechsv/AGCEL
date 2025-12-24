@@ -235,7 +235,6 @@ class DQNLearner:
                 action_idx = self.select_action(env, obs)
                 
                 if action_idx is None:
-                    deadend_state = obs['G_state'].prettyPrint(0)
                     break
                 
                 next_obs, reward, done = env.step_indexed(action_idx)
