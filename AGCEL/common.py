@@ -12,6 +12,7 @@ def extract_predicate_vector(obs_term): # [("critLHS", True), ("waitLHS", False)
         elif sym == '_:_' and len(list(t.arguments())) == 2:
             p, b = list(t.arguments())
             pred_name = p.prettyPrint(maude.PRINT_WITH_PARENS)
+            preds.append((pred_name, str(b.symbol()).lower() == 'true'))
     flatten(pred_container)
     return preds
 
