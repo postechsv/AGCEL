@@ -49,51 +49,51 @@ mod MODEL is
 
   --- Focus/Star LHS Propositions ---
   ops thLHSF1 thLHSF2 thLHSStar : -> Prop [ctor] .
-  eq p(f1, think) || C |= thLHSF1 = true .
+  eq p(0, think) || C |= thLHSF1 = true .
   eq S |= thLHSF1 = false [owise] .
 
-  eq p(f2, think) || C |= thLHSF2 = true .
+  eq p(1, think) || C |= thLHSF2 = true .
   eq S |= thLHSF2 = false [owise] .
 
   ceq p(I, think) || C |= thLHSStar = true
-    if I =/= f1 and I =/= f2 .
+    if I =/= 0 and I =/= 1 .
   eq S |= thLHSStar = false [owise] .
 
   ops hsLHSF1 hsLHSF2 hsLHSStar : -> Prop [ctor] .
-  ceq p(f1, hungry) || c(J) || C |= hsLHSF1 = true
-    if adj(f1, J) = true .
+  ceq p(0, hungry) || c(J) || C |= hsLHSF1 = true
+    if adj(0, J) = true .
   eq S |= hsLHSF1 = false [owise] .
 
-  ceq p(f2, hungry) || c(J) || C |= hsLHSF2 = true
-    if adj(f2, J) = true .
+  ceq p(1, hungry) || c(J) || C |= hsLHSF2 = true
+    if adj(1, J) = true .
   eq S |= hsLHSF2 = false [owise] .
 
   ceq p(I, hungry) || c(J) || C |= hsLHSStar = true
-    if I =/= f1 and I =/= f2 and adj(I, J) = true .
+    if I =/= 0 and I =/= 1 and adj(I, J) = true .
   eq S |= hsLHSStar = false [owise] .
 
   ops seLHSF1 seLHSF2 seLHSStar : -> Prop [ctor] .
-  ceq p(f1, single) || c(J) || C |= seLHSF1 = true
-    if adj(f1, J) = true .
+  ceq p(0, single) || c(J) || C |= seLHSF1 = true
+    if adj(0, J) = true .
   eq S |= seLHSF1 = false [owise] .
 
-  ceq p(f2, single) || c(J) || C |= seLHSF2 = true
-    if adj(f2, J) = true .
+  ceq p(1, single) || c(J) || C |= seLHSF2 = true
+    if adj(1, J) = true .
   eq S |= seLHSF2 = false [owise] .
 
   ceq p(I, single) || c(J) || C |= seLHSStar = true
-    if I =/= f1 and I =/= f2 and adj(I, J) = true .
+    if I =/= 0 and I =/= 1 and adj(I, J) = true .
   eq S |= seLHSStar = false [owise] .
 
   ops etLHSF1 etLHSF2 etLHSStar : -> Prop [ctor] .
-  eq p(f1, eat) || C |= etLHSF1 = true .
+  eq p(0, eat) || C |= etLHSF1 = true .
   eq S |= etLHSF1 = false [owise] .
 
-  eq p(f2, eat) || C |= etLHSF2 = true .
+  eq p(1, eat) || C |= etLHSF2 = true .
   eq S |= etLHSF2 = false [owise] .
 
   ceq p(I, eat) || C |= etLHSStar = true
-    if I =/= f1 and I =/= f2 .
+    if I =/= 0 and I =/= 1 .
   eq S |= etLHSStar = false [owise] .
 
   --- Defining Observations ---
