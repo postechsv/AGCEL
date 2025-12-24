@@ -14,8 +14,10 @@ mod MODEL is
 
   --- Defining State Propositions ---
   op deadlock : -> Prop [ctor] .
-  ceq p(I, hungry) || C |= deadlock = true 
-    if not canProgress(p(I, hungry) || C) .
+  --- ceq p(I, hungry) || C |= deadlock = true 
+  ---   if not canProgress(p(I, hungry) || C) .
+  ceq S |= deadlock = true
+    if canProgress(S) = false .
   eq S |= deadlock = false [owise] .
 
   op canProgress : Conf -> Bool .
