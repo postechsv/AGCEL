@@ -39,10 +39,11 @@ mod FILTER is
 
   op @NL : -> Nat . --- #procs, #levels (maxLevel = NL - 1)
 
-  rl [wait] : 
+  crl [wait] : 
     vict(s L, J) VS ; proc(I, L, on) PS 
     => 
-    vict(s L, I) VS ; proc(I, s L, wait) PS .
+    vict(s L, I) VS ; proc(I, s L, wait) PS
+    if s L < @NL .
 
   crl [filter] : 
     VS ; proc(I, L, wait) PS 
