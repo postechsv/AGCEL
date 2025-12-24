@@ -275,16 +275,17 @@ class DQNLearner:
             if episode_reward <= 1e-7:
                 if not hasattr(self, '_no_goal_count'):
                     self._no_goal_count = 0
-                if self._no_goal_count < 3:
-                    self._no_goal_count += 1
-                    final_state = obs['G_state'].prettyPrint(0)
-                    nbrs_empty = (env.nbrs == [])
-                    print(f'Debug: episode {episode} ended with episode_reward={episode_reward:.4f}')
-                    print(f'       deadend (action_idx=None): {deadend_state is not None}')
-                    print(f'       nbrs empty (post-transition deadend): {nbrs_empty}')
-                    print(f'       final state: {final_state[:300]}...')
-
+                self._no_goal_count += 1
+            if self._no_goal_count < 10:
+                nbrs_empty = (env.nbrs == [])
+                final_state = obs['G_state'].prettyPrint(0)
+                print(f'  Debug: episode {episode} ended with episode_reward={episode_reward:.4f}')
+                print(f'         deadend (action_idx=None): {deadend_state is not None}')
+                print(f'         nbrs empty (post-transition deadend): {nbrs_empty}')
+                print(f'         final state: {final_state[:300]}...')
+        
         self.diagnose_buffer()
+        print(f"self._no_goal_count={self._no_goal_count}")
         print("training completed!")
         
         return episode_rewards, episode_lengths
