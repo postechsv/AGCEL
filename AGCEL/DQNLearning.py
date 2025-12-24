@@ -278,8 +278,10 @@ class DQNLearner:
                 if self._no_goal_count < 3:
                     self._no_goal_count += 1
                     final_state = obs['G_state'].prettyPrint(0)
+                    nbrs_empty = (env.nbrs == [])
                     print(f'Debug: episode {episode} ended with episode_reward={episode_reward:.4f}')
                     print(f'       deadend (action_idx=None): {deadend_state is not None}')
+                    print(f'       nbrs empty (post-transition deadend): {nbrs_empty}')
                     print(f'       final state: {final_state[:300]}...')
 
         self.diagnose_buffer()

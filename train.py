@@ -79,7 +79,7 @@ def run_dqn(learning_rate=5e-4,
         
         if success_count > 0:
             successful_lengths = [episode_lengths[i] for i in range(len(episode_rewards)) if episode_rewards[i] > 1e-7]
-            print(f'       Successful episode steps -> min: {np.min(successful_lengths)}, max: {np.max(successful_lengths)}, mean: {np.mean(successful_lengths):.1f}')
+            print(f'       Successful episode steps: min={np.min(successful_lengths)}, max={np.max(successful_lengths)}, mean={np.mean(successful_lengths):.1f}')
         
         print(f'       Final avg reward (last 100): {(sum(episode_rewards[-100:]) / min(100, len(episode_rewards))):.2f}')
         print(f'       All episode steps: min={np.min(episode_lengths)}, max={np.max(episode_lengths)}, mean={np.mean(episode_lengths):.1f}')
