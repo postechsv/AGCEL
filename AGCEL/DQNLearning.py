@@ -277,8 +277,8 @@ class DQNLearner:
                 #print(f'         final state: {final_state[:300]}...')
         
         self.diagnose_buffer()
-        if hasattr(self, '_no_goal_count'):
-            print(f"self._no_goal_count={self._no_goal_count}")
+        # if hasattr(self, '_no_goal_count'):
+        #     print(f"self._no_goal_count={self._no_goal_count}")
         print("training completed!")
         
         return episode_rewards, episode_lengths
