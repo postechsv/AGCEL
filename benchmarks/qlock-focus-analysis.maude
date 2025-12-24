@@ -64,14 +64,14 @@ mod MODEL is
   eq  S |= eq2LHSStar = false [owise] .
 
   ops wtLHSF1 wtLHSF2 wtLHSStar : -> Prop [ctor] .
-  ceq (pc[p1]: ws) (queue: Q) |= wtLHSF1 = true if top(Q) == p1 .
+  ceq (pc[p1]: ws) (queue: Q) |= wtLHSF1 = true if top(Q) = p1 .
   eq  S |= wtLHSF1 = false [owise] .
   
-  ceq (pc[p2]: ws) (queue: Q) |= wtLHSF2 = true if top(Q) == p2 .
+  ceq (pc[p2]: ws) (queue: Q) |= wtLHSF2 = true if top(Q) = p2 .
   eq  S |= wtLHSF2 = false [owise] .
   
   ceq (pc[I]: ws) (queue: Q) |= wtLHSStar = true
-    if I =/= p1 and I =/= p2 and top(Q) == I .
+    if I =/= p1 and I =/= p2 and top(Q) = I .
   eq  S |= wtLHSStar = false [owise] .
 
   ops dq1LHSF1 dq1LHSF2 dq1LHSStar : -> Prop [ctor] .
