@@ -230,11 +230,13 @@ class DQNLearner:
             self.episode_count = episode
             obs = env.reset()
             episode_reward = 0
+            deadend_state = None
 
             for step in range(max_steps):
                 action_idx = self.select_action(env, obs)
                 
                 if action_idx is None:
+                    deadend_state = obs['G_state'].prettyPrint(0)
                     break
                 
                 next_obs, reward, done = env.step_indexed(action_idx)
@@ -265,7 +267,21 @@ class DQNLearner:
             episode_rewards.append(episode_reward)
             episode_lengths.append(step + 1)
 
-        
+            # if episode_reward <= 1e-7 and deadend_state is not None:
+            #     if not hasattr(self, '_deadend_logged'):
+            #         self._deadend_logged = True
+            #         print(f'Debug: episode {episode} ended without goal (action_idx=None), deadend state: {deadend_state[:200]}...')
+
+            if episode_reward <= 1e-7:
+                if not hasattr(self, '_no_goal_count'):
+                    self._no_goal_count = 0
+                if self._no_goal_count < 3:
+                    self._no_goal_count += 1
+                    final_state = obs['G_state'].prettyPrint(0)
+                    print(f'Debug: episode {episode} ended with episode_reward={episode_reward:.4f}')
+                    print(f'       deadend (action_idx=None): {deadend_state is not None}')
+                    print(f'       final state: {final_state[:300]}...')
+
         self.diagnose_buffer()
         print("training completed!")
         
