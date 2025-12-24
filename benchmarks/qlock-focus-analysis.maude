@@ -71,7 +71,7 @@ mod MODEL is
   eq  S |= wtLHSF2 = false [owise] .
   
   ceq (pc[I]: ws) (queue: Q) |= wtLHSStar = true
-    if I =/= p1 and I =/= p2 and top(Q) = I .
+    if I =/= p1 and I =/= p2 and top(Q) == I .
   eq  S |= wtLHSStar = false [owise] .
 
   ops dq1LHSF1 dq1LHSF2 dq1LHSStar : -> Prop [ctor] .
