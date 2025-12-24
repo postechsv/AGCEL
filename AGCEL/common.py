@@ -11,7 +11,7 @@ def extract_predicate_vector(obs_term): # [("critLHS", True), ("waitLHS", False)
             for a in t.arguments(): flatten(a)
         elif sym == '_:_' and len(list(t.arguments())) == 2:
             p, b = list(t.arguments())
-            preds.append((str(p.symbol()), str(b.symbol()).lower() == 'true'))
+            
     flatten(pred_container)
     return preds
 
