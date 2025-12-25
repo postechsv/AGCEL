@@ -81,3 +81,5 @@ mod DINING-PHILOSOPHERS-TEST is
   --- eq init = init6 .
   --- eq #N = 6 .
 endm
+
+--- search [1] init =>* C:Conf such that C:Conf |= deadlock = true .
