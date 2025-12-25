@@ -75,15 +75,15 @@ class DQNLearner:
                  input_dim: int,
                  num_actions: int,
                  learning_rate: float = 5e-4,
-                 gamma: float = 0.9,
+                 gamma: float = 0.95,
                  tau: float = 0.01,
                  epsilon_start: float = 1.0,
                  epsilon_end: float = 0.05,
                  epsilon_decay: float = 0.01,
+                 target_update_frequency: int = 50,
                  batch_size: int = 64,
                  buffer_size: int = 10000,
                  update_frequency: int = 4,
-                 target_update_frequency: int = 500,
                  goal_ratio: float = 0.5,
                  device: Optional[str] = None):
         
