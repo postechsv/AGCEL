@@ -12,4 +12,3 @@ mod QLOCK-INIT6 is
 endm
 
 --- search [1] init =>* (pc[I:Pid]: cs) (pc[J:Pid]: cs) S:Sys such that I:Pid =/= J:Pid .
-
