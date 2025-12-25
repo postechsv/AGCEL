@@ -134,12 +134,13 @@ class DQNLearner:
         if len(self.replay_buffer) == 0:
             return
         
-        rewards = [exp.reward for exp in self.replay_buffer.buffer]
-        goal_count = sum(1 for r in rewards if r > 0)
-        if goal_count != len(self.replay_buffer.goal_buffer):
-            print("Warning: goal_count differ from goal buffer length")
-            print(f"         goal_count={goal_count}, len(self.replay_buffer.goal_buffer)={len(self.replay_buffer.goal_buffer)}")
-        print(f'Buffer: replay_buffer={len(self.replay_buffer)}, goal_buffer={len(self.replay_buffer.goal_buffer)} ({goal_count/len(self.replay_buffer)*100:.1f}%)')
+        n_goal = len(self.replay_buffer.goal_buffer)
+        n_non_goal = len(self.replay_buffer.non_goal_buffer)
+        n_total = len(self.replay_buffer)
+
+        if n_goal + n_non_goal != n_total:
+            print(f"Warning: goal({n_goal}) + non_goal({n_non_goal}) != total({n_total})")
+        print(f'Buffer: total={n_total}, goal={n_goal} ({n_goal/n_total*100:.1f}%), non_goal={n_non_goal}')
 
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
         if epsilon is None:
