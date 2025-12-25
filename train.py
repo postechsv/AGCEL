@@ -94,9 +94,9 @@ if __name__ == "__main__":
     trace_path = None
     
     learning_rate=5e-4
-    gamma=0.99
+    gamma=0.95 
     tau=0.01
-    epsilon_end=0.2
+    epsilon_end=0.05 
     epsilon_decay=0.01
     target_update_frequency=50
 

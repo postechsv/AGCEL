@@ -125,8 +125,8 @@ mod DINING-PHILOSOPHERS-TEST is
   eq init6 = p(0, think) || p(1, think) || p(2, think) || p(3, think) || p(4, think) || p(5, think) || c(0) || c(1) || c(2) || c(3) || c(4) || c(5) .
 
   --- init3
-  --- eq init = init3 .
-  --- eq #N = 3 .
+  eq init = init3 .
+  eq #N = 3 .
 
   --- init4
   --- eq init = init4 .
@@ -137,8 +137,8 @@ mod DINING-PHILOSOPHERS-TEST is
   --- eq #N = 5 .
 
   --- init6
-  eq init = init6 .
-  eq #N = 6 .
+  --- eq init = init6 .
+  --- eq #N = 6 .
 endm
 
 --- search [1] init =>* C:Conf such that C:Conf |= deadlock = true .
