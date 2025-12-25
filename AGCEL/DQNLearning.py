@@ -12,6 +12,9 @@ from AGCEL.MaudeEnv import *
 Experience = namedtuple('Experience', 
                         ['state', 'action', 'reward', 'next_state', 'done'])
 
+class ReplayBuffer:
+    pass
+
 class PrioritizedReplayBuffer:
     def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
