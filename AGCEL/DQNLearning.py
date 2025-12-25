@@ -33,7 +33,7 @@ class PrioritizedReplayBuffer:
     def push(self, state, action, reward, next_state, done):
         exp = Experience(state, action, reward, next_state, done)
         self.buffer.append(exp)
-        if reward > 1e-7:
+        if reward == 1.0:
             self.goal_buffer.append(exp)
 
     def sample(self, batch_size: int, goal_ratio: float = 0.5):
@@ -44,7 +44,7 @@ class PrioritizedReplayBuffer:
         n_normal = batch_size - n_goal
 
         goal_samples = random.sample(list(self.goal_buffer), n_goal)
-        non_goal_buffer = [e for e in self.buffer if e.reward <= 1e-7]
+        non_goal_buffer = [e for e in self.buffer if e.reward == 1.0]
         if len(non_goal_buffer) >= n_normal:
             normal_samples = random.sample(non_goal_buffer, n_normal)
         else:
@@ -239,7 +239,7 @@ class DQNLearner:
 
             self.episode_count = episode
             obs = env.reset()
-            episode_reward = 0
+            episode_reward = 0.0
 
             for step in range(max_steps):
                 action_idx = self.select_action(env, obs)
@@ -268,14 +268,14 @@ class DQNLearner:
                 obs = next_obs
                 
                 if done:
-                    if reward > 1e-7:
+                    if reward == 1.0:
                         success_count += 1
                     break
             
             episode_rewards.append(episode_reward)
             episode_lengths.append(step + 1)
 
-            if episode_reward <= 1e-7:
+            if episode_reward == 0.0:
                 if not hasattr(self, '_no_goal_count'):
                     self._no_goal_count = 0
                 self._no_goal_count += 1
