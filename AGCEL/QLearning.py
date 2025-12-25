@@ -1,8 +1,6 @@
 import random
 import numpy as np
 import datetime
-from tqdm import tqdm
-from itertools import combinations
 
 # Training parameters
 learning_rate = 0.7  # Learning rate
