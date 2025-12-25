@@ -20,64 +20,7 @@ class QLearner():
         self.q_dict = dict() # score(s,a)
         self.v_dict = dict()
         self.scores = dict() # score(p,q)
-        self.q_abs = dict()         # score(s_abs, a)
-        self.abs_mask_sizes = (1,)  # number of masking bits (default: 1)
         
-    # obs term to a boolean list
-    def parse_obs(self, obs_term):
-        # extract predicate names and their truth values from obs(...)
-        def extract_predicate_vector(obs_term):
-            preds = []
-            pred_container = list(obs_term.arguments())[0]
-
-            def flatten(t):
-                sym = str(t.symbol())
-                if sym in ('_;_', 'and', '_`,_'):
-                    for arg in t.arguments():
-                        flatten(arg)
-                elif sym == '_:_' and len(list(t.arguments())) == 2:
-                    pred_term = list(t.arguments())[0]
-                    bool_term = list(t.arguments())[1]
-                    pname = str(pred_term.symbol())
-                    val = str(bool_term.symbol()).lower() == 'true'
-                    preds.append((pname, val))
-
-            flatten(pred_container)
-            #print(f'[LOG] Final predicate vector: {preds}')
-            return preds
-
-        pairs = extract_predicate_vector(obs_term)  # [('p1', True), ('p2', False), ('p3', True)]
-        # names = [name for name, _ in pairs]             # ['p1', 'p2', 'p3']
-        # m = {name: int(val) for name, val in pairs}     # {'p1': 1, 'p2': 0, 'p3': 1}
-        # vec = tuple(m.get(name, 0) for name in names)   # (1, 0, 1)
-        # return vec, names
-        return [1 if b else 0 for _, b in pairs]
-    
-    # masks m bits (dim=n); keeps n-m bits
-    def keep_idx(self, n):
-        keeps = set()
-        for m in self.abs_mask_sizes:
-            k = n - m
-            if k < 0:
-                continue
-            for keep in combinations(range(n), k):
-                keeps.add(tuple(keep))
-        return keeps
-
-    # update q_abs: when updating Q(s,a)=q, max all s_abs of s
-    def set_q_abs(self, s, a, q):
-        vals = self.parse_obs(s)
-        n = len(vals)
-
-        for keep in self.keep_idx(n):
-            keep_vals = tuple(vals[i] for i in keep)
-            s_abs = (keep, keep_vals)
-            if s_abs not in self.q_abs:
-                self.q_abs[s_abs] = { a : q }
-            else:
-                if q > self.q_abs[s_abs].get(a, self.q_init):
-                    self.q_abs[s_abs][a] = q
-
     def get_q(self, s, a):
         q_init = self.q_init
         if s in self.q_dict:
@@ -88,7 +31,7 @@ class QLearner():
         # TODO deepcopy terms
         if q == 0.0: # TODO
             return
-        elif s not in self.q_dict:
+        elif not s in self.q_dict:
             self.q_dict[s] = { a : q }
         else:
             self.q_dict[s][a] = q
@@ -141,54 +84,14 @@ class QLearner():
         for s, _ in self.q_dict.items():
             self.v_dict[s] = self.max_q(s)
 
+
     def get_value_function(self):
         return (lambda obs_term, g_state=None : self.v_dict.get(obs_term, self.q_init))
     
-    # PA2: V(s) = max_{s' in matching(s)} { max_a Q(s', a) }
-    def get_value_function_abs(self):
-        if not self.q_abs:
-            return (lambda _: self.q_init)
-
-        idx = {}
-        for (keep, keep_vals), by_act in self.q_abs.items():
-            d = idx.setdefault(keep, {})
-            d[keep_vals] = max(by_act.values()) if by_act else self.q_init
-
-        cache = {}
-        
-        def V_abs(obs_term):
-            key = obs_term.prettyPrint(0)
-            if key in cache:
-                return cache[key]
-            
-            vals = self.parse_obs(obs_term)
-            best = self.q_init
-
-            for (keep, keep_vals), a in self.q_abs.items(): # s_abs = (keep, keep_vals)
-                proj = tuple(vals[i] for i in keep) # projection of keep idx
-                if proj != keep_vals:
-                    continue
-                cand = max(a.values()) if a else self.q_init  # max among max_a Q per action
-                if cand > best:
-                    best = cand
-
-            return best
-
-        return V_abs
-
     def dump_value_function(self, filename):
         with open(filename, 'w') as f:
             for s, _ in self.v_dict.items():
                 f.write(f'{s} |-> {self.v_dict[s]}\n')
-
-    def dump_abs_table(self, filename):
-        with open(filename, 'w') as f:
-            for (keep, keep_vals), by_act in self.q_abs.items():
-                max_q = max(by_act.values()) if by_act else self.q_init
-                f.write(
-                    # keep=[...], keep_vals=[...] |-> <max_q> ; { 'act1':q1, 'act2':q2, ... }
-                    f'keep={list(keep)}, keep_vals={list(keep_vals)} |-> {max_q} ; {by_act}\n'
-                )
 
     def load_value_function(self, filename, m):
         self.v_dict = dict()
@@ -199,23 +102,6 @@ class QLearner():
                 state.reduce()
                 value = float(value)
                 self.v_dict[state] = value
-
-    def load_abs_table(self, filename):
-        self.q_abs = {}
-        with open(filename) as f:
-            for line in f:
-                left, right = line.split("|->")
-                max_q, a_dict = right.split(";")
-                keep_str = left.split("keep=")[1].split(", keep_vals=")[0].strip()
-                keep_vals_str = left.split("keep_vals=")[1].strip()
-                keep = tuple(int(x) for x in keep_str.strip("[]").split(",") if x.strip()!="")
-                keep_vals = tuple(int(x) for x in keep_vals_str.strip().strip("[]").split(",") if x.strip()!="")
-                by_act = {}
-                if "{" in a_dict:
-                    for max_q in a_dict.split("{",1)[1].rsplit("}",1)[0].strip().split(","):
-                        a,q = max_q.split(":")
-                        by_act[a.strip().strip("'")] = float(q)
-                self.q_abs[(keep, keep_vals)] = by_act
 
     def greedy_policy(self, obs):
         # returns -1 for error
@@ -289,7 +175,6 @@ class QLearner():
                 q = self.get_q(s, a)
                 nq = q + learning_rate * (r + gamma * max_next_q - q)
                 self.set_q(s, a, nq)
-                self.set_q_abs(s, a, nq)
 
         print(f'Oracle matched {matched//repeat}/{total//repeat} transitions ({100*matched/total:.1f}%)')
         self.make_v_dict()
@@ -318,7 +203,6 @@ class QLearner():
                     reward + gamma * self.max_q(ns) - self.get_q(s, a)
                 )
                 self.set_q(s, a, nq)
-                self.set_q_abs(s, a, nq)
 
                 if done:
                     break
