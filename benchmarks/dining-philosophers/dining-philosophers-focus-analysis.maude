@@ -46,8 +46,8 @@ mod MODEL is
   eq S |= etLHS = false [owise] .
 
   --- Focus IDs ---
-  ops f1 f2 : -> Nat .
-  eq f1 = 0 .  eq f2 = 1 .
+  --- ops f1 f2 : -> Nat .
+  --- eq f1 = 0 .  eq f2 = 1 .
 
   --- Focus/Star LHS Propositions ---
   ops thLHSF1 thLHSF2 thLHSStar : -> Prop [ctor] .
