@@ -1,0 +1,14 @@
+--- load ../benchmarks/dining-philosophers/dining-philosophers-analysis .
+load ../benchmarks/dining-philosophers/dining-philosophers-focus-analysis .
+
+mod DINING-PHILOSOPHERS-INIT2 is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = deadlock .
+  
+  op init : -> Conf .
+  eq init = p(0, think) || p(1, think) || c(0) || c(1) .
+  eq #N = 2 .
+endm
+
+--- search [1] init =>* C:Conf such that C:Conf |= deadlock = true .
