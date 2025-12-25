@@ -34,7 +34,6 @@ class PrioritizedReplayBuffer:
             self.goal_buffer.append(exp)
 
     def sample(self, batch_size: int, goal_ratio: float = 0.5):
-        #return random.sample(self.buffer, batch_size)
         if len(self.goal_buffer) == 0 or len(self.buffer) < batch_size:
             return random.sample(self.buffer, min(batch_size, len(self.buffer)))
 
@@ -42,7 +41,6 @@ class PrioritizedReplayBuffer:
         n_normal = batch_size - n_goal
 
         goal_samples = random.sample(list(self.goal_buffer), n_goal)
-        #normal_samples = random.sample(list(self.buffer), n_normal)
         non_goal_buffer = [e for e in self.buffer if e.reward <= 1e-7]
         if len(non_goal_buffer) >= n_normal:
             normal_samples = random.sample(non_goal_buffer, n_normal)
