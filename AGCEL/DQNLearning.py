@@ -12,7 +12,7 @@ from AGCEL.MaudeEnv import *
 Experience = namedtuple('Experience', 
                         ['state', 'action', 'reward', 'next_state', 'done'])
 
-class ReplayBuffer:
+class PrioritizedReplayBuffer:
     def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
         self.goal_buffer = deque(maxlen=capacity)
@@ -112,7 +112,7 @@ class DQNLearner:
         self.target_update_frequency = target_update_frequency
         self.goal_ratio = goal_ratio
         
-        self.replay_buffer = ReplayBuffer(buffer_size)
+        self.replay_buffer = PrioritizedReplayBuffer(buffer_size)
 
         self.training_step = 0
         self.episode_count = 0
@@ -127,7 +127,7 @@ class DQNLearner:
         rewards = [exp.reward for exp in self.replay_buffer.buffer]
         goal_count = sum(1 for r in rewards if r > 0)
         if goal_count != len(self.replay_buffer.goal_buffer):
-            print("Warning: goal_count differ from goal buffer size")
+            print("Warning: goal_count differ from goal buffer length")
             print(f"         goal_count={goal_count}, len(self.replay_buffer.goal_buffer)={len(self.replay_buffer.goal_buffer)}")
         print(f'Buffer: replay_buffer={len(self.replay_buffer)}, goal_buffer={len(self.replay_buffer.goal_buffer)} ({goal_count/len(self.replay_buffer)*100:.1f}%)')
 
