@@ -29,24 +29,26 @@ class PrioritizedReplayBuffer:
     def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
         self.goal_buffer = deque(maxlen=capacity)
+        self.non_goal_buffer = deque(maxlen=capacity)
     
     def push(self, state, action, reward, next_state, done):
         exp = Experience(state, action, reward, next_state, done)
         self.buffer.append(exp)
         if reward == 1.0:
             self.goal_buffer.append(exp)
+        else:
+            self.non_goal_buffer.append(exp)
 
     def sample(self, batch_size: int, goal_ratio: float = 0.5):
         if len(self.goal_buffer) == 0 or len(self.buffer) < batch_size:
-            return random.sample(self.buffer, min(batch_size, len(self.buffer)))
+            return random.sample(list(self.buffer), min(batch_size, len(self.buffer)))
 
         n_goal = min(int(batch_size * goal_ratio), len(self.goal_buffer))
         n_normal = batch_size - n_goal
 
         goal_samples = random.sample(list(self.goal_buffer), n_goal)
-        non_goal_buffer = [e for e in self.buffer if e.reward == 0.0]
-        if len(non_goal_buffer) >= n_normal:
-            normal_samples = random.sample(non_goal_buffer, n_normal)
+        if len(self.non_goal_buffer) >= n_normal:
+            normal_samples = random.sample(list(self.non_goal_buffer), n_normal)
         else:
             normal_samples = random.sample(list(self.buffer), n_normal)
 
