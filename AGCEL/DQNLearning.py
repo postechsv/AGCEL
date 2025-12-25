@@ -25,7 +25,6 @@ class PrioritizedReplayBuffer:
         self.goal_buffer = deque(maxlen=capacity)
     
     def push(self, state, action, reward, next_state, done):
-        #self.buffer.append(Experience(state, action, reward, next_state, done))
         exp = Experience(state, action, reward, next_state, done)
         self.buffer.append(exp)
         if reward > 1e-7:
