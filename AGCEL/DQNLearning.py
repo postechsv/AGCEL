@@ -16,6 +16,9 @@ class ReplayBuffer:
     def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
 
+    def push(self, state, action, reward, next_state, done):
+        self.buffer.append(Experience(state, action, reward, next_state, done))
+
 class PrioritizedReplayBuffer:
     def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
