@@ -1,7 +1,7 @@
 load ../benchmarks/dining-philosophers/dining-philosophers-analysis .
 --- load ../benchmarks/dining-philosophers/dining-philosophers-focus-analysis .
 
-mod DINING-PHILOSOPHERS-INIT2 is
+mod DINING-PHILOSOPHERS-INIT4 is
   pr MODEL .
   op goal : -> Prop .
   eq goal = deadlock .
