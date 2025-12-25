@@ -34,11 +34,11 @@ def run_cold():
     print(f'       Value function: {os.path.basename(out_file)}')
 
 def run_dqn(learning_rate=5e-4,
-            gamma=0.99,
-            tau=0.001,
+            gamma=0.95,
+            tau=0.01,
             epsilon_end=0.05,
-            epsilon_decay=0.0002,
-            target_update_frequency=500):
+            epsilon_decay=0.01,
+            target_update_frequency=50):
     print('\n=== [DQN] ===')
     
     vocab = build_vocab(env)
