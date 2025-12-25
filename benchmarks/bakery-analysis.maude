@@ -49,14 +49,14 @@ mod BAKERY-TEST is
   eq init5 = 0 ; 0 ; [idle] [idle] [idle] [idle] [idle] .
   
   --- init3
-  eq init = init3 .
-  eq @K = 3 .
+  --- eq init = init3 .
+  --- eq @K = 3 .
 
   --- init4
   --- eq init = init4 .
   --- eq @K = 4 .
 
   --- init5
-  --- eq init = init5 .
-  --- eq @K = 5 .
+  eq init = init5 .
+  eq @K = 5 .
 endm
