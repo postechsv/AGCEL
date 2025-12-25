@@ -3,7 +3,6 @@ load ../benchmarks/bakery-focus-analysis .
 
 mod BAKERY-INIT5 is
   pr MODEL .
-  pr MODEL .
   op goal : -> Prop .
   eq goal = twoCrits .
   
