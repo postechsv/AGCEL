@@ -213,7 +213,7 @@ class DQNLearner:
         for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
-    def train(self, env, n_episodes: int, max_steps: int = 1000):
+    def train(self, env, n_episodes: int, max_steps: int = 10000):
         episode_rewards = []
         episode_lengths = []
         success_count = 0
@@ -269,12 +269,12 @@ class DQNLearner:
                 if not hasattr(self, '_no_goal_count'):
                     self._no_goal_count = 0
                 self._no_goal_count += 1
-            if hasattr(self, '_no_goal_count') and self._no_goal_count < 10:
-                nbrs_empty = (env.nbrs == [])
-                #final_state = obs['G_state'].prettyPrint(0)
-                print(f'  Debug: episode {episode} ended with episode_reward={episode_reward:.4f}')
-                print(f'         nbrs empty (post-transition deadend): {nbrs_empty}')
-                #print(f'         final state: {final_state[:300]}...')
+            # if hasattr(self, '_no_goal_count') and self._no_goal_count < 10:
+            #     nbrs_empty = (env.nbrs == [])
+            #     #final_state = obs['G_state'].prettyPrint(0)
+            #     print(f'  Debug: episode {episode} ended with episode_reward={episode_reward:.4f}')
+            #     print(f'         nbrs empty (post-transition deadend): {nbrs_empty}')
+            #     #print(f'         final state: {final_state[:300]}...')
         
         self.diagnose_buffer()
         # if hasattr(self, '_no_goal_count'):
