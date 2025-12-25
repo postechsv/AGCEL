@@ -44,7 +44,7 @@ class PrioritizedReplayBuffer:
         n_normal = batch_size - n_goal
 
         goal_samples = random.sample(list(self.goal_buffer), n_goal)
-        non_goal_buffer = [e for e in self.buffer if e.reward == 1.0]
+        non_goal_buffer = [e for e in self.buffer if e.reward == 0.0]
         if len(non_goal_buffer) >= n_normal:
             normal_samples = random.sample(non_goal_buffer, n_normal)
         else:
