@@ -102,6 +102,6 @@ mod BAKERY-TEST is
   --- init5
   eq init = init5 .
   eq @K = 5 .
-
+endm
 
 --- search [1] init =>* S:Conf such that S:Conf |= twoCrits = true .
