@@ -76,7 +76,7 @@ mod MODEL is
   eq  S |= critLHSF2 = false [owise] .
   
   ceq VS ; proc(I,  L, on) PS |= critLHSStar = true
-    if I =/= 1 and I =/= 2 and s L = @NL .
+    if I =/= 1 and I =/= 2 and s L == @NL .
   eq  S |= critLHSStar = false [owise] .
   
   
