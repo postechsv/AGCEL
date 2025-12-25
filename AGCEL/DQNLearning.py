@@ -213,7 +213,7 @@ class DQNLearner:
         for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
-    def train(self, env, n_episodes: int, max_steps: int = 10000):
+    def train(self, env, n_episodes: int, max_steps: int = 1000):
         episode_rewards = []
         episode_lengths = []
         success_count = 0
