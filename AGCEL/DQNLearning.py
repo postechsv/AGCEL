@@ -13,7 +13,8 @@ Experience = namedtuple('Experience',
                         ['state', 'action', 'reward', 'next_state', 'done'])
 
 class ReplayBuffer:
-    pass
+    def __init__(self, capacity: int = 10000):
+        self.buffer = deque(maxlen=capacity)
 
 class PrioritizedReplayBuffer:
     def __init__(self, capacity: int = 10000):
