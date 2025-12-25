@@ -1,5 +1,5 @@
---- load ../benchmarks/qlock-analysis .
-load ../benchmarks/qlock-focus-analysis .
+load ../benchmarks/qlock-analysis .
+--- load ../benchmarks/qlock-focus-analysis .
 
 mod QLOCK-INIT3 is
   pr MODEL .
