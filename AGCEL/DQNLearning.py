@@ -91,9 +91,6 @@ class DQNLearner:
         self.input_dim = input_dim
         self.num_actions = num_actions
         
-        print("Input dimension (self.input_dim):", self.input_dim)  # input_dim = len(vocab) = number of predicates
-        print("Output dimension (self.num_actions):", self.num_actions) # output_dim = num_actions = len(env.rules) = number of rules
-
         if device is None:
             if torch.backends.mps.is_available():
                 self.device = torch.device("mps")
@@ -101,9 +98,10 @@ class DQNLearner:
                 self.device = torch.device("cuda")
             else:
                 self.device = torch.device("cpu")
-                print("mps, cuda not available: cpu")
         else:
             self.device = torch.device(device)
+
+        print(f"DQN: input_dim={input_dim}, num_actions={num_actions}, device={self.device}")
         
         self.q_network = DQN(input_dim, num_actions).to(self.device)
         self.target_network = DQN(input_dim, num_actions).to(self.device)

@@ -44,8 +44,8 @@ def run_dqn(learning_rate=5e-4,
     vocab = build_vocab(env)
     dqn = DQNLearner(
         state_encoder=make_encoder(vocab),
-        input_dim=len(vocab),
-        num_actions=len(env.rules),
+        input_dim=len(vocab),       # input_dim = len(vocab) = number of predicates
+        num_actions=len(env.rules), # output_dim = num_actions = len(env.rules) = number of rules
         learning_rate=learning_rate,
         gamma=gamma,
         tau=tau,
