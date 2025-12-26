@@ -2,11 +2,14 @@ load ../../tool2 .
 load onethirdrule .
 
 mod MODEL is
-    ---pr ONETHIRDRULE .
     pr ONETHIRDRULE-NO-MSG-LOSS .
-    pr SATISFACTION .
+    inc SATISFACTION .
+    inc OBSERVATION .
+    inc GLOBAL .
+    inc FUNCTIONS .
+    pr MULTICAST .
 
-    subsorts Global < State .
+    subsort Global < State .
 
     vars O O' : Oid . vars CF : Configuration . var C : Cid .
     vars OS OS' : OidSet . 
@@ -27,20 +30,12 @@ mod MODEL is
     eq { TH, VS, OS, < O : Node | decision : D:Value?, ATTS > CF } |= hasDec(D:Value?) = true .
     eq S |= hasDec(D:Value?) = false [owise] .
 
-    --- experimental
     op voteLHS : Value -> Prop [ctor] .
     eq {TH, V ; VS, O ; OS,
-        < O : Node | status : [R, init], value : V, decision : nilValue, votes : VOTE, ATTS > 
+        < O : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
         CF
     } |= voteLHS(V) = true .
     eq S |= voteLHS(V) = false [owise] .
-
-    ---op voteRHS : Value -> Prop [ctor] .
-    ---eq {TH, V ; VS, O ; OS,
-    ---    < O : Node | status : [R, wait], value : V, decision : nilValue, votes : update(VOTE, V), ATTS > 
-    ---    (multicast vote(V, R) from O to OS)
-    ---    CF
-    ---} |= voteRHS(V) = true .
 
     op receiveLHS : Value -> Prop [ctor] .
     eq {TH, V ; VS, OS,
@@ -49,13 +44,6 @@ mod MODEL is
         CF
     } |= receiveLHS(V) = true .
     eq S |= receiveLHS(V) = false [owise] .
-
-    ---op receiveLHS : Value -> Prop [ctor] .
-    ---eq {TH, V ; VS, OS,
-    ---    < O : Node | status : [R, wait], decision : nilValue, votes : update(VOTE, V), ATTS > 
-    ---    (multicast vote(V, R) from O' to OS')  
-    ---    CF
-    ---}  |= receiveRHS(V) = true .
 
     op decideLHS : Value -> Prop [ctor] .
    ceq {TH, VS, OS,
@@ -78,126 +66,266 @@ mod MODEL is
     } |= updateLHS(V, V') = true if (N < TH) and (TH <= VA) and genConst(V', N, VM, VS) .
     eq S |= updateLHS(V, V') = false [owise] .
 
-    ---op updateRHS : Value Value -> Prop [ctor] .
-    ---eq {TH, V' ; VS, OS,
-    ---    < O : Node | status : [s R, init], value : V', decision : nilValue, votes : [initVotes(V' ; VS), 0], ATTS >
-    ---    CF
-    ---} |= updateRHS(V, V') = true .
-    ---eq S |= hasDec(D:Value?) = false [owise] .
-
-    op props : -> PropList .
-    eq props = voteLHS(0) ; voteLHS(1) ; receiveLHS(0) ; receiveLHS(1) ; decideLHS(0) ; decideLHS(1) ; decideRHS(0) ; decideRHS(1) ; updateLHS(0, 0) ; updateLHS(0, 1) ; updateLHS(1, 0) ; updateLHS(1, 1) .
-endm
-
-
-mod ONETHIRDRULE-OBS is
-    pr MODEL .
-    pr OBSERVATION .
-
-    vars O O' : Oid . vars CF : Configuration . var C : Cid .
-    vars OS OS' : OidSet . 
-    var R TH N VA : Nat .
-    var VS : ValueSet .
-    var S : State .
-    var MSG : Msg .
-    vars ATTS ATTS' : AttributeSet .
-
-    op mstate : Configuration -> MDPState [ctor] .
-
-    --- state observation
-    ---eq obs({ TH, VS, OS, CF }) = mstate(CF) .
-    ---eq reward(mstate(< O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF)) = 1.0 .
-    ---eq reward(mstate(CF)) = 0.0 [owise] .
-
-    eq obs({ TH, VS, OS, CF }) = < obsUpto({ TH, VS, OS, CF }, props ; disagree) > .
+    --- Defining Observations ---
+    eq obs(S) = < obsUpto(S, voteLHS(0) ; voteLHS(1) ; receiveLHS(0) ; receiveLHS(1) ; decideLHS(0) ; decideLHS(1) ; decideRHS(0) ; decideRHS(1) ; updateLHS(0, 0) ; updateLHS(0, 1) ; updateLHS(1, 0) ; updateLHS(1, 1) ; disagree) > .
     eq reward(< FV:FeatVec , (disagree : true) , FV':FeatVec >) = 1.0 .
     eq reward(MS:MDPState) = 0.0 [owise] .
     var P : Prop . var B : Bool .
     eq < FV:FeatVec , (P : B) , FV':FeatVec > |= P = B .
-
-    --- data observation
-    var V : Value .
-    eq obs('vote, 'V, data(V)) = 'V := data(V) .
-    eq obs('receive, 'V, data(V)) = 'V := data(V) .
-    eq obs('receive, 'V', data(V)) = 'V' := data(V) .
-    eq obs('receive, 'O, data(O)) = 'O := data(O) . --- test
-    eq obs('decide, 'V, data(V)) = 'V := data(V) .
-    eq obs('update, 'V, data(V)) = 'V := data(V) . --- old value
-    eq obs('update, 'V', data(V)) = 'V' := data(V) . --- new value
 endm
 
 
-mod ONETHIRDRULE-TESTCASE is
-    pr ONETHIRDRULE-OBS .
-
+mod ONETHIRDRULE-TEST is
+    protecting MODEL .
     protecting STRING .
     subsort String < Oid .
-
-    ops obA obB obC obD obE obF obG obH : -> InitObject .
-    ops init3 init4 init5a init5b init5c init6a init6b init7a init7b : -> Global .
-
-    eq obA = < "A" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obB = < "B" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obC = < "C" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obD = < "D" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obE = < "E" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obF = < "F" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obG = < "G" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    eq obH = < "H" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
-    --- 0 : A, D, H
-
-    eq init3 = {2, (0 ; 1), ("A" ; "B" ; "C"), (obA obB obC) } .
-    eq init4 = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .
-    eq init5a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } . --- 2 (least) vs 3 (rest)
-    eq init5b = {3, (0 ; 1), ("A" ; "B" ; "C" ; "E" ; "F"), (obA obB obC obE obF) } . --- 1 (least) vs 4 (rest)
-    eq init5c = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } . --- 2 (least) vs 3 (rest) --- c.e. found within a few sec
-    eq init6a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } . --- 2 (least) vs 4 (rest)
-    eq init6b = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } . --- 2 (least) vs 4 (rest)
-    eq init7a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F" ; "H"), (obA obB obC obD obE obF obH) } . --- 3(least) vs 4 (rest)
-    eq init7b = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F" ; "H"), (obA obB obC obD obE obF obH) } . --- 3(least) vs 4 (rest)
-endm
-
---- mod TEST-DFS is
----   pr SEARCH .
----   pr ONETHIRDRULE-TESTCASE .
----   pr DFS-SCORE .
----   op M : -> Module .
----   eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
---- endm
-
-mod TEST-SEARCH is
-  pr V-STAR .
-  pr ONETHIRDRULE-TESTCASE .
-  subsort Nat < Score .
-  var T : Term . vars N N' : Nat .
-  eq score(T) = 0 .
-  eq N gt N' = N > N' .
-  eq N lt N' = N < N' .
-  eq N le N' = N <= N' .
-  eq isGoal(T) = downTerm(T,(error).State) |= disagree .
-  eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
-  op initCFG : -> SConfig .
-  op initTerm : -> Term .
-  eq initTerm = upTerm(init3) .
-  eq initCFG = {waiting, insert([initTerm, score(initTerm)], empty), t(initTerm)} . *** todo : make this as init rule
-endm
-
-*** Module for Python
-mod ONETHIRDRULE-ANALYSIS is
-    pr ONETHIRDRULE-TESTCASE .
+    
     op goal : -> Prop .
     eq goal = disagree .
 
-    ops init3a goal3 : -> Global .
-    eq init3a = {2, (0 ; 1), ("B" ; "A" ; "C"), (obA obC obB) } .
-    eq goal3 = {2,0 ; 1, "A" ; "B" ; "C", < "A" : Node | status : [2, done],value : 0,decision : 0,votes : [0 |-> 2 ; 1 |-> 0,2] > < "B" : Node | status : [2, wait],
-    value : 0,decision : nilValue,votes : [0 |-> 1 ; 1 |-> 0,1] > < "C" : Node | status : [1, done],value : 1,decision : 1,votes : [0 |-> 0 ; 1 |-> 2,2] > (multicast
-    vote(0, 1) from "A" to "C") (multicast vote(0, 2) from "A" to "B" ; "C") (multicast vote(0, 2) from "B" to "C") multicast vote(1, 1) from "C" to "A" ; "B"} .
+    ops obA obB obC obD obE obF obG obH : -> InitObject .
+    ops init3 init4 init5a init5b init5c init6a init6b init7a init7b init : -> Global .
+
+    eq obA = < "A" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obB = < "B" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obC = < "C" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obD = < "D" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obE = < "E" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obF = < "F" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obG = < "G" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+    eq obH = < "H" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+
+    eq init3 = {2, (0 ; 1), ("A" ; "B" ; "C"), (obA obB obC) } .
+    eq init4 = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .
+    eq init5a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } .
+    eq init5b = {3, (0 ; 1), ("A" ; "B" ; "C" ; "E" ; "F"), (obA obB obC obE obF) } .
+    eq init5c = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } .
+    eq init6a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } .
+    eq init6b = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } .
+    eq init7a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F" ; "H"), (obA obB obC obD obE obF obH) } .
+    eq init7b = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F" ; "H"), (obA obB obC obD obE obF obH) } .
+
+    --- init3
+    --- eq init = init3 .
+
+    --- init4
+    --- eq init = init4 .
+
+    --- init5a
+    --- eq init = init5a .
+
+    --- init5b
+    --- eq init = init5b .
+
+    --- init5c
+    eq init = init5c .
 endm
 
 
----search in TEST-SEARCH : initCFG =>* { found , PQ:LTree{QItem<=} , VIS:Set{TItem} } .
----search [1] init3 =>* X:State such that X:State |= goal . --- searches 822 states
+---search [1] init =>* X:State such that X:State |= goal .
 
---- check ---
----red in TEST-DFS : getState(search(M, upTerm(init3), disagree)) .
+---
+
+--- load ../../tool2 .
+--- load onethirdrule .
+
+--- mod MODEL is
+---     ---pr ONETHIRDRULE .
+---     pr ONETHIRDRULE-NO-MSG-LOSS .
+---     pr SATISFACTION .
+
+---     subsorts Global < State .
+
+---     vars O O' : Oid . vars CF : Configuration . var C : Cid .
+---     vars OS OS' : OidSet . 
+---     var R TH N VA : Nat .
+---     var VS : ValueSet .
+---     var S : State .
+---     var MSG : Msg .
+---     vars ATTS ATTS' : AttributeSet .
+---     vars V V' : Value .
+---     var VM : VoteMap .
+---     var VOTE : Vote .
+
+---     op disagree : -> Prop [ctor] .
+---     eq { TH, VS, OS, < O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF } |= disagree = true .
+---     eq S |= disagree = false [owise] .
+ 
+---     op hasDec : Nat -> Prop [ctor] .
+---     eq { TH, VS, OS, < O : Node | decision : D:Value?, ATTS > CF } |= hasDec(D:Value?) = true .
+---     eq S |= hasDec(D:Value?) = false [owise] .
+
+---     --- experimental
+---     op voteLHS : Value -> Prop [ctor] .
+---     eq {TH, V ; VS, O ; OS,
+---         < O : Node | status : [R, init], value : V, decision : nilValue, votes : VOTE, ATTS > 
+---         CF
+---     } |= voteLHS(V) = true .
+---     eq S |= voteLHS(V) = false [owise] .
+
+---     ---op voteRHS : Value -> Prop [ctor] .
+---     ---eq {TH, V ; VS, O ; OS,
+---     ---    < O : Node | status : [R, wait], value : V, decision : nilValue, votes : update(VOTE, V), ATTS > 
+---     ---    (multicast vote(V, R) from O to OS)
+---     ---    CF
+---     ---} |= voteRHS(V) = true .
+
+---     op receiveLHS : Value -> Prop [ctor] .
+---     eq {TH, V ; VS, OS,
+---         < O : Node | status : [R, wait], decision : nilValue, votes : VOTE, ATTS > 
+---         (multicast vote(V, R) from O' to (O ; OS'))
+---         CF
+---     } |= receiveLHS(V) = true .
+---     eq S |= receiveLHS(V) = false [owise] .
+
+---     ---op receiveLHS : Value -> Prop [ctor] .
+---     ---eq {TH, V ; VS, OS,
+---     ---    < O : Node | status : [R, wait], decision : nilValue, votes : update(VOTE, V), ATTS > 
+---     ---    (multicast vote(V, R) from O' to OS')  
+---     ---    CF
+---     ---}  |= receiveRHS(V) = true .
+
+---     op decideLHS : Value -> Prop [ctor] .
+---    ceq {TH, VS, OS,
+---         < O : Node | status : [R, wait], decision : nilValue, votes : [(V |-> N ; VM), VA], ATTS > 
+---         CF
+---     } |= decideLHS(V) = true if TH <= N .
+---     eq S |= decideLHS(V) = false [owise] .
+
+---     op decideRHS : Value -> Prop [ctor] .
+---     eq {TH, VS, OS,
+---         < O : Node | status : [R, done], decision : V, votes : [(V |-> N ; VM), VA], ATTS >
+---         CF
+---     } |= decideRHS(V) = true .
+---     eq S |= decideRHS(V) = false [owise] .
+
+---     op updateLHS : Value Value -> Prop [ctor] .
+---    ceq {TH, V' ; VS, OS,
+---         < O : Node | status : [R, wait], value : V, decision : nilValue, votes : [V' |-> N ; VM, VA], ATTS >
+---         CF
+---     } |= updateLHS(V, V') = true if (N < TH) and (TH <= VA) and genConst(V', N, VM, VS) .
+---     eq S |= updateLHS(V, V') = false [owise] .
+
+---     ---op updateRHS : Value Value -> Prop [ctor] .
+---     ---eq {TH, V' ; VS, OS,
+---     ---    < O : Node | status : [s R, init], value : V', decision : nilValue, votes : [initVotes(V' ; VS), 0], ATTS >
+---     ---    CF
+---     ---} |= updateRHS(V, V') = true .
+---     ---eq S |= hasDec(D:Value?) = false [owise] .
+
+---     op props : -> PropList .
+---     eq props = voteLHS(0) ; voteLHS(1) ; receiveLHS(0) ; receiveLHS(1) ; decideLHS(0) ; decideLHS(1) ; decideRHS(0) ; decideRHS(1) ; updateLHS(0, 0) ; updateLHS(0, 1) ; updateLHS(1, 0) ; updateLHS(1, 1) .
+--- endm
+
+
+--- mod ONETHIRDRULE-OBS is
+---     pr MODEL .
+---     pr OBSERVATION .
+
+---     vars O O' : Oid . vars CF : Configuration . var C : Cid .
+---     vars OS OS' : OidSet . 
+---     var R TH N VA : Nat .
+---     var VS : ValueSet .
+---     var S : State .
+---     var MSG : Msg .
+---     vars ATTS ATTS' : AttributeSet .
+
+---     op mstate : Configuration -> MDPState [ctor] .
+
+---     --- state observation
+---     ---eq obs({ TH, VS, OS, CF }) = mstate(CF) .
+---     ---eq reward(mstate(< O : Node | decision : 0, ATTS > < O' : Node | decision : 1, ATTS' > CF)) = 1.0 .
+---     ---eq reward(mstate(CF)) = 0.0 [owise] .
+
+---     eq obs({ TH, VS, OS, CF }) = < obsUpto({ TH, VS, OS, CF }, props ; disagree) > .
+---     eq reward(< FV:FeatVec , (disagree : true) , FV':FeatVec >) = 1.0 .
+---     eq reward(MS:MDPState) = 0.0 [owise] .
+---     var P : Prop . var B : Bool .
+---     eq < FV:FeatVec , (P : B) , FV':FeatVec > |= P = B .
+
+---     --- data observation
+---     var V : Value .
+---     eq obs('vote, 'V, data(V)) = 'V := data(V) .
+---     eq obs('receive, 'V, data(V)) = 'V := data(V) .
+---     eq obs('receive, 'V', data(V)) = 'V' := data(V) .
+---     eq obs('receive, 'O, data(O)) = 'O := data(O) . --- test
+---     eq obs('decide, 'V, data(V)) = 'V := data(V) .
+---     eq obs('update, 'V, data(V)) = 'V := data(V) . --- old value
+---     eq obs('update, 'V', data(V)) = 'V' := data(V) . --- new value
+--- endm
+
+
+--- mod ONETHIRDRULE-TESTCASE is
+---     pr ONETHIRDRULE-OBS .
+
+---     protecting STRING .
+---     subsort String < Oid .
+
+---     ops obA obB obC obD obE obF obG obH : -> InitObject .
+---     ops init3 init4 init5a init5b init5c init6a init6b init7a init7b : -> Global .
+
+---     eq obA = < "A" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+---     eq obB = < "B" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+---     eq obC = < "C" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+---     eq obD = < "D" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+---     eq obE = < "E" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+---     eq obF = < "F" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+---     eq obG = < "G" : Node | status : [1, init], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+---     eq obH = < "H" : Node | status : [1, init], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+---     --- 0 : A, D, H
+
+---     eq init3 = {2, (0 ; 1), ("A" ; "B" ; "C"), (obA obB obC) } .
+---     eq init4 = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .
+---     eq init5a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } . --- 2 (least) vs 3 (rest)
+---     eq init5b = {3, (0 ; 1), ("A" ; "B" ; "C" ; "E" ; "F"), (obA obB obC obE obF) } . --- 1 (least) vs 4 (rest)
+---     eq init5c = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E"), (obA obB obC obD obE) } . --- 2 (least) vs 3 (rest) --- c.e. found within a few sec
+---     eq init6a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } . --- 2 (least) vs 4 (rest)
+---     eq init6b = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F"), (obA obB obC obD obE obF) } . --- 2 (least) vs 4 (rest)
+---     eq init7a = {3, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F" ; "H"), (obA obB obC obD obE obF obH) } . --- 3(least) vs 4 (rest)
+---     eq init7b = {4, (0 ; 1), ("A" ; "B" ; "C" ; "D" ; "E" ; "F" ; "H"), (obA obB obC obD obE obF obH) } . --- 3(least) vs 4 (rest)
+--- endm
+
+--- --- mod TEST-DFS is
+--- ---   pr SEARCH .
+--- ---   pr ONETHIRDRULE-TESTCASE .
+--- ---   pr DFS-SCORE .
+--- ---   op M : -> Module .
+--- ---   eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
+--- --- endm
+
+--- mod TEST-SEARCH is
+---   pr V-STAR .
+---   pr ONETHIRDRULE-TESTCASE .
+---   subsort Nat < Score .
+---   var T : Term . vars N N' : Nat .
+---   eq score(T) = 0 .
+---   eq N gt N' = N > N' .
+---   eq N lt N' = N < N' .
+---   eq N le N' = N <= N' .
+---   eq isGoal(T) = downTerm(T,(error).State) |= disagree .
+---   eq M = upModule('ONETHIRDRULE-ANALYSIS,true) .
+---   op initCFG : -> SConfig .
+---   op initTerm : -> Term .
+---   eq initTerm = upTerm(init3) .
+---   eq initCFG = {waiting, insert([initTerm, score(initTerm)], empty), t(initTerm)} . *** todo : make this as init rule
+--- endm
+
+--- *** Module for Python
+--- mod ONETHIRDRULE-ANALYSIS is
+---     pr ONETHIRDRULE-TESTCASE .
+---     op goal : -> Prop .
+---     eq goal = disagree .
+
+---     ops init3a goal3 : -> Global .
+---     eq init3a = {2, (0 ; 1), ("B" ; "A" ; "C"), (obA obC obB) } .
+---     eq goal3 = {2,0 ; 1, "A" ; "B" ; "C", < "A" : Node | status : [2, done],value : 0,decision : 0,votes : [0 |-> 2 ; 1 |-> 0,2] > < "B" : Node | status : [2, wait],
+---     value : 0,decision : nilValue,votes : [0 |-> 1 ; 1 |-> 0,1] > < "C" : Node | status : [1, done],value : 1,decision : 1,votes : [0 |-> 0 ; 1 |-> 2,2] > (multicast
+---     vote(0, 1) from "A" to "C") (multicast vote(0, 2) from "A" to "B" ; "C") (multicast vote(0, 2) from "B" to "C") multicast vote(1, 1) from "C" to "A" ; "B"} .
+--- endm
+
+
+--- ---search in TEST-SEARCH : initCFG =>* { found , PQ:LTree{QItem<=} , VIS:Set{TItem} } .
+--- ---search [1] init3 =>* X:State such that X:State |= goal . --- searches 822 states
+
+--- --- check ---
+--- ---red in TEST-DFS : getState(search(M, upTerm(init3), disagree)) .

@@ -1,14 +1,14 @@
-load ../benchmarks/bakery-analysis
+load ../benchmarks/bakery-analysis .
+--- load ../benchmarks/bakery-focus-analysis .
 
-mod BAKERY-TEST is
+mod BAKERY-INIT5 is
   pr MODEL .
-
-  ops init : -> Conf .
+  op goal : -> Prop .
+  eq goal = twoCrits .
+  
+  op init : -> Conf .
   eq init = 0 ; 0 ; [idle] [idle] [idle] [idle] [idle] .
-  eq @K = 4 .
-
----  eq init = init5
----  eq @K = 4 .
+  eq @K = 5 .
 endm
 
-search [1] init =>* N:Nat ; M:Nat ; [crit(N1:Nat)] [crit(N2:Nat)] PS:ProcSet .
+--- search [1] init =>* N:Nat ; M:Nat ; [crit(N':Nat)] [crit(M':Nat)] PS:ProcSet such that N':Nat =/= M':Nat .

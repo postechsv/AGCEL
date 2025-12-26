@@ -17,7 +17,7 @@ mod ONETHIRDRULE-NO-MSG-LOSS is
 
     rl [vote] : 
     {TH, V ; VS, O ; OS,
-        < O : Node | status : [R, init], value : V, decision : nilValue, votes : VOTE, ATTS > 
+        < O : Node | status : [R, start], value : V, decision : nilValue, votes : VOTE, ATTS > 
         CF
     }
     =>
@@ -60,14 +60,18 @@ mod ONETHIRDRULE-NO-MSG-LOSS is
     }
     =>
     {TH, V' ; VS, OS,
-        < O : Node | status : [s R, init], value : V', decision : nilValue, votes : [initVotes(V' ; VS), 0], ATTS >
+        < O : Node | status : [s R, start], value : V', decision : nilValue, votes : [initVotes(V' ; VS), 0], ATTS >
         CF
     } if (N < TH) and (TH <= VA) and genConst(V', N, VM, VS) .
 endm
 
 
 mod ONETHIRDRULE is
-    including ONETHIRDRULE-NO-MSG-LOSS .
+    inc ONETHIRDRULE-NO-MSG-LOSS .
+    inc GLOBAL .
+    inc FUNCTIONS .
+    pr MULTICAST .
+
     vars TH NV : Nat .
     var OS : OidSet . 
     var CF : Configuration . 

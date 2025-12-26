@@ -1,0 +1,24 @@
+---load ../benchmarks/onethirdrule/onethirdrule-analysis .
+load ../benchmarks/onethirdrule/onethirdrule-focus-analysis .
+
+mod ONETHIRDRULE-INIT4 is
+  pr MODEL .
+  protecting STRING .
+  subsort String < Oid .
+  
+  op goal : -> Prop .
+  eq goal = disagree .
+  
+  ops obA obB obC obD obE obF obG obH : -> InitObject .
+  eq obA = < "A" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+  eq obB = < "B" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+  eq obC = < "C" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+  eq obD = < "D" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+  eq obE = < "E" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+  eq obF = < "F" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+  eq obG = < "G" : Node | status : [1, start], value : 1, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+  eq obH = < "H" : Node | status : [1, start], value : 0, decision : nilValue, votes : [(0 |-> 0 ; 1 |-> 0),0] > .
+
+  op init : -> Global .
+  eq init = {2, (0 ; 1), ("A" ; "B" ; "C" ; "D"), (obA obB obC obD) } .
+endm

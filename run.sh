@@ -1,19 +1,17 @@
-maude='/home/byhoson/maude/maude.linux64'
+#!/bin/bash
+v=5000
+lr=1e-4
+logfile="log/filter-focus-init5-twoCrits-${v}-lr=${lr}.log"
 
-#python3 train.py benchmarks/onethirdrule/onethirdrule-analysis.maude init5a 'decideRHS(0)' 1000
-#python3 train.py benchmarks/onethirdrule/onethirdrule-analysis.maude init5a 'decideRHS(1)' 1000
-
-#python3 train.py benchmarks/onethirdrule/onethirdrule-analysis.maude init3 disagree 1000
-
-#$maude test.maude <<< 'red in TEST-PROP : printResult(search(M, upTerm(init3), disagree)) .' > log
-
-
-$maude qhs.maude <<< 'red in TEST-QHS : getNStates(search(M, upTerm(init5a), disagree)) .' > log
-
-### print result
-#grep -IHnr "(# states)" log
-#echo "# hit:"
-#grep -o 'hit' log | wc -l
-#echo "# miss:"
-#grep -o 'miss' log | wc -l
-
+for gamma in 0.95 0.99; do
+  for tau in 0.001 0.005; do
+    for end in 0.05; do
+      for decay in 0.0001 0.0005 0.001 0.005; do
+        for tf in 10 50 100 500 1000; do
+          python3 train.py benchmarks/filter-focus-analysis.maude init twoCrits $v trained/filter-focus-init5-twoCrits-$v \
+            sweep $lr $gamma $tau $end $decay $tf >> "$logfile" 2>&1
+        done
+      done
+    done
+  done
+done

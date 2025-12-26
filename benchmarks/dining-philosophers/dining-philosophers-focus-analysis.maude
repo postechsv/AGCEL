@@ -1,0 +1,144 @@
+load ../../tool2 .
+load dining-philosophers .
+
+mod MODEL is
+  pr N-DINING-PHILOSOPHERS .
+  inc SATISFACTION .
+  inc OBSERVATION .
+
+  subsort Conf < State .
+
+  var S : State .
+  var C : Conf .
+  vars I J : Nat .
+
+  --- Defining State Propositions ---
+  op deadlock : -> Prop [ctor] .
+  --- ceq p(I, hungry) || C |= deadlock = true 
+  ---   if not canProgress(p(I, hungry) || C) .
+  ceq S |= deadlock = true
+    if canProgress(S) = false .
+  eq S |= deadlock = false [owise] .
+
+  op canProgress : Conf -> Bool .
+  eq canProgress(p(I, hungry) || c(J) || C) = true .
+  eq canProgress(p(I, single) || c(J) || C) = true .
+  eq canProgress(p(I, eat) || C) = true .
+  eq canProgress(p(I, think) || C) = true .
+  eq canProgress(C) = false [owise] .
+
+  op thLHS : -> Prop [ctor] .
+  eq p(I, think) || C |= thLHS = true .
+  eq S |= thLHS = false [owise] .
+
+  op hsLHS : -> Prop [ctor] .
+  ceq p(I, hungry) || c(J) || C |= hsLHS = true
+    if adj(I, J) = true .
+  eq S |= hsLHS = false [owise] .
+
+  op seLHS : -> Prop [ctor] .
+  ceq p(I, single) || c(J) || C |= seLHS = true
+    if adj(I, J) = true .
+  eq S |= seLHS = false [owise] .
+
+  op etLHS : -> Prop [ctor] .
+  eq p(I, eat) || C |= etLHS = true .
+  eq S |= etLHS = false [owise] .
+
+  --- Focus IDs ---
+  --- ops f1 f2 : -> Nat .
+  --- eq f1 = 0 .  eq f2 = 1 .
+
+  --- Focus/Star LHS Propositions ---
+  ops thLHSF1 thLHSF2 thLHSStar : -> Prop [ctor] .
+  eq p(0, think) || C |= thLHSF1 = true .
+  eq S |= thLHSF1 = false [owise] .
+
+  eq p(1, think) || C |= thLHSF2 = true .
+  eq S |= thLHSF2 = false [owise] .
+
+  ceq p(I, think) || C |= thLHSStar = true
+    if I =/= 0 and I =/= 1 .
+  eq S |= thLHSStar = false [owise] .
+
+  ops hsLHSF1 hsLHSF2 hsLHSStar : -> Prop [ctor] .
+  ceq p(0, hungry) || c(J) || C |= hsLHSF1 = true
+    if adj(0, J) = true .
+  eq S |= hsLHSF1 = false [owise] .
+
+  ceq p(1, hungry) || c(J) || C |= hsLHSF2 = true
+    if adj(1, J) = true .
+  eq S |= hsLHSF2 = false [owise] .
+
+  ceq p(I, hungry) || c(J) || C |= hsLHSStar = true
+    if I =/= 0 and I =/= 1 and adj(I, J) = true .
+  eq S |= hsLHSStar = false [owise] .
+
+  ops seLHSF1 seLHSF2 seLHSStar : -> Prop [ctor] .
+  ceq p(0, single) || c(J) || C |= seLHSF1 = true
+    if adj(0, J) = true .
+  eq S |= seLHSF1 = false [owise] .
+
+  ceq p(1, single) || c(J) || C |= seLHSF2 = true
+    if adj(1, J) = true .
+  eq S |= seLHSF2 = false [owise] .
+
+  ceq p(I, single) || c(J) || C |= seLHSStar = true
+    if I =/= 0 and I =/= 1 and adj(I, J) = true .
+  eq S |= seLHSStar = false [owise] .
+
+  ops etLHSF1 etLHSF2 etLHSStar : -> Prop [ctor] .
+  eq p(0, eat) || C |= etLHSF1 = true .
+  eq S |= etLHSF1 = false [owise] .
+
+  eq p(1, eat) || C |= etLHSF2 = true .
+  eq S |= etLHSF2 = false [owise] .
+
+  ceq p(I, eat) || C |= etLHSStar = true
+    if I =/= 0 and I =/= 1 .
+  eq S |= etLHSStar = false [owise] .
+
+  --- Defining Observations ---
+  eq obs(S) = < obsUpto(S,
+    thLHSF1 ; thLHSF2 ; thLHSStar ;
+    hsLHSF1 ; hsLHSF2 ; hsLHSStar ;
+    seLHSF1 ; seLHSF2 ; seLHSStar ;
+    etLHSF1 ; etLHSF2 ; etLHSStar ;
+    deadlock ) > .
+
+  eq reward(< FV:FeatVec , (deadlock : true) , FV':FeatVec >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+  var P : Prop . var B : Bool .
+  eq < FV:FeatVec , (P : B) , FV':FeatVec > |= P = B .
+endm
+
+
+mod DINING-PHILOSOPHERS-TEST is
+  protecting MODEL .
+  op goal : -> Prop .
+  eq goal = deadlock .
+
+  ops init3 init4 init5 init6 init : -> Conf .
+  eq init3 = p(0, think) || p(1, think) || p(2, think) || c(0) || c(1) || c(2) .
+  eq init4 = p(0, think) || p(1, think) || p(2, think) || p(3, think) || c(0) || c(1) || c(2) || c(3) .
+  eq init5 = p(0, think) || p(1, think) || p(2, think) || p(3, think) || p(4, think) || c(0) || c(1) || c(2) || c(3) || c(4) .
+  eq init6 = p(0, think) || p(1, think) || p(2, think) || p(3, think) || p(4, think) || p(5, think) || c(0) || c(1) || c(2) || c(3) || c(4) || c(5) .
+
+  --- init3
+  eq init = init3 .
+  eq #N = 3 .
+
+  --- init4
+  --- eq init = init4 .
+  --- eq #N = 4 .
+
+  --- init5
+  --- eq init = init5 .
+  --- eq #N = 5 .
+
+  --- init6
+  --- eq init = init6 .
+  --- eq #N = 6 .
+endm
+
+--- search [1] init =>* C:Conf such that C:Conf |= deadlock = true .

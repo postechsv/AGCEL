@@ -22,12 +22,14 @@ mod MODEL is
   eq S |= waitLHS = false [owise] .
 
   op filterLHS : -> Prop [ctor] .
- ceq VS ; proc(I, L, wait) PS |= filterLHS = true
+  ceq VS ; proc(I, L, wait) PS |= filterLHS = true
+  ceq VS ; proc(I, L, wait) PS |= filterLHS = true
     if L < @NL and not conflict(I, L, VS ; proc(I, L, wait) PS) .
   eq S |= filterLHS = false [owise] .
 
   op critLHS : -> Prop [ctor] .
- ceq VS ; proc(I, L, on) PS |= critLHS = true
+  ceq VS ; proc(I, L, on) PS |= critLHS = true
+  ceq VS ; proc(I, L, on) PS |= critLHS = true
     if s L = @NL .
   eq S |= critLHS = false [owise] .
 
@@ -35,9 +37,27 @@ mod MODEL is
   eq VS ; proc(I, L, crit) PS |= exitLHS = true .
   eq S |= exitLHS = false [owise] .
 
+  --- op waitRHS : -> Prop [ctor] .
+  --- eq vict(s L, I) VS ; proc(I, s L, wait) PS |= waitRHS = true .
+  --- eq S |= waitRHS = false [owise] .
+
+  --- op filterRHS : -> Prop [ctor] .
+  --- ceq VS ; proc(I, L, on) PS |= filterRHS = true
+  ---   if L < @NL and not conflict(I, L, VS ; proc(I, L, wait) PS) .
+  --- eq S |= filterRHS = false [owise] .
+
+  --- op critRHS : -> Prop [ctor] .
+  --- ceq VS ; proc(I, L, crit) |= critRHS = true
+  ---   if s L = @NL .
+  --- eq S |= critRHS = false [owise] .
+
+  --- op exitRHS : -> Prop [ctor] .
+  --- eq VS ; proc(I, 0, on) PS |= exitRHS = true .
+  --- eq S |= exitRHS = false [owise] .
 
   --- Defining Observations ---
   eq obs(S) = < obsUpto(S, waitLHS ; filterLHS ; critLHS ; exitLHS ; twoCrits) > .
+  --- eq obs(S) = < obsUpto(S, waitLHS ; filterLHS ; critLHS ; exitLHS ; waitRHS ; filterRHS ; critRHS ; exitRHS ; twoCrits) > .
   eq reward(< FV:FeatVec , (twoCrits : true) , FV':FeatVec >) = 1.0 .
   eq reward(MS:MDPState) = 0.0 [owise] .
   var P : Prop . var B : Bool .
@@ -49,18 +69,36 @@ mod FILTER-TEST is
   protecting MODEL .
   op goal : -> Prop .
   eq goal = twoCrits .
-  ops init2 init3 init4 init5 init : -> Conf .
+  ops init2 init3 init4 init5 init6 init7 init : -> Conf .
   eq init2 = vict(1,0) ; proc(1, 0, on) proc(2, 0, on) . --- safe(no sol). why?
   eq init3 = vict(1,0) vict(2,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) . --- error
   eq init4 = vict(1,0) vict(2,0) vict(3,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) . --- error
   eq init5 = vict(1,0) vict(2,0) vict(3,0) vict(4,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on) . --- error
+  eq init6 = vict(1,0) vict(2,0) vict(3,0) vict(4,0) vict(5,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on) proc(6, 0, on) . --- error
+  eq init7 = vict(1,0) vict(2,0) vict(3,0) vict(4,0) vict(5,0) vict(6,0) ; proc(1, 0, on) proc(2, 0, on) proc(3, 0, on) proc(4, 0, on) proc(5, 0, on) proc(6, 0, on) proc(7, 0, on) . --- error
 
+  --- init3
   eq init = init3 .
   eq @NL = 2 .
 
----  for example:
----  eq init = init5 .
----  eq @NL = 4 .
+  --- init4
+  --- eq init = init4 .
+  --- eq @NL = 3 .
+  --- eq init = init4 .
+  --- eq @NL = 3 .
+
+  --- init5
+  --- eq init = init5 .
+  --- eq @NL = 4 .
+
+  --- init6
+  --- eq init = init6 .
+  --- eq @NL = 5 .
+
+  --- init7
+  --- eq init = init7 .
+  --- eq @NL = 6 .
+
 endm
 
 

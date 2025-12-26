@@ -1,2 +1,5 @@
-/AGCEL/__pychache__/
+AGCEL/__pycache__/
+log/
 old/
+trained/
+.DS_Store
