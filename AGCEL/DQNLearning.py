@@ -26,6 +26,11 @@ class ReplayBuffer:
         return len(self.buffer)
 
 class PrioritizedReplayBuffer:
+    """
+    replay buffer that separates goal/non-goal buffer
+    that ensures goal experiences are sampled frequently (above certain ratio)
+    """
+
     def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
         self.goal_buffer = deque(maxlen=capacity)
@@ -40,6 +45,9 @@ class PrioritizedReplayBuffer:
             self.non_goal_buffer.append(exp)
 
     def sample(self, batch_size: int, goal_ratio: float = 0.2):
+        """
+        sample batch with goal_ratio of goal experiences
+        """
         if len(self.goal_buffer) == 0 or len(self.buffer) < batch_size:
             return random.sample(list(self.buffer), min(batch_size, len(self.buffer)))
         
@@ -93,6 +101,7 @@ class DQNLearner:
         self.input_dim = input_dim
         self.num_actions = num_actions
         
+        # detect device
         if device is None:
             if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
                 self.device = torch.device("mps")
@@ -103,6 +112,8 @@ class DQNLearner:
         else:
             self.device = torch.device(device)
         
+        # double DQN structure
+        # q_network: online network, target_network: moving copy
         self.q_network = DQN(input_dim, num_actions).to(self.device)
         self.target_network = DQN(input_dim, num_actions).to(self.device)
         self.target_network.load_state_dict(self.q_network.state_dict())
@@ -110,6 +121,7 @@ class DQNLearner:
         
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
         
+        # hyperparameters
         self.gamma = gamma
         self.tau = tau
         self.epsilon_start = epsilon_start
@@ -123,13 +135,19 @@ class DQNLearner:
         
         self.replay_buffer = PrioritizedReplayBuffer(buffer_size)
 
+        # training status
         self.training_step = 0
         self.episode_count = 0
         self.loss_history = []
         
+        # cache for value function lookup during search
         self.value_cache = {}
    
     def diagnose_buffer(self):
+        """
+        print buffer statistics
+        """
+
         if len(self.replay_buffer) == 0:
             return
         
@@ -142,6 +160,11 @@ class DQNLearner:
         print(f'  Buffer: total={n_total}, goal={n_goal} ({n_goal/n_total*100:.1f}%), non_goal={n_non_goal}, unique_states={unique_states}')
 
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
+        """
+        select action using epsilon-greedy policy
+        return selected action index, or none if no possible(legal) action available
+        """
+
         if epsilon is None:
             epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
                np.exp(-self.epsilon_decay * self.episode_count)
@@ -161,6 +184,7 @@ class DQNLearner:
         if not legal_actions:
             return None
         
+        # choose randomly with prob epsilon, otherwise greedy
         if random.random() < epsilon:
             return random.choice(legal_actions)
         else:
@@ -168,6 +192,7 @@ class DQNLearner:
                 state_tensor = self.state_encoder(state).unsqueeze(0).to(self.device)
                 q_values = self.q_network(state_tensor).squeeze(0)
                 
+                # maskk illegal actions
                 masked_q_values = q_values.clone()
                 for i in range(self.num_actions):
                     if not action_mask[i]:
@@ -176,6 +201,10 @@ class DQNLearner:
                 return masked_q_values.argmax().item()
     
     def store_experience(self, state, action, reward, next_state, done):
+        """
+        store observed trainsition while in replay buffer while training
+        """
+
         state_tensor = self.state_encoder(state)
         next_state_tensor = self.state_encoder(next_state) if next_state is not None else torch.zeros_like(state_tensor)
         
@@ -193,6 +222,7 @@ class DQNLearner:
         
         batch = self.replay_buffer.sample(self.batch_size, goal_ratio=self.goal_ratio)
         
+        # batch to tensors
         state_batch = torch.stack([e.state for e in batch]).to(self.device)
         action_batch = torch.tensor([e.action for e in batch], dtype=torch.long, device=self.device).unsqueeze(1)
         reward_batch = torch.tensor([e.reward for e in batch], dtype=torch.float32, device=self.device)
@@ -201,6 +231,7 @@ class DQNLearner:
         
         current_q_values = self.q_network(state_batch).gather(1, action_batch).squeeze(1)
         
+        # use online network to select best action, and use target network to evaluate that action
         with torch.no_grad():
             next_q_values_online = self.q_network(next_state_batch)
             next_actions = next_q_values_online.argmax(dim=1, keepdim=True)
@@ -220,6 +251,7 @@ class DQNLearner:
         self.loss_history.append(loss.item())
         
     def update_target_network(self):
+        # soft update: target = tau * online + (1 - tau) * target
         for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
@@ -232,6 +264,7 @@ class DQNLearner:
         success_count = 0
 
         for episode in range(n_episodes):
+            # print progeess every 50 episodes
             if episode % 50 == 0:
                 eps = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode)
                 n_goals = len(self.replay_buffer.goal_buffer)
@@ -303,6 +336,7 @@ class DQNLearner:
             else:  # original dqn
                 result = q_values.max().item()
 
+            # cache result if state is seen
             if obs_term is not None:
                 self.value_cache[obs_str] = result
                 
