@@ -136,7 +136,10 @@ class DQNLearner:
         n_non_goal = len(self.replay_buffer.non_goal_buffer)
         n_total = len(self.replay_buffer)
 
-        print(f'  Buffer: total={n_total}, goal={n_goal} ({n_goal/n_total*100:.1f}%), non_goal={n_non_goal}')
+        unique_states = len(set(tuple(exp.state.numpy()) for exp in self.replay_buffer.buffer))
+        diversity_ratio = unique_states / len(self.replay_buffer)
+
+        print(f'  Buffer: total={n_total}, goal={n_goal} ({n_goal/n_total*100:.1f}%), non_goal={n_non_goal}, diversity_ratio={diversity_ratio}')
 
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
         if epsilon is None:
