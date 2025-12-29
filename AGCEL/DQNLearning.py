@@ -225,7 +225,7 @@ class DQNLearner:
     
     def train(self, env, n_episodes: int, max_steps: int = 10000):
         print(f"DQN: input_dim={self.input_dim}, num_actions={self.num_actions}, device={self.device}")
-        print(f"     epsilon_decay={self.epsilon_decay}, goal_ratio={self.goal_ratio}")
+        #print(f"     epsilon_decay={self.epsilon_decay}, goal_ratio={self.goal_ratio}")
 
         episode_rewards = []
         episode_lengths = []
@@ -235,9 +235,10 @@ class DQNLearner:
             if episode % 50 == 0:
                 eps = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode)
                 n_goals = len(self.replay_buffer.goal_buffer)
+                recent_loss = np.mean(self.loss_history[-100:]) if len(self.loss_history) > 100 else 0
                 print(f'  Ep {episode}: epsilon={eps:.3f}, '
                     f'Buf={len(self.replay_buffer)}, GoalBuf={n_goals}, '
-                    f'AvgSteps={np.mean(episode_lengths[-50:]) if episode_lengths else 0:.0f}')
+                    f'AvgSteps={np.mean(episode_lengths[-50:]) if episode_lengths else 0:.0f}, AvgLoss={recent_loss:.4f}')
 
             self.episode_count = episode
             obs = env.reset()
