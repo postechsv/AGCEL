@@ -1,0 +1,107 @@
+load ../tool2 .
+load bakery .
+
+mod MODEL is
+  pr BAKERY .
+  inc SATISFACTION .
+  inc OBSERVATION .
+
+  subsort Conf < State .
+
+  var S : State .
+  var PS : ProcSet .  vars N N' M M' : Nat . 
+
+  --- Defining State Propositions ---
+  op twoCrits : -> Prop [ctor] . --- goal
+  eq N ; M ; [crit(N')] [crit(M')] PS |= twoCrits = true .
+  eq S |= twoCrits = false [owise] .
+
+  op wakeLHS : -> Prop [ctor] .
+  eq N ; M ; [idle] PS |= wakeLHS = true .
+  eq S |= wakeLHS = false [owise] .
+
+  op critLHS : -> Prop [ctor] .
+  eq N ; M ; [wait(M)] PS |= critLHS = true .
+  eq S |= critLHS = false [owise] .
+
+  op exitLHS : -> Prop [ctor] .
+  eq N ; M ; [crit(M)] PS |= exitLHS = true .
+  eq S |= exitLHS = false [owise] .
+
+  --- Focus IDs ---
+  --- ops f1 f2 : -> Nat .
+  --- eq f1 = 1 .  eq f2 = 2 .
+
+  --- Focus/Star LHS Propositions ---
+  ops wakeLHSF1 wakeLHSF2 wakeLHSStar : -> Prop [ctor] .
+  eq  1 ; M ; [idle] PS |= wakeLHSF1 = true .
+  eq  S |= wakeLHSF1 = false [owise] .
+  
+  eq  2 ; M ; [idle] PS |= wakeLHSF2 = true .
+  eq  S |= wakeLHSF2 = false [owise] .
+  
+  ceq  N ; M ; [idle] PS |= wakeLHSStar = true 
+    if N =/= 1 and N =/= 2 .
+  eq  S |= wakeLHSStar = false [owise] .
+
+  ops critLHSF1 critLHSF2 critLHSStar : -> Prop [ctor] .
+  eq  1 ; M ; [wait(M)] PS |= critLHSF1 = true .
+  eq  S |= critLHSF1 = false [owise] .
+  
+  eq  2 ; M ; [wait(M)] PS |= critLHSF2 = true .
+  eq  S |= critLHSF2 = false [owise] .
+  
+  ceq  N ; M ; [wait(M)] PS |= critLHSStar = true 
+    if N =/= 1 and N =/= 2 .
+  eq  S |= critLHSStar = false [owise] .
+
+  ops exitLHSF1 exitLHSF2 exitLHSStar : -> Prop [ctor] .
+  eq  1 ; M ; [crit(M)] PS |= exitLHSF1 = true .
+  eq  S |= exitLHSF1 = false [owise] .
+  
+  eq  2 ; M ; [crit(M)] PS |= exitLHSF2 = true .
+  eq  S |= exitLHSF2 = false [owise] .
+  
+  ceq  N ; M ; [crit(M)] PS |= exitLHSStar = true 
+    if N =/= 1 and N =/= 2 .
+  eq  S |= exitLHSStar = false [owise] .
+  
+  --- Defining Observations ---
+  eq obs(S) = < obsUpto(S,
+    wakeLHSF1 ; wakeLHSF2 ; wakeLHSStar ;
+    critLHSF1 ; critLHSF2 ; critLHSStar ;
+    exitLHSF1 ; exitLHSF2 ; exitLHSStar ;
+    twoCrits ) > .
+
+  eq reward(< FV:FeatVec , (twoCrits : true) , FV':FeatVec >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+  var P : Prop . var B : Bool .
+  eq < FV:FeatVec , (P : B) , FV':FeatVec > |= P = B .
+endm
+
+
+mod BAKERY-TEST is
+  protecting MODEL .
+  op goal : -> Prop .
+  eq goal = twoCrits .
+  
+  ops init2 init3 init4 init5 init : -> Conf .
+  eq init2 = 0 ; 0 ; [idle] [idle] .
+  eq init3 = 0 ; 0 ; [idle] [idle] [idle] .
+  eq init4 = 0 ; 0 ; [idle] [idle] [idle] [idle] .
+  eq init5 = 0 ; 0 ; [idle] [idle] [idle] [idle] [idle] .
+  
+  --- init3
+  eq init = init3 .
+  eq @K = 3 .
+
+  --- init4
+  --- eq init = init4 .
+  --- eq @K = 4 .
+
+  --- init5
+  --- eq init = init5 .
+  --- eq @K = 5 .
+endm
+
+--- search [1] init =>* S:Conf such that S:Conf |= twoCrits = true .

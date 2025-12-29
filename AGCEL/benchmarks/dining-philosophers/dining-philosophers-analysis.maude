@@ -1,0 +1,85 @@
+load ../../tool2 .
+load dining-philosophers .
+
+mod MODEL is
+  pr N-DINING-PHILOSOPHERS .
+  inc SATISFACTION .
+  inc OBSERVATION .
+
+  subsort Conf < State .
+
+  var S : State .
+  var C : Conf .
+  vars I J : Nat .
+
+  --- Defining State Propositions ---
+  op deadlock : -> Prop [ctor] .
+  --- ceq p(I, hungry) || C |= deadlock = true 
+  ---   if not canProgress(p(I, hungry) || C) .
+  ceq S |= deadlock = true
+    if canProgress(S) = false .
+  eq S |= deadlock = false [owise] .
+
+  op canProgress : Conf -> Bool .
+  eq canProgress(p(I, hungry) || c(J) || C) = true .
+  eq canProgress(p(I, single) || c(J) || C) = true .
+  eq canProgress(p(I, eat) || C) = true .
+  eq canProgress(p(I, think) || C) = true .
+  eq canProgress(C) = false [owise] .
+
+  op thLHS : -> Prop [ctor] .
+  eq p(I, think) || C |= thLHS = true .
+  eq S |= thLHS = false [owise] .
+
+  op hsLHS : -> Prop [ctor] .
+  ceq p(I, hungry) || c(J) || C |= hsLHS = true
+    if adj(I, J) = true .
+  eq S |= hsLHS = false [owise] .
+
+  op seLHS : -> Prop [ctor] .
+  ceq p(I, single) || c(J) || C |= seLHS = true
+    if adj(I, J) = true .
+  eq S |= seLHS = false [owise] .
+
+  op etLHS : -> Prop [ctor] .
+  eq p(I, eat) || C |= etLHS = true .
+  eq S |= etLHS = false [owise] .
+
+  --- Defining Observations ---
+  eq obs(S) = < obsUpto(S, thLHS ; hsLHS ; seLHS ; etLHS ; deadlock) > .
+  eq reward(< FV:FeatVec , (deadlock : true) , FV':FeatVec >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+  var P : Prop . var B : Bool .
+  eq < FV:FeatVec , (P : B) , FV':FeatVec > |= P = B .
+endm
+
+
+mod DINING-PHILOSOPHERS-TEST is
+  protecting MODEL .
+  op goal : -> Prop .
+  eq goal = deadlock .
+
+  ops init3 init4 init5 init6 init : -> Conf .
+  eq init3 = p(0, think) || p(1, think) || p(2, think) || c(0) || c(1) || c(2) .
+  eq init4 = p(0, think) || p(1, think) || p(2, think) || p(3, think) || c(0) || c(1) || c(2) || c(3) .
+  eq init5 = p(0, think) || p(1, think) || p(2, think) || p(3, think) || p(4, think) || c(0) || c(1) || c(2) || c(3) || c(4) .
+  eq init6 = p(0, think) || p(1, think) || p(2, think) || p(3, think) || p(4, think) || p(5, think) || c(0) || c(1) || c(2) || c(3) || c(4) || c(5) .
+
+  --- init3
+  eq init = init3 .
+  eq #N = 3 .
+
+  --- init4
+  --- eq init = init4 .
+  --- eq #N = 4 .
+
+  --- init5
+  --- eq init = init5 .
+  --- eq #N = 5 .
+
+  --- init6
+  --- eq init = init6 .
+  --- eq #N = 6 .
+endm
+
+--- search [1] init =>* C:Conf such that C:Conf |= deadlock = true .

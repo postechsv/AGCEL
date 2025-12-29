@@ -81,7 +81,7 @@ class DQNLearner:
                  tau: float = 0.01,
                  epsilon_start: float = 1.0,
                  epsilon_end: float = 0.05,
-                 epsilon_decay: float = 0.01,
+                 epsilon_decay: float = 0.0005,
                  target_update_frequency: int = 50,
                  batch_size: int = 64,
                  buffer_size: int = 10000,
@@ -102,8 +102,6 @@ class DQNLearner:
                 self.device = torch.device("cpu")
         else:
             self.device = torch.device(device)
-
-        print(f"DQN: input_dim={input_dim}, num_actions={num_actions}, device={self.device}")
         
         self.q_network = DQN(input_dim, num_actions).to(self.device)
         self.target_network = DQN(input_dim, num_actions).to(self.device)
@@ -138,9 +136,7 @@ class DQNLearner:
         n_non_goal = len(self.replay_buffer.non_goal_buffer)
         n_total = len(self.replay_buffer)
 
-        if n_goal + n_non_goal != n_total:
-            print(f"Warning: goal({n_goal}) + non_goal({n_non_goal}) != total({n_total})")
-        print(f'Buffer: total={n_total}, goal={n_goal} ({n_goal/n_total*100:.1f}%), non_goal={n_non_goal}')
+        print(f'  Buffer: total={n_total}, goal={n_goal} ({n_goal/n_total*100:.1f}%), non_goal={n_non_goal}')
 
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
         if epsilon is None:
@@ -225,11 +221,12 @@ class DQNLearner:
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
     def train(self, env, n_episodes: int, max_steps: int = 10000):
+        print(f"DQN: input_dim={self.input_dim}, num_actions={self.num_actions}, device={self.device}")
+        
         episode_rewards = []
         episode_lengths = []
         success_count = 0
 
-        print("Training:")
         for episode in range(n_episodes):
             if episode % 50 == 0:
                 eps = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode)
@@ -275,11 +272,6 @@ class DQNLearner:
             
             episode_rewards.append(episode_reward)
             episode_lengths.append(step + 1)
-
-            if episode_reward == 0.0:
-                if not hasattr(self, '_no_goal_count'):
-                    self._no_goal_count = 0
-                self._no_goal_count += 1
         
         self.diagnose_buffer()
         print("training completed!")
