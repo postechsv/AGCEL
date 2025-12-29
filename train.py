@@ -39,8 +39,12 @@ def run_dqn(learning_rate=5e-4,
             epsilon_end=0.05,
             epsilon_decay=0.0005,
             target_update_frequency=50,
-            goal_ratio=0.2):
+            goal_ratio=0.2,
+            sweep_suffix=None):
     print('\n=== [DQN] ===')
+    if sweep_suffix is not None:
+        print(f'Hyperparameters: lr={learning_rate}, gamma={gamma}, tau={tau}, '
+            f'eps_end={epsilon_end}, eps_decay={epsilon_decay}, target_freq={target_update_frequency}, goal_ratio={goal_ratio}')
     
     vocab = build_vocab(env)
     dqn = DQNLearner(
@@ -63,9 +67,13 @@ def run_dqn(learning_rate=5e-4,
         max_steps=10000
     )
     t5 = time.time()
-
-    model_file = output_pref + "-c-d.pt"
-    vocab_file = output_pref + "-c-v.json"
+    
+    if sweep_suffix:
+        model_file = output_pref + f"-c-d-{sweep_suffix}.pt"
+        vocab_file = output_pref + f"-c-v-{sweep_suffix}.json"
+    else:
+        model_file = output_pref + "-c-d.pt"
+        vocab_file = output_pref + "-c-v.json"
 
     dqn.save(model_file)
 
@@ -95,6 +103,7 @@ if __name__ == "__main__":
     output_pref  = sys.argv[5]
 
     trace_path = None
+    sweep_mode = False
     
     learning_rate=5e-4
     gamma=0.95 
@@ -102,8 +111,19 @@ if __name__ == "__main__":
     epsilon_end=0.05
     epsilon_decay=0.0005
     target_update_frequency=50
+    goal_ratio = 0.3
 
-    if len(sys.argv) > 6:
+    if len(sys.argv) > 6 and sys.argv[6] == "sweep":
+        sweep_mode = True
+        learning_rate = float(sys.argv[7])
+        gamma = float(sys.argv[8])
+        tau = float(sys.argv[9])
+        epsilon_end = float(sys.argv[10])
+        epsilon_decay = float(sys.argv[11])
+        target_update_frequency = int(sys.argv[12])
+        goal_ratio = float(sys.argv[13])
+        sweep_suffix = f"lr{learning_rate}-g{gamma}-t{tau}-e{epsilon_end}-d{epsilon_decay}-f{target_update_frequency}-g{goal_ratio}"
+    elif len(sys.argv) > 6:
         trace_path = sys.argv[6]
 
     mode = os.environ.get("MODE")
@@ -118,7 +138,8 @@ if __name__ == "__main__":
         print(f'Init term: {init_term}')
         print(f'Goal proposition: {goal_prop}')
         print(f'Training samples: {num_samples}')
-        print(f'Trace file: {trace_path}')
+        if not sweep_mode:
+            print(f'Trace file: {trace_path}')
         print(f'Output prefix: {output_pref}')
 
         if mode == "oracle":
@@ -135,11 +156,24 @@ if __name__ == "__main__":
                 tau=tau,
                 epsilon_end=epsilon_end,
                 epsilon_decay=epsilon_decay,
-                target_update_frequency=target_update_frequency
+                target_update_frequency=target_update_frequency,
+                goal_ratio=goal_ratio,
+                sweep_suffix=sweep_suffix if sweep_mode else None
             )
             compare_qtable_dqn(output_pref + '-c', dqn, m)
         sys.exit(0)
 
+    if sweep_mode:
+        envp = os.environ.copy()
+        envp["MODE"] = "dqn"
+        p = subprocess.run(
+            [sys.executable] + sys.argv,
+            env=envp, capture_output=True, text=True
+        )
+        if p.stdout: print(p.stdout, end="")
+        if p.stderr: print(p.stderr, file=sys.stderr, end="")
+        sys.exit(0)
+    
     modes = []
     if trace_path is not None:
         modes.append("oracle")
