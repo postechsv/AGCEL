@@ -38,7 +38,8 @@ def run_dqn(learning_rate=5e-4,
             tau=0.01,
             epsilon_end=0.05,
             epsilon_decay=0.0005,
-            target_update_frequency=50):
+            target_update_frequency=50,
+            goal_ratio=0.2):
     print('\n=== [DQN] ===')
     
     vocab = build_vocab(env)
@@ -51,7 +52,8 @@ def run_dqn(learning_rate=5e-4,
         tau=tau,
         epsilon_end=epsilon_end,
         epsilon_decay=epsilon_decay,
-        target_update_frequency=target_update_frequency
+        target_update_frequency=target_update_frequency,
+        goal_ratio=goal_ratio
     )
 
     t4 = time.time()
