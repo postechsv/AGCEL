@@ -84,6 +84,7 @@ def parse_qtable_file(filepath):
 
 def compare_qtable_dqn(qtable_file, dqn, m):
     from scipy.stats import spearmanr
+    dqn.value_cache.clear()
 
     qtable = parse_qtable_file(qtable_file + '.agcel')
     if not qtable:

@@ -2,7 +2,7 @@ import maude
 from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
 from AGCEL.DQNLearning import DQNLearner
-from AGCEL.common import build_vocab, make_encoder
+from AGCEL.common import build_vocab, make_encoder, compare_qtable_dqn
 import os, sys, json, time, subprocess, numpy as np
 
 # Usage:
@@ -83,6 +83,7 @@ def run_dqn(learning_rate=5e-4,
         
         print(f'       Final avg reward (last 100): {(sum(episode_rewards[-100:]) / min(100, len(episode_rewards))):.2f}')
         print(f'       All episode steps: min={np.min(episode_lengths)}, max={np.max(episode_lengths)}, mean={np.mean(episode_lengths):.1f}')
+    return dqn
 
 if __name__ == "__main__":
     model_path   = sys.argv[1]
@@ -96,7 +97,7 @@ if __name__ == "__main__":
     learning_rate=5e-4
     gamma=0.95 
     tau=0.01
-    epsilon_end=0.05 
+    epsilon_end=0.05
     epsilon_decay=0.0005
     target_update_frequency=50
 
@@ -126,7 +127,7 @@ if __name__ == "__main__":
         elif mode == "cold":
             run_cold()
         elif mode == "dqn":
-            run_dqn(
+            dqn = run_dqn(
                 learning_rate=learning_rate,
                 gamma=gamma,
                 tau=tau,
@@ -134,6 +135,7 @@ if __name__ == "__main__":
                 epsilon_decay=epsilon_decay,
                 target_update_frequency=target_update_frequency
             )
+            compare_qtable_dqn(output_pref + '-c', dqn, m)
         sys.exit(0)
 
     modes = []

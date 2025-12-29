@@ -39,10 +39,10 @@ class PrioritizedReplayBuffer:
         else:
             self.non_goal_buffer.append(exp)
 
-    def sample(self, batch_size: int, goal_ratio: float = 0.5):
+    def sample(self, batch_size: int, goal_ratio: float = 0.2):
         if len(self.goal_buffer) == 0 or len(self.buffer) < batch_size:
             return random.sample(list(self.buffer), min(batch_size, len(self.buffer)))
-
+        
         n_goal = min(int(batch_size * goal_ratio), len(self.goal_buffer))
         n_normal = batch_size - n_goal
 
@@ -82,11 +82,11 @@ class DQNLearner:
                  epsilon_start: float = 1.0,
                  epsilon_end: float = 0.05,
                  epsilon_decay: float = 0.0005,
-                 target_update_frequency: int = 50,
                  batch_size: int = 64,
-                 buffer_size: int = 10000,
                  update_frequency: int = 4,
-                 goal_ratio: float = 0.5,
+                 target_update_frequency: int = 50,
+                 goal_ratio: float = 0.2,
+                 buffer_size: int = 10000,
                  device: Optional[str] = None):
         
         self.state_encoder = state_encoder
@@ -115,6 +115,7 @@ class DQNLearner:
         self.epsilon_start = epsilon_start
         self.epsilon_end = epsilon_end
         self.epsilon_decay = epsilon_decay
+
         self.batch_size = batch_size
         self.update_frequency = update_frequency
         self.target_update_frequency = target_update_frequency
@@ -137,9 +138,8 @@ class DQNLearner:
         n_total = len(self.replay_buffer)
 
         unique_states = len(set(tuple(exp.state.numpy()) for exp in self.replay_buffer.buffer))
-        diversity_ratio = unique_states / len(self.replay_buffer)
 
-        print(f'  Buffer: total={n_total}, goal={n_goal} ({n_goal/n_total*100:.1f}%), non_goal={n_non_goal}, diversity_ratio={diversity_ratio}')
+        print(f'  Buffer: total={n_total}, goal={n_goal} ({n_goal/n_total*100:.1f}%), non_goal={n_non_goal}, unique_states={unique_states}')
 
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
         if epsilon is None:
@@ -225,7 +225,8 @@ class DQNLearner:
     
     def train(self, env, n_episodes: int, max_steps: int = 10000):
         print(f"DQN: input_dim={self.input_dim}, num_actions={self.num_actions}, device={self.device}")
-        
+        print(f"     epsilon_decay={self.epsilon_decay}, goal_ratio={self.goal_ratio}")
+
         episode_rewards = []
         episode_lengths = []
         success_count = 0

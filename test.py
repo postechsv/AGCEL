@@ -98,7 +98,6 @@ def run_dqn_mode(m, env, n0, qtable_file, extra_args, mode="dqn"):
     print(f'[DQN-{label}] Goal reached!' if res[0] else f'[DQN-{label}] Goal not reached')
 
     if mode == "dqn":
-        dqn.value_cache.clear()
         compare_qtable_dqn(qtable_file, dqn, m)
 
 
