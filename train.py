@@ -7,6 +7,7 @@ import os, sys, json, time, subprocess, numpy as np
 
 # Usage:
 # python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <output_file_prefix> [trace_path]
+# python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <output_file_prefix> sweep <lr> <gamma> <tau> <epsilon_end> <epsilon_decay> <target_update_freq> <goal_ratio>
 
 def run_oracle():
     print('\n=== [WITH ORACLE] ===')
@@ -105,6 +106,7 @@ if __name__ == "__main__":
     trace_path = None
     sweep_mode = False
     
+    # default hyperparameters
     learning_rate=5e-4
     gamma=0.95 
     tau=0.01
@@ -113,6 +115,7 @@ if __name__ == "__main__":
     target_update_frequency=50
     goal_ratio = 0.3
 
+    # sweep mode hyperparameters
     if len(sys.argv) > 6 and sys.argv[6] == "sweep":
         sweep_mode = True
         learning_rate = float(sys.argv[7])
@@ -123,6 +126,7 @@ if __name__ == "__main__":
         target_update_frequency = int(sys.argv[12])
         goal_ratio = float(sys.argv[13])
         sweep_suffix = f"lr{learning_rate}-g{gamma}-t{tau}-e{epsilon_end}-d{epsilon_decay}-f{target_update_frequency}-g{goal_ratio}"
+    # oracle trace path if given
     elif len(sys.argv) > 6:
         trace_path = sys.argv[6]
 
@@ -163,6 +167,7 @@ if __name__ == "__main__":
             compare_qtable_dqn(output_pref + '-c', dqn, m)
         sys.exit(0)
 
+    # sweep mode: only run DQN
     if sweep_mode:
         envp = os.environ.copy()
         envp["MODE"] = "dqn"
@@ -174,6 +179,7 @@ if __name__ == "__main__":
         if p.stderr: print(p.stderr, file=sys.stderr, end="")
         sys.exit(0)
     
+    # normal mode: run oracle (if trace is given), cold, dqn
     modes = []
     if trace_path is not None:
         modes.append("oracle")
