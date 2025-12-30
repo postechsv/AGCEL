@@ -264,7 +264,7 @@ class DQNLearner:
         success_count = 0
 
         for episode in range(n_episodes):
-            # print progeess every 50 episodes
+            # print progress every 50 episodes
             if episode % 50 == 0:
                 eps = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode)
                 n_goals = len(self.replay_buffer.goal_buffer)
