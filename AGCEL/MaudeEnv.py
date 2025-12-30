@@ -1,6 +1,19 @@
 import random
 
 class MaudeEnv():
+    """
+    maude based RL env: wraps maude module to provide gym-like interface for RL agent
+
+    state representation:
+    - G_state: ground state, actual maude term
+    - state: abstracted observation (= obs(G_state))
+    - actions: list of applicable actions
+
+    action representation:
+    - (qtable) obs_act term (label + substitution binding)
+    - (DQN) rule index (0 ~ len(rules)-1)
+    """
+
     def __init__(self, m, goal, initializer):
         self.m = m
         self.goal = m.parseTerm(goal)
@@ -10,64 +23,94 @@ class MaudeEnv():
             if not rl.getLabel() == None:
                 self.rules.append(rl.getLabel())
         self.reset()
-            
+
+
     def reset(self, to_state=None):
+        """
+        reset env to init or given state
+        (arg) to_state: maude term to reset to (init() if none)
+        (return) obs {G_state, state, actions}
+        """
+
         if to_state == None:
             self.G_state = self.m.parseTerm(self.init())
         else:
             self.G_state = to_state
         self.state = self.obs(self.G_state)
         self.curr_reward = self.get_reward()
-        self.nbrs = [
-            (rhs, self.obs_act(label,sb)) 
-            for label in self.rules 
-            for rhs, sb, _, _ in self.G_state.apply(label)
-        ]
+        
+        # compute all applicable rule applications and cache action mask
+        self.nbrs = []
+        self._action_mask = [0] * len(self.rules)
+        for idx, label in enumerate(self.rules):
+            for rhs, sb, _, _ in self.G_state.apply(label):
+                self.nbrs.append((rhs, self.obs_act(label, sb)))
+                self._action_mask[idx] = 1
         return self.get_obs()
+    
 
     def step(self, action):
-        next_states = [s for s,a in self.nbrs if a.equal(action)]
-        if  next_states == []:
+        """
+        take action step using action term (for qtable)
+        (arg) action term to apply
+        (return) tuple (obs, reward, done)
+        """
+
+        next_states = [s for s, a in self.nbrs if a.equal(action)]
+        if next_states == []:
             raise Exception("invalid action")
         obs = self.reset(random.choice(next_states))
         return obs, self.curr_reward, self.is_done()
     
+
     def get_obs(self):
+        """
+        get current observation
+        (return) dict {G_state, state, actions}
+        """
+
         acts = [a for _,a in self.nbrs]
         out = []
         for t in acts:  # t = self.obs_act(rule label, substitution)
             if not any(t.equal(u) for u in out):
                 out.append(t)
-        return {
-            'G_state' : self.G_state,
-            'state' : self.state,
-            'actions' : out
-        }
+        return {'G_state': self.G_state, 'state': self.state, 'actions': out}
+    
 
     def is_done(self):
+        """check if current state satisfies goal or is terminal"""
         t = self.m.parseTerm(f'{self.G_state.prettyPrint(0)} |= {self.goal.prettyPrint(0)}')
         t.reduce()
         return (t.prettyPrint(0) == 'true') or self.nbrs == [] or self.curr_reward > 1e-7
     
+
     def get_reward(self):
+        """compute reward for current state"""
         t = self.m.parseTerm(f'reward({self.state.prettyPrint(0)})')
         t.reduce()
         return t.toFloat()
 
-    def action_mask(self, state=None):
-        term = state if state is not None else self.G_state
-        mask = []
-        for label in self.rules:
-            has_app = any(term.apply(label))
-            mask.append(1 if has_app else 0)
-        return mask
     
+    def action_mask(self):
+        """
+        get binary mask of legal actions for DQN - uses cached mask computed in reset()
+        (return) list of binary values for each rule: legal(1) or not(0)
+        """
+        return self._action_mask
+    
+
     def step_indexed(self, action_idx):
+        """
+        take action step by rule index (for DQN)
+        (arg) action_idx: index of self.rules -> applicable as self.rules[action_idx]
+        (return) tuple (obs, reward, done) as result of selected action
+        """
+
         if action_idx >= len(self.rules):
             raise ValueError(f"Invalid action index: {action_idx}")
         
         label = self.rules[action_idx]
-        next_states = [s for s, a in self.nbrs if str(a).startswith(f"'{label}")]
+        next_states = [s for s, a in self.nbrs if self._extract_label(a) == label]
         
         if not next_states:
             next_states = [rhs for rhs, _, _, _ in self.G_state.apply(label)]
@@ -79,13 +122,35 @@ class MaudeEnv():
         
         return obs, reward, self.is_done()
 
+
+    def _extract_label(self, act_term):
+        act_str = str(act_term)
+        return act_str.split()[0].strip("'")
+
+
     def obs(self, term):
+        """
+        compute state obs (abstraction) term - of ground state term
+        (arg) maude term to reduce
+        (return) state obs term reduced
+        """
+
         term = self.m.parseTerm('obs(' + term.prettyPrint(0) + ')')
         term.reduce()
         return term
 
+
     def obs_act(self, label, subs):
-        bindings = ' ; '.join([f"obs('{label},'{var.getVarName()},data({val.prettyPrint(0)}))" for var, val in subs])
-        act = self.m.parseTerm("'" + label + " { " +  bindings + "}")
+        """
+        compute action obs term - from rule label and substitution
+        (arg) label: rule label / subs: list of (var, val) pairs
+        (return) action obs term reduced
+        """
+
+        bindings = ' ; '.join([
+            f"obs('{label},'{var.getVarName()},data({val.prettyPrint(0)}))" 
+            for var, val in subs
+        ])
+        act = self.m.parseTerm("'" + label + " { " +  bindings + "}")   # 'label { obs('label,'var,data(val)) }
         act.reduce()
         return act

@@ -85,6 +85,8 @@ class NodeQueue():
 
 class Search():
     def search(self, init_node, V, bound):
+        """best first search algorithm: search for goal state using value function as heuristic"""
+    
         que = NodeQueue()
         vis = NodeSet()
         cnt = 0
@@ -105,6 +107,7 @@ class Search():
                 vis.add(next_node)
                 score = next_node.get_score(V)
                 state_cnt += 1
+                # compute hit ratio: count encountered states with non-zero value
                 if abs(score) > 1e-8:
                     hit_cnt += 1
                 if next_node.is_goal():

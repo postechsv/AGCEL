@@ -8,7 +8,11 @@ import os, sys, re, json, time, subprocess, random
 import torch
 torch.set_grad_enabled(False)
 
+# Usage:
+# python3 test.py <maude_model> <init_term> <goal_prop> <qtable_file> [sweep_params]
+
 def run_bfs(m, env, n0):
+    """run BFS (search with score 0 for all states)"""
     V0 = lambda obs_term, g_state=None: 0
     V0.needs_obs = False
 
@@ -21,6 +25,7 @@ def run_bfs(m, env, n0):
     if res0[0]: print('[BFS] Goal reached!')
 
 def run_random(m, env, n0):
+    """run search with random score"""
     Vr = lambda obs_term, g_state=None: random.random()
     Vr.needs_obs = False
     
@@ -33,6 +38,7 @@ def run_random(m, env, n0):
     if res[0]: print('[RANDOM] Goal reached!')
 
 def run_qtable(m, env, n0, qtable_file):
+    """run search with qtable heuristic"""
     learner = QLearner()
     learner.load_value_function(qtable_file + '.agcel', m)
     V = learner.get_value_function()
@@ -46,24 +52,23 @@ def run_qtable(m, env, n0, qtable_file):
     if res[0]: print('[QTABLE] Goal reached!')
 
 def run_dqn(m, env, n0, qtable_file, extra_args):
+    """load DQN model for search"""
     mobj = re.search(r'(.+?)(-c|-o\d+|-oracle)?$', qtable_file)
     base_prefix = mobj.group(1) + mobj.group(2) if mobj.group(2) else qtable_file
 
-    if len(extra_args) == 6:
+    # sweep parameters if given
+    if len(extra_args) == 7:
         lr = float(extra_args[0])
         gamma = float(extra_args[1])
         tau = float(extra_args[2])
         end = float(extra_args[3])
         decay = float(extra_args[4])
         tf = int(extra_args[5])
+        gr = float(extra_args[6])
 
-        suffix_parts = [
-            f'lr={lr}', f'gamma={gamma}', f'tau={tau}',
-            f'end={end}', f'decay={decay}', f'tf={tf}'
-        ]
-        suffix = '-' + '-'.join(suffix_parts)
-        dqn_model_file = base_prefix + f'-d{suffix}.pt'
-        dqn_vocab_file = base_prefix + f'-v{suffix}.json'
+        suffix = f'lr{lr}-g{gamma}-t{tau}-e{end}-d{decay}-f{tf}-gr{gr}'
+        dqn_model_file = base_prefix + f'-d-{suffix}.pt'
+        dqn_vocab_file = base_prefix + f'-v-{suffix}.json'
     else:
         dqn_model_file = base_prefix + '-d.pt'
         dqn_vocab_file = base_prefix + '-v.json'
@@ -84,6 +89,10 @@ def run_dqn(m, env, n0, qtable_file, extra_args):
     return dqn
 
 def run_dqn_mode(m, env, n0, qtable_file, extra_args, mode="dqn"):
+    """
+    run search with DQN heuristic
+    mode: "zero" (all zero), "random" (random value), "dqn" (trained value)
+    """
     dqn = run_dqn(m, env, n0, qtable_file, extra_args)
     dqn.value_cache.clear()
     V_dqn = dqn.get_value_function(mode=mode)
@@ -97,8 +106,8 @@ def run_dqn_mode(m, env, n0, qtable_file, extra_args, mode="dqn"):
     print(f'[DQN-{label}] Elapsed time: {(end_time - start_time)*1000:.3f} ms')
     print(f'[DQN-{label}] Goal reached!' if res[0] else f'[DQN-{label}] Goal not reached')
 
+    # compare qtable and DQN value order
     if mode == "dqn":
-        dqn.value_cache.clear()
         compare_qtable_dqn(qtable_file, dqn, m)
 
 
