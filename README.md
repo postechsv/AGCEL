@@ -95,12 +95,17 @@ python3 test.py \
 ```
 
 
-## Output Files (Training produces...)
+## Output Files
 
 - `*-c.agcel` - Q-Table value function
 - `*-c-d.pt` - DQN model checkpoint
 - `*-c-v.json` - DQN vocabulary (predicate names)
 
+
+## Key Metrics
+
+- **n_states**: States explored before reaching goal
+- **hit ratio**: Ratio of states encountered during search with known heuristic values
 
 ## Requirements
 
