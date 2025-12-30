@@ -12,51 +12,70 @@ class MaudeEnv():
         self.reset()
             
     def reset(self, to_state=None):
+        """
+        reset env to init or given state
+        (arg) to_state: maude term to reset to (init() if none)
+        (return) obs {G_state, state, actions}
+        """
+
         if to_state == None:
             self.G_state = self.m.parseTerm(self.init())
         else:
             self.G_state = to_state
         self.state = self.obs(self.G_state)
         self.curr_reward = self.get_reward()
+        
+        # compute all applicable rule applications
         self.nbrs = [
-            (rhs, self.obs_act(label,sb)) 
-            for label in self.rules 
+            (rhs, self.obs_act(label,sb))
+            for label in self.rules
             for rhs, sb, _, _ in self.G_state.apply(label)
-        ]
+        ]   # nbrs: list of (next_state_term, action_obs_term)
         return self.get_obs()
 
     def step(self, action):
-        next_states = [s for s,a in self.nbrs if a.equal(action)]
-        if  next_states == []:
+        """
+        take action step using action term (for qtable)
+        (arg) action term to apply
+        (return) tuple (obs, reward, done)
+        """
+
+        next_states = [s for s, a in self.nbrs if a.equal(action)]
+        if next_states == []:
             raise Exception("invalid action")
         obs = self.reset(random.choice(next_states))
         return obs, self.curr_reward, self.is_done()
     
     def get_obs(self):
+        """
+        get current observation
+        (return) dict {G_state: ground state term, 
+                        state: abstracted obs term, 
+                        actions: list of applicable action terms}
+        """
+
         acts = [a for _,a in self.nbrs]
         out = []
         for t in acts:  # t = self.obs_act(rule label, substitution)
             if not any(t.equal(u) for u in out):
                 out.append(t)
-        return {
-            'G_state' : self.G_state,
-            'state' : self.state,
-            'actions' : out
-        }
+        return {'G_state': self.G_state, 'state': self.state, 'actions': out}
 
     def is_done(self):
+        """check if current state satisfies goal or is terminal"""
         t = self.m.parseTerm(f'{self.G_state.prettyPrint(0)} |= {self.goal.prettyPrint(0)}')
         t.reduce()
         return (t.prettyPrint(0) == 'true') or self.nbrs == [] or self.curr_reward > 1e-7
     
     def get_reward(self):
+        """compute reward for current state"""
         t = self.m.parseTerm(f'reward({self.state.prettyPrint(0)})')
         t.reduce()
         return t.toFloat()
 
     def action_mask(self, state=None):
         """
-        get binary mask of legal actions
+        get binary mask of legal actions for DQN
         (arg) state term (uses current G_state if None)
         (return) list of binary values for each rule: legal(1) or not(0)
         """
@@ -92,12 +111,27 @@ class MaudeEnv():
         return obs, reward, self.is_done()
 
     def obs(self, term):
+        """
+        compute state obs (abstraction) term - of ground state term
+        (arg) maude term to reduce
+        (return) state obs term reduced
+        """
+
         term = self.m.parseTerm('obs(' + term.prettyPrint(0) + ')')
         term.reduce()
         return term
 
     def obs_act(self, label, subs):
-        bindings = ' ; '.join([f"obs('{label},'{var.getVarName()},data({val.prettyPrint(0)}))" for var, val in subs])
-        act = self.m.parseTerm("'" + label + " { " +  bindings + "}")
+        """
+        compute action obs term - from rule label and substitution
+        (arg) label: rule label / subs: list of (var, val) pairs
+        (return) action obs term reduced
+        """
+
+        bindings = ' ; '.join([
+            f"obs('{label},'{var.getVarName()},data({val.prettyPrint(0)}))" 
+            for var, val in subs
+        ])
+        act = self.m.parseTerm("'" + label + " { " +  bindings + "}")   # 'label { obs('label,'var,data(val)) }
         act.reduce()
         return act
