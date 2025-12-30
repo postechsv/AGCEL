@@ -43,9 +43,6 @@ def run_dqn(learning_rate=5e-4,
             goal_ratio=0.2,
             sweep_suffix=None):
     print('\n=== [DQN] ===')
-    if sweep_suffix is not None:
-        print(f'Hyperparameters: lr={learning_rate}, gamma={gamma}, tau={tau}, '
-            f'eps_end={epsilon_end}, eps_decay={epsilon_decay}, target_freq={target_update_frequency}, goal_ratio={goal_ratio}')
     
     vocab = build_vocab(env)
     dqn = DQNLearner(

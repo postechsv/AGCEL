@@ -122,6 +122,7 @@ class DQNLearner:
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
         
         # hyperparameters
+        self.learning_rate = learning_rate
         self.gamma = gamma
         self.tau = tau
         self.epsilon_start = epsilon_start
@@ -256,8 +257,9 @@ class DQNLearner:
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
     def train(self, env, n_episodes: int, max_steps: int = 10000):
+        print(f'Hyperparameters: lr={self.learning_rate}, gamma={self.gamma}, tau={self.tau}, ')
+        print(f'                 eps_end={self.epsilon_end}, eps_decay={self.epsilon_decay}, target_freq={self.target_update_frequency}, goal_ratio={self.goal_ratio}')
         print(f"DQN: input_dim={self.input_dim}, num_actions={self.num_actions}, device={self.device}")
-        print(f"     epsilon_decay={self.epsilon_decay}, goal_ratio={self.goal_ratio}")
 
         episode_rewards = []
         episode_lengths = []
