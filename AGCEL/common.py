@@ -73,6 +73,9 @@ def parse_trace(file_path):
     return trace
 
 def parse_qtable_file(filepath):
+    import os
+    if not os.path.exists(filepath):
+        return None
     entries = {}
     with open(filepath, 'r') as f:
         for line in f:
@@ -87,6 +90,9 @@ def compare_qtable_dqn(qtable_file, dqn, m):
     dqn.value_cache.clear()
 
     qtable = parse_qtable_file(qtable_file + '.agcel')
+    if qtable is None:
+        print(f'[ALIGN] Skipped: Q-Table file not found ({qtable_file}.agcel)')
+        return
     if not qtable:
         print('[ALIGN] No QTable entries found')
         return
