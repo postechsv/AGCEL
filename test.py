@@ -49,21 +49,18 @@ def run_dqn(m, env, n0, qtable_file, extra_args):
     mobj = re.search(r'(.+?)(-c|-o\d+|-oracle)?$', qtable_file)
     base_prefix = mobj.group(1) + mobj.group(2) if mobj.group(2) else qtable_file
 
-    if len(extra_args) == 6:
+    if len(extra_args) == 7:
         lr = float(extra_args[0])
         gamma = float(extra_args[1])
         tau = float(extra_args[2])
         end = float(extra_args[3])
         decay = float(extra_args[4])
         tf = int(extra_args[5])
+        gr = float(extra_args[6])
 
-        suffix_parts = [
-            f'lr={lr}', f'gamma={gamma}', f'tau={tau}',
-            f'end={end}', f'decay={decay}', f'tf={tf}'
-        ]
-        suffix = '-' + '-'.join(suffix_parts)
-        dqn_model_file = base_prefix + f'-d{suffix}.pt'
-        dqn_vocab_file = base_prefix + f'-v{suffix}.json'
+        suffix = f'lr{lr}-g{gamma}-t{tau}-e{end}-d{decay}-f{tf}-gr{gr}'
+        dqn_model_file = base_prefix + f'-d-{suffix}.pt'
+        dqn_vocab_file = base_prefix + f'-v-{suffix}.json'
     else:
         dqn_model_file = base_prefix + '-d.pt'
         dqn_vocab_file = base_prefix + '-v.json'
