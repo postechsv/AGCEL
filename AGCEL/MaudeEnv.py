@@ -115,7 +115,7 @@ class MaudeEnv():
             raise ValueError(f"Invalid action index: {action_idx}")
         
         label = self.rules[action_idx]
-        next_states = [s for s, a in self.nbrs if str(a).startswith(f"'{label}")]
+        next_states = [s for s, a in self.nbrs if self._extract_label(a) == label]
         
         if not next_states:
             next_states = [rhs for rhs, _, _, _ in self.G_state.apply(label)]
@@ -126,6 +126,11 @@ class MaudeEnv():
         reward = self.curr_reward
         
         return obs, reward, self.is_done()
+
+
+    def _extract_label(self, act_term):
+        act_str = str(act_term)
+        return act_str.split()[0].strip("'")
 
 
     def obs(self, term):

@@ -112,8 +112,7 @@ class DQNLearner:
         else:
             self.device = torch.device(device)
         
-        # double DQN structure
-        # q_network: online network, target_network: moving copy
+        # double DQN structure: q_network (online), target_network (moving copy)
         self.q_network = DQN(input_dim, num_actions).to(self.device)
         self.target_network = DQN(input_dim, num_actions).to(self.device)
         self.target_network.load_state_dict(self.q_network.state_dict())
