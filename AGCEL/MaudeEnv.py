@@ -39,12 +39,13 @@ class MaudeEnv():
         self.state = self.obs(self.G_state)
         self.curr_reward = self.get_reward()
         
-        # compute all applicable rule applications
-        self.nbrs = [
-            (rhs, self.obs_act(label,sb))
-            for label in self.rules
-            for rhs, sb, _, _ in self.G_state.apply(label)
-        ]   # nbrs: list of (next_state_term, action_obs_term)
+        # compute all applicable rule applications and cache action mask
+        self.nbrs = []
+        self._action_mask = [0] * len(self.rules)
+        for idx, label in enumerate(self.rules):
+            for rhs, sb, _, _ in self.G_state.apply(label):
+                self.nbrs.append((rhs, self.obs_act(label, sb)))
+                self._action_mask[idx] = 1
         return self.get_obs()
     
 
@@ -92,16 +93,10 @@ class MaudeEnv():
     
     def action_mask(self):
         """
-        get binary mask of legal actions for DQN
+        get binary mask of legal actions for DQN - uses cached mask computed in reset()
         (return) list of binary values for each rule: legal(1) or not(0)
         """
-
-        term = self.G_state
-        mask = []
-        for label in self.rules:
-            has_app = any(term.apply(label))
-            mask.append(1 if has_app else 0)
-        return mask
+        return self._action_mask
     
 
     def step_indexed(self, action_idx):

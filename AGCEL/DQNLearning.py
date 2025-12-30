@@ -173,7 +173,8 @@ class DQNLearner:
         # look up action mask
         action_mask = env.action_mask()
         legal_actions = [i for i, valid in enumerate(action_mask) if valid]
-        
+        if not legal_actions: return None
+
         # epsilon-greedy: choose randomly with prob epsilon, otherwise greedy
         if random.random() < epsilon:
             return random.choice(legal_actions)
@@ -191,10 +192,7 @@ class DQNLearner:
                 return masked_q_values.argmax().item()
     
     def store_experience(self, state, action, reward, next_state, done):
-        """
-        store observed trainsition while in replay buffer while training
-        """
-
+        """store observed trainsition while in replay buffer while training"""
         state_tensor = self.state_encoder(state)
         next_state_tensor = self.state_encoder(next_state) if next_state is not None else torch.zeros_like(state_tensor)
         
