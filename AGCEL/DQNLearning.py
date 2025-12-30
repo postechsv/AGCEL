@@ -244,8 +244,9 @@ class DQNLearner:
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
     def train(self, env, n_episodes: int, max_steps: int = 10000):
-        print(f'Hyperparameters: lr={self.learning_rate}, gamma={self.gamma}, tau={self.tau}, ')
-        print(f'                 batch_size={self.batch_size}, eps_end={self.epsilon_end}, eps_decay={self.epsilon_decay}, target_freq={self.target_update_frequency}, goal_ratio={self.goal_ratio}')
+    
+        print(f'Hyperparameters: lr={self.learning_rate}, gamma={self.gamma}, tau={self.tau}, eps_end={self.epsilon_end}, eps_decay={self.epsilon_decay}, target_freq={self.target_update_frequency}, goal_ratio={self.goal_ratio}')
+        print(f'                 batch_size={self.batch_size}, buffer_size={self.replay_buffer.buffer.maxlen}')
         print(f"DQN: input_dim={self.input_dim}, num_actions={self.num_actions}, device={self.device}")
 
         episode_rewards = []
