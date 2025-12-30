@@ -55,6 +55,12 @@ class MaudeEnv():
         return t.toFloat()
 
     def action_mask(self, state=None):
+        """
+        get binary mask of legal actions
+        (arg) state term (uses current G_state if None)
+        (return) list of binary values for each rule: legal(1) or not(0)
+        """
+
         term = state if state is not None else self.G_state
         mask = []
         for label in self.rules:
@@ -63,6 +69,12 @@ class MaudeEnv():
         return mask
     
     def step_indexed(self, action_idx):
+        """
+        take action step by rule index (for DQN)
+        (arg) action_idx: index of self.rules -> applicable as self.rules[action_idx]
+        (return) tuple (obs, reward, done) as result of selected action
+        """
+
         if action_idx >= len(self.rules):
             raise ValueError(f"Invalid action index: {action_idx}")
         
