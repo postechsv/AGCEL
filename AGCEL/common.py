@@ -1,8 +1,15 @@
 import maude
 import numpy as np
 import torch
+from scipy.stats import spearmanr
 
 def extract_predicate_vector(obs_term): # [("critLHS", True), ("waitLHS", False)]
+    """
+    extract predicate values from observation term
+    (arg) obs_term: maude term - obs(pred1 : true ; pred2 : false)
+    (return) list of (predicate name, bool value) tuples - [("critLHS", True), ("waitLHS", False)]
+    """
+
     preds = []
     pred_container = list(obs_term.arguments())[0]
     def flatten(t):
@@ -18,9 +25,21 @@ def extract_predicate_vector(obs_term): # [("critLHS", True), ("waitLHS", False)
     return preds
 
 def build_vocab(env):   # ["critLHS", "waitLHS"]
+    """
+    build vocabulary of predicate names from env
+    (return) list of unique predicate names - ["critLHS", "waitLHS"]
+    """
+
     return list({name for name, _ in extract_predicate_vector(env.get_obs()['state'])})
 
 def make_encoder(vocab):
+    """
+    create state encoder function
+    (arg) vocab: list of predicate names - ["critLHS", "waitLHS"]
+    (return) function that converts maude term to torch tensor;
+        whose output is binary vector where 1 if predicate true, 0 if false.
+    """
+
     idx = {n:i for i,n in enumerate(vocab)}
     dim = len(vocab)
     def encode(term):   # [1.0, 0.0]
@@ -33,6 +52,12 @@ def make_encoder(vocab):
     return encode
 
 def parse_trace(file_path):
+    """
+    parse Maude search trace file.
+    (arg) trace file path (extracted from maude search command)
+    (return) trace - list of (state, action, next_state) tuples
+    """
+
     trace = []
     with open(file_path, 'r') as f:
         lines = f.readlines()
@@ -73,6 +98,14 @@ def parse_trace(file_path):
     return trace
 
 def parse_qtable_file(filepath):
+    """
+    parse qtable value function file (.agcel)
+    (return) dict mapping state -> value
+    """
+
+    import os
+    if not os.path.exists(filepath):
+        return None
     entries = {}
     with open(filepath, 'r') as f:
         for line in f:
@@ -83,9 +116,17 @@ def parse_qtable_file(filepath):
     return entries
 
 def compare_qtable_dqn(qtable_file, dqn, m):
-    from scipy.stats import spearmanr
+    """
+    compare qtable and DQN value functions using Spearman rank correlation:
+    measures how well DQN ordering of states matches qtable entry ordering
+    (higher correlation -> DQN generalizes similarly to qtable)
+    """
+    dqn.value_cache.clear()
 
     qtable = parse_qtable_file(qtable_file + '.agcel')
+    if qtable is None:
+        print(f'[ALIGN] Skipped: Q-Table file not found ({qtable_file}.agcel)')
+        return
     if not qtable:
         print('[ALIGN] No QTable entries found')
         return

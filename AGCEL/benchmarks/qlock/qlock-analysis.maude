@@ -1,0 +1,73 @@
+load ../tool2 .
+load qlock .
+
+mod MODEL is
+  pr QLOCK .
+  inc SATISFACTION .
+  inc OBSERVATION .
+
+  subsort Sys < State .
+
+  vars I J : Pid . var S : Sys .
+  vars Q R : Queue .
+
+  --- Defining State Propositions ---
+  op twoCrits : -> Prop [ctor] .
+  eq (pc[I]: cs) (pc[J]: cs) S |= twoCrits = true .
+  eq S |= twoCrits = false [owise] .
+
+  op eq1LHS : -> Prop [ctor] .
+  eq (pc[I]: rs) (queue: Q) (tmp[I]: R) |= eq1LHS = true .
+  eq S |= eq1LHS = false [owise] .
+
+  op eq2LHS : -> Prop [ctor] .
+  eq (pc[I]: es) (queue: Q) (tmp[I]: R) |= eq2LHS = true .
+  eq S |= eq2LHS = false [owise] .
+
+  op wtLHS : -> Prop [ctor] .
+  ceq (pc[I]: ws) (queue: Q) |= wtLHS = true if top(Q) = I .
+  eq S |= wtLHS = false [owise] .
+
+  op dq1LHS : -> Prop [ctor] .
+  eq (pc[I]: cs) (queue: Q) (tmp[I]: R) |= dq1LHS = true .
+  eq S |= dq1LHS = false [owise] .
+
+  op dq2LHS : -> Prop [ctor] .
+  eq (pc[I]: ds) (queue: Q) (tmp[I]: R) |= dq2LHS = true .
+  eq S |= dq2LHS = false [owise] .
+ 
+  --- Defining Observations ---
+  eq obs(S) = < obsUpto(S, eq1LHS ; eq2LHS ; wtLHS ; dq1LHS ; dq2LHS ; twoCrits) > .
+  eq reward(< FV:FeatVec , (twoCrits : true) , FV':FeatVec >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+  var P : Prop . var B : Bool .
+  eq < FV:FeatVec , (P : B) , FV':FeatVec > |= P = B . --- TODO: this may be default
+endm
+
+
+mod QLOCK-TEST is
+  protecting MODEL .
+  op goal : -> Prop .
+  eq goal = twoCrits .
+  
+  ops init2 init3 init4 init5 init : -> Sys .
+  eq init2 = (pc[p1]: rs) (pc[p2]: rs) (queue: empty) (tmp[p1]: empty) (tmp[p2]: empty) .
+  eq init3 = (pc[p1]: rs) (pc[p2]: rs) (pc[p3]: rs) (queue: empty) 
+             (tmp[p1]: empty) (tmp[p2]: empty) (tmp[p3]: empty) .
+  eq init4 = (pc[p1]: rs) (pc[p2]: rs) (pc[p3]: rs) (pc[p4]: rs) (queue: empty)
+             (tmp[p1]: empty) (tmp[p2]: empty) (tmp[p3]: empty) (tmp[p4]: empty) .
+  eq init5 = (pc[p1]: rs) (pc[p2]: rs) (pc[p3]: rs) (pc[p4]: rs) (pc[p5]: rs) (queue: empty)
+             (tmp[p1]: empty) (tmp[p2]: empty) (tmp[p3]: empty) (tmp[p4]: empty) (tmp[p5]: empty) .
+
+  --- init3
+  eq init = init3 .
+
+  --- init4
+  --- eq init = init4 .
+
+  --- init5
+  --- eq init = init5 .
+endm
+
+
+---search [1] init =>* (pc[I:Pid]: cs) (pc[J:Pid]: cs) S:Sys such that I:Pid =/= J:Pid .

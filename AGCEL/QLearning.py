@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import datetime
+from AGCEL.common import parse_trace
 
 # Training parameters
 learning_rate = 0.7  # Learning rate
@@ -104,13 +105,17 @@ class QLearner():
                 self.v_dict[state] = value
 
     def greedy_policy(self, obs):
+        """select best action according to qtable"""
+
         # returns -1 for error
         state = obs["state"]
         actions = obs["actions"]
         return self.argmax_q(state,actions)
     
     def eps_greedy_policy(self, obs, epsilon):
-        # returns -1 for error
+        """epsilon-greedy action selection"""
+
+        # returns -1 for if no action
         r = random.uniform(0, 1)
         if r > epsilon: # exploitation
             return self.greedy_policy(obs)
@@ -131,7 +136,7 @@ class QLearner():
         return -1
 
     def pretrain(self, env, trace_path, repeat=10):
-        from AGCEL.common import parse_trace
+        """warm-start training using oracle trace: read transitions from trace file and update qtable values"""
  
         trace = parse_trace(trace_path)
         matched = 0
@@ -180,8 +185,10 @@ class QLearner():
         self.make_v_dict()
         
     def train(self, env, n_training_episodes):
+        """train qtable using epsilon-greedy policy. each episode starts from initial state and runs until goal or max_steps"""
+        
         for episode in range(n_training_episodes):
-            # Reduce epsilon (because we need less and less exploration)
+            # decay epsilon over episodes (because we need less and less exploration)
             epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
 
             obs = env.reset()
