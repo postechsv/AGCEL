@@ -39,22 +39,22 @@ python3 test.py \
 │
 ├── AGCEL
 │   ├── benchmarks
-│   │   ├── dining-philosophers
-│   │   │   ├── dining-philosophers.maude
-│   │   │   ├── dining-philosophers-analysis.maude
-│   │   │   └── dining-philosophers-focus-analysis.maude
-│   │   ├── onethirdrule
-│   │   │   ├── onethirdrule.maude
-│   │   │   ├── onethirdrule-analysis.maude
-│   │   │   └── onethirdrule-focus-analysis.maude
 │   │   ├── bakery
 │   │   │   ├── bakery.maude
 │   │   │   ├── bakery-analysis.maude
 │   │   │   └── bakery-focus-analysis.maude
+│   │   ├── dining-philosophers
+│   │   │   ├── dining-philosophers.maude
+│   │   │   ├── dining-philosophers-analysis.maude
+│   │   │   └── dining-philosophers-focus-analysis.maude
 │   │   ├── filter
 │   │   │   ├── filter.maude
 │   │   │   ├── filter-analysis.maude
 │   │   │   └── filter-focus-analysis.maude
+│   │   ├── onethirdrule
+│   │   │   ├── onethirdrule.maude
+│   │   │   ├── onethirdrule-analysis.maude
+│   │   │   └── onethirdrule-focus-analysis.maude
 │   │   └── qlock
 │   │       ├── qlock.maude
 │   │       ├── qlock-analysis.maude
@@ -84,7 +84,6 @@ python3 test.py \
 │   └── qlock-focus-*.maude
 │
 ├── examples
-├── logs
 ├── traces
 ├── trained
 │
