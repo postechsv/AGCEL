@@ -1,6 +1,19 @@
 import random
 
 class MaudeEnv():
+    """
+    maude based RL env: wraps maude module to provide gym-like interface for RL agent
+
+    state representation:
+    - G_state: ground state, actual maude term
+    - state: abstracted observation (= obs(G_state))
+    - actions: list of applicable actions
+
+    action representation:
+    - (qtable) obs_act term (label + substitution binding)
+    - (DQN) rule index (0 ~ len(rules)-1)
+    """
+
     def __init__(self, m, goal, initializer):
         self.m = m
         self.goal = m.parseTerm(goal)
@@ -49,9 +62,7 @@ class MaudeEnv():
     def get_obs(self):
         """
         get current observation
-        (return) dict {G_state: ground state term, 
-                        state: abstracted obs term, 
-                        actions: list of applicable action terms}
+        (return) dict {G_state, state, actions}
         """
 
         acts = [a for _,a in self.nbrs]
