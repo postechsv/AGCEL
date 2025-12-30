@@ -41,6 +41,8 @@ def run_dqn(learning_rate=5e-4,
             epsilon_decay=0.0005,
             target_update_frequency=50,
             goal_ratio=0.2,
+            batch_size=64,
+            buffer_size=10000,
             sweep_suffix=None):
     print('\n=== [DQN] ===')
     
@@ -55,7 +57,9 @@ def run_dqn(learning_rate=5e-4,
         epsilon_end=epsilon_end,
         epsilon_decay=epsilon_decay,
         target_update_frequency=target_update_frequency,
-        goal_ratio=goal_ratio
+        goal_ratio=goal_ratio,
+        batch_size=batch_size,
+        buffer_size=buffer_size
     )
 
     t4 = time.time()
@@ -105,12 +109,14 @@ if __name__ == "__main__":
     
     # default hyperparameters
     learning_rate=5e-4
-    gamma=0.95 
+    gamma=0.95
     tau=0.01
     epsilon_end=0.05
     epsilon_decay=0.0005
     target_update_frequency=50
     goal_ratio = 0.3
+    batch_size = 64
+    buffer_size = 10000
 
     # sweep mode hyperparameters
     if len(sys.argv) > 6 and sys.argv[6] == "sweep":
@@ -122,7 +128,9 @@ if __name__ == "__main__":
         epsilon_decay = float(sys.argv[11])
         target_update_frequency = int(sys.argv[12])
         goal_ratio = float(sys.argv[13])
-        sweep_suffix = f"lr{learning_rate}-g{gamma}-t{tau}-e{epsilon_end}-d{epsilon_decay}-f{target_update_frequency}-g{goal_ratio}"
+        batch_size = int(sys.argv[14])
+        buffer_size = int(sys.argv[15])
+        sweep_suffix = f"lr{learning_rate}-g{gamma}-t{tau}-e{epsilon_end}-d{epsilon_decay}-f{target_update_frequency}-gr{goal_ratio}-bs{batch_size}-buf{buffer_size}"
     # oracle trace path if given
     elif len(sys.argv) > 6:
         trace_path = sys.argv[6]
@@ -159,6 +167,8 @@ if __name__ == "__main__":
                 epsilon_decay=epsilon_decay,
                 target_update_frequency=target_update_frequency,
                 goal_ratio=goal_ratio,
+                batch_size=batch_size,
+                buffer_size=buffer_size,
                 sweep_suffix=sweep_suffix if sweep_mode else None
             )
             compare_qtable_dqn(output_pref + '-c', dqn, m)
