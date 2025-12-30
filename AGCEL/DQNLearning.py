@@ -166,34 +166,24 @@ class DQNLearner:
         return selected action index, or none if no possible(legal) action available
         """
 
+        # compute epsilon
         if epsilon is None:
             epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
                np.exp(-self.epsilon_decay * self.episode_count)
         
-        state = obs['state']
-        g_state = obs.get('G_state')
-        if g_state is None:
-            raise KeyError("'G_state' not found in observation")
-        
-        action_mask = env.action_mask(state=g_state)
-        
-        if len(action_mask) != self.num_actions:
-            raise ValueError(f"Action mask length {len(action_mask)} != num_actions {self.num_actions}")
-        
+        # look up action mask
+        action_mask = env.action_mask()
         legal_actions = [i for i, valid in enumerate(action_mask) if valid]
         
-        if not legal_actions:
-            return None
-        
-        # choose randomly with prob epsilon, otherwise greedy
+        # epsilon-greedy: choose randomly with prob epsilon, otherwise greedy
         if random.random() < epsilon:
             return random.choice(legal_actions)
         else:
             with torch.no_grad():
-                state_tensor = self.state_encoder(state).unsqueeze(0).to(self.device)
+                state_tensor = self.state_encoder(obs['state']).unsqueeze(0).to(self.device)
                 q_values = self.q_network(state_tensor).squeeze(0)
                 
-                # maskk illegal actions
+                # mask illegal actions
                 masked_q_values = q_values.clone()
                 for i in range(self.num_actions):
                     if not action_mask[i]:

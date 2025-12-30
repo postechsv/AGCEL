@@ -23,7 +23,8 @@ class MaudeEnv():
             if not rl.getLabel() == None:
                 self.rules.append(rl.getLabel())
         self.reset()
-            
+
+
     def reset(self, to_state=None):
         """
         reset env to init or given state
@@ -45,6 +46,7 @@ class MaudeEnv():
             for rhs, sb, _, _ in self.G_state.apply(label)
         ]   # nbrs: list of (next_state_term, action_obs_term)
         return self.get_obs()
+    
 
     def step(self, action):
         """
@@ -59,6 +61,7 @@ class MaudeEnv():
         obs = self.reset(random.choice(next_states))
         return obs, self.curr_reward, self.is_done()
     
+
     def get_obs(self):
         """
         get current observation
@@ -71,6 +74,7 @@ class MaudeEnv():
             if not any(t.equal(u) for u in out):
                 out.append(t)
         return {'G_state': self.G_state, 'state': self.state, 'actions': out}
+    
 
     def is_done(self):
         """check if current state satisfies goal or is terminal"""
@@ -78,26 +82,28 @@ class MaudeEnv():
         t.reduce()
         return (t.prettyPrint(0) == 'true') or self.nbrs == [] or self.curr_reward > 1e-7
     
+
     def get_reward(self):
         """compute reward for current state"""
         t = self.m.parseTerm(f'reward({self.state.prettyPrint(0)})')
         t.reduce()
         return t.toFloat()
 
-    def action_mask(self, state=None):
+    
+    def action_mask(self):
         """
         get binary mask of legal actions for DQN
-        (arg) state term (uses current G_state if None)
         (return) list of binary values for each rule: legal(1) or not(0)
         """
 
-        term = state if state is not None else self.G_state
+        term = self.G_state
         mask = []
         for label in self.rules:
             has_app = any(term.apply(label))
             mask.append(1 if has_app else 0)
         return mask
     
+
     def step_indexed(self, action_idx):
         """
         take action step by rule index (for DQN)
@@ -121,6 +127,7 @@ class MaudeEnv():
         
         return obs, reward, self.is_done()
 
+
     def obs(self, term):
         """
         compute state obs (abstraction) term - of ground state term
@@ -131,6 +138,7 @@ class MaudeEnv():
         term = self.m.parseTerm('obs(' + term.prettyPrint(0) + ')')
         term.reduce()
         return term
+
 
     def obs_act(self, label, subs):
         """
