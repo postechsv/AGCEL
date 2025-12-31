@@ -7,7 +7,7 @@ import os, sys, json, time, subprocess, numpy as np
 
 # Usage:
 # python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <output_file_prefix> [trace_path]
-# python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <output_file_prefix> sweep <lr> <gamma> <tau> <epsilon_end> <epsilon_decay> <target_update_freq> <goal_ratio>
+# python3 train.py <maude_model> <init_term> <goal_prop> <num_samples> <output_file_prefix> sweep <lr> <gamma> <tau> <epsilon_end> <epsilon_decay> <target_update_freq> <goal_ratio> <batch_size> <buffer_size>
 
 def run_oracle():
     print('\n=== [WITH ORACLE] ===')
