@@ -14,13 +14,15 @@ def run_oracle():
     learner = QLearner()
     t0 = time.time()
     learner.pretrain(env, trace_path)
-    size_before = learner.get_size()
+    states_after_pretrain = len(learner.v_dict)
+    pairs_after_pretrain = learner.get_size()
     learner.train(env, num_samples)
     t1 = time.time()
     suffix = "-o" + trace_path.split("-")[-1].split(".")[0] if "-" in trace_path else "-oracle"
     out_file = output_pref + suffix + '.agcel'
     learner.dump_value_function(out_file)
-    print(f'[Warm] Training time: {t1 - t0:.2f}s, # Entries: {size_before} -> {learner.get_size()}')
+    print(f'[Warm] Training time: {t1 - t0:.2f}s')
+    print(f'       # States: {states_after_pretrain} -> {len(learner.v_dict)}, # Pairs: {pairs_after_pretrain} -> {learner.get_size()}')
     print(f'       Value function: {os.path.basename(out_file)}')
 
 def run_cold():
@@ -31,7 +33,7 @@ def run_cold():
     t3 = time.time()
     out_file = output_pref + "-c.agcel"
     learner.dump_value_function(out_file)
-    print(f'[Cold] Training time: {t3 - t2:.2f}s, # Entries: {learner.get_size()}')
+    print(f'[Cold] Training time: {t3 - t2:.2f}s')
     print(f'       Value function: {os.path.basename(out_file)}')
 
 def run_dqn(learning_rate=5e-4,

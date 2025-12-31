@@ -216,3 +216,4 @@ class QLearner():
 
         print('training done!')
         self.make_v_dict()
+        print(f'  # States: {len(self.v_dict)}, # (State,Action) pairs: {self.get_size()}')
