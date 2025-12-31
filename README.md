@@ -25,9 +25,8 @@ python3 test.py \
 
 ## How It Works
 
-1. **Training**: RL agents explore state space from a small initial state
-2. **Learning**: Agents learn which states are closer to the goal
-3. **Testing**: Learned heuristics guide search on larger instances
+1. **Training**: RL agents explore state space from a small initial state and learn which states are closer to the goal
+2. **Testing**: Learned heuristics guide search on larger instances
 
 
 ## Project Structure
@@ -38,33 +37,33 @@ python3 test.py \
 ├── LICENSE
 │
 ├── AGCEL
-│   ├── benchmarks
-│   │   ├── bakery
-│   │   │   ├── bakery.maude
-│   │   │   ├── bakery-analysis.maude
-│   │   │   └── bakery-focus-analysis.maude
-│   │   ├── dining-philosophers
-│   │   │   ├── dining-philosophers.maude
-│   │   │   ├── dining-philosophers-analysis.maude
-│   │   │   └── dining-philosophers-focus-analysis.maude
-│   │   ├── filter
-│   │   │   ├── filter.maude
-│   │   │   ├── filter-analysis.maude
-│   │   │   └── filter-focus-analysis.maude
-│   │   ├── onethirdrule
-│   │   │   ├── onethirdrule.maude
-│   │   │   ├── onethirdrule-analysis.maude
-│   │   │   └── onethirdrule-focus-analysis.maude
-│   │   └── qlock
-│   │       ├── qlock.maude
-│   │       ├── qlock-analysis.maude
-│   │       └── qlock-focus-analysis.maude
-│   │
 │   ├── AStar.py
 │   ├── QLearning.py
 │   ├── DQNLearning.py
 │   ├── MaudeEnv.py
 │   └── common.py
+│
+├── benchmarks
+│   ├── bakery
+│   │   ├── bakery.maude
+│   │   ├── bakery-analysis.maude
+│   │   └── bakery-focus-analysis.maude
+│   ├── dining-philosophers
+│   │   ├── dining-philosophers.maude
+│   │   ├── dining-philosophers-analysis.maude
+│   │   └── dining-philosophers-focus-analysis.maude
+│   ├── filter
+│   │   ├── filter.maude
+│   │   ├── filter-analysis.maude
+│   │   └── filter-focus-analysis.maude
+│   ├── onethirdrule
+│   │   ├── onethirdrule.maude
+│   │   ├── onethirdrule-analysis.maude
+│   │   └── onethirdrule-focus-analysis.maude
+│   └── qlock
+│       ├── qlock.maude
+│       ├── qlock-analysis.maude
+│       └── qlock-focus-analysis.maude
 │
 ├── data_structures
 │   ├── binary-tree.maude

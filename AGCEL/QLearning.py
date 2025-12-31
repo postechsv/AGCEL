@@ -205,7 +205,7 @@ class QLearner():
                 obs, reward, done = env.step(a)
                 ns = obs['state']
 
-                # Update Q(s,a) := Q(s,a) + lr [R(s,a) + gamma * max Q(s',a') - Q(s,a)]
+                # Update Q(s,a) = Q(s,a) + lr [R(s,a) + gamma * max Q(s',a') - Q(s,a)]
                 nq = self.get_q(s, a) + learning_rate * (
                     reward + gamma * self.max_q(ns) - self.get_q(s, a)
                 )
@@ -216,3 +216,4 @@ class QLearner():
 
         print('training done!')
         self.make_v_dict()
+        print(f'  # States: {len(self.v_dict)}, # (State,Action) pairs: {self.get_size()}')
