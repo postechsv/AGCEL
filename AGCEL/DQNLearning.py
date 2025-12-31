@@ -119,6 +119,9 @@ class DQNLearner:
         self.target_network.eval()
         
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-5
+        )
         
         # hyperparameters
         self.learning_rate = learning_rate
@@ -302,6 +305,10 @@ class DQNLearner:
             
             episode_rewards.append(episode_reward)
             episode_lengths.append(step + 1)
+
+            if len(self.loss_history) >= 100 and episode % 50 == 0:
+                recent_avg_loss = np.mean(self.loss_history[-100:])
+                self.scheduler.step(recent_avg_loss)
         
         self.diagnose_buffer()
         print("training completed!")
