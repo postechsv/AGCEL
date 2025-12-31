@@ -37,7 +37,6 @@ python3 test.py \
 ├── LICENSE
 │
 ├── AGCEL
-│   │
 │   ├── AStar.py
 │   ├── QLearning.py
 │   ├── DQNLearning.py
