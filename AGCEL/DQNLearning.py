@@ -119,6 +119,9 @@ class DQNLearner:
         self.target_network.eval()
         
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-5
+        )
         
         # hyperparameters
         self.learning_rate = learning_rate
@@ -234,6 +237,8 @@ class DQNLearner:
         self.optimizer.zero_grad()
         loss.backward()
 
+        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
+
         self.optimizer.step()
         
         self.loss_history.append(loss.item())
@@ -244,8 +249,9 @@ class DQNLearner:
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
     def train(self, env, n_episodes: int, max_steps: int = 10000):
-        print(f'Hyperparameters: lr={self.learning_rate}, gamma={self.gamma}, tau={self.tau}, ')
-        print(f'                 eps_end={self.epsilon_end}, eps_decay={self.epsilon_decay}, target_freq={self.target_update_frequency}, goal_ratio={self.goal_ratio}')
+        print(f'Hyperparameters: lr={self.learning_rate}, gamma={self.gamma}, tau={self.tau}, eps_end={self.epsilon_end}')
+        print(f'                 eps_decay={self.epsilon_decay}, target_freq={self.target_update_frequency}, goal_ratio={self.goal_ratio}')
+        print(f'                 batch_size={self.batch_size}, buffer_size={self.replay_buffer.buffer.maxlen}')
         print(f"DQN: input_dim={self.input_dim}, num_actions={self.num_actions}, device={self.device}")
 
         episode_rewards = []
@@ -299,6 +305,10 @@ class DQNLearner:
             
             episode_rewards.append(episode_reward)
             episode_lengths.append(step + 1)
+
+            if len(self.loss_history) >= 100 and episode % 50 == 0:
+                recent_avg_loss = np.mean(self.loss_history[-100:])
+                self.scheduler.step(recent_avg_loss)
         
         self.diagnose_buffer()
         print("training completed!")
