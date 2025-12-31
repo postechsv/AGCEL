@@ -205,7 +205,7 @@ class QLearner():
                 obs, reward, done = env.step(a)
                 ns = obs['state']
 
-                # Update Q(s,a) := Q(s,a) + lr [R(s,a) + gamma * max Q(s',a') - Q(s,a)]
+                # Update Q(s,a) = Q(s,a) + lr [R(s,a) + gamma * max Q(s',a') - Q(s,a)]
                 nq = self.get_q(s, a) + learning_rate * (
                     reward + gamma * self.max_q(ns) - self.get_q(s, a)
                 )
