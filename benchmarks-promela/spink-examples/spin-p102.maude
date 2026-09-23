@@ -1,0 +1,37 @@
+*** spin-p102.pml: buffered chan + if, 3 procs (hand-built post-INIT [...]).
+*** A sends 1, B sends 2 on cap-1 chan; C receives one (races) and sets 'got.
+*** Expected: gotIs1 => solution ; gotIs2 => solution (both reachable).
+*** Constructs: buffered channel (cap 1), receive-match, if.
+
+load ../../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-SPIN-P102 is
+  protecting PROMELA-CONFIG . protecting BOOL .
+  op gotIs1 : GlobalState -> Bool .  op gotIs2 : GlobalState -> Bool .
+  eq gotIs1([store((0 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq gotIs1(C:GlobalState) = false [owise] .
+  eq gotIs2([store((0 |-> # 2, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq gotIs2(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-SPIN-P102 is
+  protecting PROMELA-SEMANTICS . protecting BENCH-PROPS-SPIN-P102 .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env2 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = (lval('ch, 0) |-> ch(0)) .  eq env1 = env0 .
+  eq env2 = ((lval('ch, 0) |-> ch(0)), (lval('got, 0) |-> loc(0))) .
+  op body0 : -> Seq .  op body1 : -> Seq .  op body2 : -> Seq .
+  eq body0 = ( ('ch ! # 1) ; .Decls ) .   eq body1 = ( ('ch ! # 2) ; .Decls ) .
+  eq body2 = ( if (:: ('ch ? # 1) ; ('got = # 1) ; .Decls)
+                  (:: ('ch ? # 2) ; ('got = # 2) ; .Decls) fi ) ; .Decls .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('A) k( body0 ~> .K ) local(nil) env(env0))
+          proc(pid(1) name('B) k( body1 ~> .K ) local(nil) env(env1))
+          proc(pid(2) name('C) k( body2 ~> .K ) local(nil) env(env2)))
+    store(0 |-> # 0) network((0 |-> mq(1, nil))) lock(#none) active(0 1 2)
+    nextLoc(1) nextPid(3) nextBCid(1) nextHCid(0) ] .
+endm
+
+search init =>* C:GlobalState such that gotIs1(C:GlobalState) .
+search init =>* C:GlobalState such that gotIs2(C:GlobalState) .

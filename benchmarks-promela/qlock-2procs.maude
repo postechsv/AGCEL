@@ -1,0 +1,50 @@
+*** qlock (queue-lock / FIFO mutual exclusion), 2 processes (hand-built post-INIT [...] state).
+*** Property: mutual exclusion -- only the head-of-queue process is in the critical section.
+*** Expected: bothInCS => No solution ; someInCS => solution (reachability control).
+*** Backend: buffered channel (network/mq/ch); no atomic{} => [loose]-robust.
+
+load ../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-QLOCK is
+  protecting PROMELA-CONFIG .
+  protecting BOOL .
+  op bothInCS : GlobalState -> Bool .
+  op someInCS : GlobalState -> Bool .
+  eq bothInCS([store((0 |-> # 1, 1 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq bothInCS(C:GlobalState) = false [owise] .
+  eq someInCS([store((0 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq someInCS([store((1 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq someInCS(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-QLOCK2 is
+  protecting PROMELA-SEMANTICS .
+  protecting BENCH-PROPS-QLOCK .
+
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('q, 0) |-> ch(0)),
+             (lval('in0, 0) |-> loc(0)), (lval('in1, 0) |-> loc(1))) .
+  eq env1 = env0 .
+
+  op body0 : -> Seq .
+  op body1 : -> Seq .
+  eq body0 = ( ('q ! # 0) ; ('q ?[ # 0 ]) ;
+               ('in0 = # 1) ; ('in0 = # 0) ; ('q ? # 0) ; .Decls ) .
+  eq body1 = ( ('q ! # 1) ; ('q ?[ # 1 ]) ;
+               ('in1 = # 1) ; ('in1 = # 0) ; ('q ? # 1) ; .Decls ) .
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+      proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+      proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)) )
+    store(((0 |-> # 0), (1 |-> # 0)))
+    network((0 |-> mq(2, nil)))
+    lock(#none) active(0 1)
+    nextLoc(2) nextPid(2) nextBCid(1) nextHCid(0) ] .
+endm
+
+search init =>* C:GlobalState such that bothInCS(C:GlobalState) .
+search init =>* C:GlobalState such that someInCS(C:GlobalState) .

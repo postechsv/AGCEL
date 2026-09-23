@@ -1,0 +1,34 @@
+*** spin-atomic1.pml: atomic swap, 2 procs (hand-built post-INIT [...]).
+*** p1 atomically swaps a,b (a!=b invariant); p2 sets flag if a==b.
+*** BLOCKED on [loose] owise fix: safety flagSet SHOULD be No solution, but [loose]
+*** over-fire breaks the atomic swap (transient a==b) => spurious flag=1. NOT a valid pass.
+*** Constructs: atomic{} swap, guard.
+
+load ../../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-SPIN-ATOMIC1 is
+  protecting PROMELA-CONFIG . protecting BOOL .
+  op flagSet : GlobalState -> Bool .
+  eq flagSet([store((3 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq flagSet(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-SPIN-ATOMIC1 is
+  protecting PROMELA-SEMANTICS . protecting BENCH-PROPS-SPIN-ATOMIC1 .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('a, 0) |-> loc(0)), (lval('b, 0) |-> loc(1)),
+             (lval('tmp, 0) |-> loc(2)), (lval('flag, 0) |-> loc(3))) .
+  eq env1 = env0 .
+  op body0 : -> Seq .  op body1 : -> Seq .
+  eq body0 = ( atomic { ('tmp = 'b) ; ('b = 'a) ; ('a = 'tmp) ; .Decls } ) ; .Decls .
+  eq body1 = ( ('a == 'b) ; ('flag = # 1) ; .Decls ) .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+          proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)))
+    store(((0 |-> # 1), (1 |-> # 2), (2 |-> # 0), (3 |-> # 0)))
+    network(empty) lock(#none) active(0 1)
+    nextLoc(4) nextPid(2) nextBCid(0) nextHCid(0) ] .
+endm
+
+search init =>* C:GlobalState such that flagSet(C:GlobalState) .

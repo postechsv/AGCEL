@@ -1,5 +1,8 @@
 .vscode/
 AGCEL/__pycache__/
 log/
+ref/
 trained/
 .DS_Store
+results/
+out/

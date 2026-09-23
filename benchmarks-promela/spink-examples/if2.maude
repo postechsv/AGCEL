@@ -1,0 +1,22 @@
+*** if2.pml: guarded if, 1 proc (hand-built post-INIT [...]).
+*** Deterministic: x==0 branch taken, y := 1.
+*** Expected (rew): store 1 |-> # 1 (y=1; x!=0 branch blocked).
+*** Constructs: if with guard, guard blocking.
+
+load ../../semantics/promela-semantics.maude .
+
+mod BENCH-IF2 is
+  protecting PROMELA-SEMANTICS .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('x, 0) |-> loc(0)), (lval('y, 0) |-> loc(1))) .
+  op body0 : -> Seq .
+  eq body0 = ( if (:: ('x == # 0) ; ('y = # 1) ; .Decls)
+                  (:: ('x != # 0) ; ('y = # 2) ; .Decls) fi ) ; .Decls .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0)))
+    store(((0 |-> # 0), (1 |-> # 0))) network(empty) lock(#none) active(0)
+    nextLoc(2) nextPid(1) nextBCid(0) nextHCid(0) ] .
+endm
+
+rew init .

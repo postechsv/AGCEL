@@ -1,0 +1,21 @@
+*** assign1.pml: sequential assignment, 1 proc (hand-built post-INIT [...]).
+*** Deterministic: x := 1 ; x := 2.
+*** Expected (rew): store 0 |-> # 2.
+*** Constructs: sequential assign.
+
+load ../../semantics/promela-semantics.maude .
+
+mod BENCH-ASSIGN1 is
+  protecting PROMELA-SEMANTICS .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = (lval('x, 0) |-> loc(0)) .
+  op body0 : -> Seq .
+  eq body0 = ( ('x = # 1) ; ('x = # 2) ; .Decls ) .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0)))
+    store(0 |-> # 0) network(empty) lock(#none) active(0)
+    nextLoc(1) nextPid(1) nextBCid(0) nextHCid(0) ] .
+endm
+
+rew init .

@@ -1,0 +1,37 @@
+*** paper-interference.pml: rendezvous + if, 2 procs (hand-built post-INIT [...]).
+*** p1: if c!1 or y:=1 ; p2: if y:=1 or c?x. x=1 requires rendezvous (then y=0).
+*** Expected: bad(x=1,y=1) => No solution (safety) ; x1y0 and x0y1 => solution.
+*** Constructs: handshake channel, if, interference.
+
+load ../../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-PAPER-INTERFERENCE is
+  protecting PROMELA-CONFIG . protecting BOOL .
+  op bad : GlobalState -> Bool .  op x1y0 : GlobalState -> Bool .  op x0y1 : GlobalState -> Bool .
+  eq bad([store((0 |-> # 1, 1 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq bad(C:GlobalState) = false [owise] .
+  eq x1y0([store((0 |-> # 1, 1 |-> # 0, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq x1y0(C:GlobalState) = false [owise] .
+  eq x0y1([store((0 |-> # 0, 1 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq x0y1(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-PAPER-INTERFERENCE is
+  protecting PROMELA-SEMANTICS . protecting BENCH-PROPS-PAPER-INTERFERENCE .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('c, 0) |-> hs(0)), (lval('x, 0) |-> loc(0)), (lval('y, 0) |-> loc(1))) .
+  eq env1 = env0 .
+  op body0 : -> Seq .  op body1 : -> Seq .
+  eq body0 = ( if (:: ('c[# 0] ! # 1) ; .Decls) (:: ('y = # 1) ; .Decls) fi ) ; .Decls .
+  eq body1 = ( if (:: ('y = # 1) ; .Decls) (:: ('c[# 0] ? 'x) ; .Decls) fi ) ; .Decls .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+          proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)))
+    store(((0 |-> # 0), (1 |-> # 0))) network(empty) lock(#none) active(0 1)
+    nextLoc(2) nextPid(2) nextBCid(0) nextHCid(1) ] .
+endm
+
+search init =>* C:GlobalState such that bad(C:GlobalState) .
+search init =>* C:GlobalState such that x1y0(C:GlobalState) .
+search init =>* C:GlobalState such that x0y1(C:GlobalState) .

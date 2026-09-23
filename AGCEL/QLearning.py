@@ -1,3 +1,4 @@
+import os
 import random
 import numpy as np
 import datetime
@@ -21,34 +22,41 @@ class QLearner():
         self.q_dict = dict() # score(s,a)
         self.v_dict = dict()
         self.scores = dict() # score(p,q)
-        
-    def get_q(self, s, a):
-        q_init = self.q_init
-        if s in self.q_dict:
-            return self.q_dict[s].get(a, q_init)
-        return q_init
-        
-    def set_q(self, s, a, q):
+        self.use_focus = bool(os.environ.get("AGCEL_FOCUS"))
+
+    def _key(self, s, focus):
+        return (focus, s) if self.use_focus else s
+
+    def get_q(self, s, a, focus=None):
+        key = self._key(s, focus)
+        if key in self.q_dict:
+            return self.q_dict[key].get(a, self.q_init)
+        return self.q_init
+
+    def set_q(self, s, a, q, focus=None):
         # TODO deepcopy terms
         if q == 0.0: # TODO
             return
-        elif not s in self.q_dict:
-            self.q_dict[s] = { a : q }
+        key = self._key(s, focus)
+        if not key in self.q_dict:
+            self.q_dict[key] = { a : q }
         else:
-            self.q_dict[s][a] = q
-        
-    def argmax_q(self, s, actions):
+            self.q_dict[key][a] = q
+
+    def argmax_q(self, s, actions, focus=None):
+        key = self._key(s, focus)
         q_dict = self.q_dict
-        if s in q_dict and len(actions) != 0:
-            d = { a : q_dict[s].get(a, self.q_init) for a in actions } # d = restriction of q_dict to tl
+        if key in q_dict and len(actions) != 0:
+            d = { a : q_dict[key].get(a, self.q_init) for a in actions } # d = restriction of q_dict to tl
             return max(d, key=d.get) # FIXME: random choice if tie
         else:
             return -1
-        
-    def max_q(self, s):
+
+    def max_q(self, s, focus=None):
+        key = self._key(s, focus)
         q_dict = self.q_dict
-        if s in q_dict: # assume q_dict[t] is nonempty
-            return max(q_dict[s].values())
+        if key in q_dict: # assume q_dict[t] is nonempty
+            return max(q_dict[key].values())
         return self.q_init
     
     def get_size(self):
@@ -82,27 +90,43 @@ class QLearner():
 
     def make_v_dict(self):
         self.v_dict = dict()
-        for s, _ in self.q_dict.items():
-            self.v_dict[s] = self.max_q(s)
+        for key, d in self.q_dict.items():
+            self.v_dict[key] = max(d.values()) if d else self.q_init
 
 
     def get_value_function(self):
-        return (lambda obs_term, g_state=None : self.v_dict.get(obs_term, self.q_init))
-    
+        uf = self.use_focus; v = self.v_dict; qi = self.q_init
+        def V(obs_term, g_state=None, focus_t=None, focus_v=None):
+            key = (focus_t, obs_term) if (uf and focus_t is not None) else obs_term
+            return v.get(key, qi)
+        return V
+
     def dump_value_function(self, filename):
         with open(filename, 'w') as f:
-            for s, _ in self.v_dict.items():
-                f.write(f'{s} |-> {self.v_dict[s]}\n')
+            for key, val in self.v_dict.items():
+                if self.use_focus and isinstance(key, tuple) and len(key) == 2:
+                    focus, state = key
+                    f.write(f'{",".join(focus)} ||| {state} |-> {val}\n')
+                else:
+                    f.write(f'{key} |-> {val}\n')
 
     def load_value_function(self, filename, m):
         self.v_dict = dict()
         with open(filename, 'r') as f:
             for line in f.readlines():
-                state, value = line.split(" |-> ")
-                state = m.parseTerm(state)
-                state.reduce()
-                value = float(value)
-                self.v_dict[state] = value
+                line = line.rstrip('\n')
+                if not line:
+                    continue
+                if ' ||| ' in line:
+                    left, value = line.rsplit(' |-> ', 1)
+                    focus_str, state_str = left.split(' ||| ', 1)
+                    focus = tuple(focus_str.split(',')) if focus_str else ()
+                    t = m.parseTerm(state_str); t.reduce()
+                    self.v_dict[(focus, t)] = float(value)
+                else:
+                    state_str, value = line.rsplit(' |-> ', 1)
+                    t = m.parseTerm(state_str); t.reduce()
+                    self.v_dict[t] = float(value)
 
     def greedy_policy(self, obs):
         """select best action according to qtable"""
@@ -110,7 +134,7 @@ class QLearner():
         # returns -1 for error
         state = obs["state"]
         actions = obs["actions"]
-        return self.argmax_q(state,actions)
+        return self.argmax_q(state, actions, obs.get("focus"))
     
     def eps_greedy_policy(self, obs, epsilon):
         """epsilon-greedy action selection"""
@@ -156,6 +180,7 @@ class QLearner():
 
                 obs_s = env.get_obs()
                 s = obs_s['state']
+                f = obs_s.get('focus')
                 ns = env.obs(ns_term)
 
                 a = self.oracle_policy(s, ns, obs_s['actions'], env)
@@ -173,13 +198,14 @@ class QLearner():
                     next_s_term = env.m.parseTerm(next_ns_str)
                     next_s_term.reduce()
                     next_ns = env.obs(next_s_term)
-                    max_next_q = self.max_q(next_ns)
+                    env.reset(to_state=next_s_term)
+                    max_next_q = self.max_q(next_ns, env.get_focus())
                 else:
                     max_next_q = 0.0
 
-                q = self.get_q(s, a)
+                q = self.get_q(s, a, f)
                 nq = q + learning_rate * (r + gamma * max_next_q - q)
-                self.set_q(s, a, nq)
+                self.set_q(s, a, nq, f)
 
         print(f'  Pretrain')
         print(f'    matched       : {matched//repeat}/{total//repeat} ({100*matched/total:.1f}%)')
@@ -193,6 +219,7 @@ class QLearner():
             epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
 
             obs = env.reset()
+            f = obs.get("focus")
             done = False
 
             for _ in range(max_steps):
@@ -205,12 +232,15 @@ class QLearner():
 
                 obs, reward, done = env.step(a)
                 ns = obs['state']
+                nf = obs.get("focus")
 
                 # Update Q(s,a) = Q(s,a) + lr [R(s,a) + gamma * max Q(s',a') - Q(s,a)]
-                nq = self.get_q(s, a) + learning_rate * (
-                    reward + gamma * self.max_q(ns) - self.get_q(s, a)
+                q_sa = self.get_q(s, a, f)
+                nq = q_sa + learning_rate * (
+                    reward + gamma * self.max_q(ns, nf) - q_sa
                 )
-                self.set_q(s, a, nq)
+                self.set_q(s, a, nq, f)
+                f = nf
 
                 if done:
                     break

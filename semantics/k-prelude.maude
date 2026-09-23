@@ -1,0 +1,25 @@
+load promela-syntax.maude .
+
+
+--- K framework builtins _~>_ / .K / KLabel; no promela.k production
+fmod K-COMPUTATION is
+  sort K .
+  op .K : -> K [ctor] .
+  op _~>_ : K K -> K [ctor assoc id: .K prec 70] .
+
+  sort KLabel .
+  subsort KLabel < K .
+endfm
+
+
+--- configuration <T color="yellow">                           (line 95)
+fmod K-CONFIG is
+  protecting K-COMPUTATION .
+
+  sort KConfig .
+  op none : -> KConfig [ctor] .
+  op __ : KConfig KConfig -> KConfig [ctor assoc comm id: none] .
+
+  sort KConfigItem .
+  subsort KConfigItem < KConfig .
+endfm
