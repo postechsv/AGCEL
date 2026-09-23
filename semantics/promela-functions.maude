@@ -1,0 +1,370 @@
+*** [function] -> eq
+
+load promela-config.maude .
+
+
+fmod PROMELA-EVAL is
+  protecting PROMELA-CONFIG .
+
+  --- syntax Value ::= eval(Expr, Map, Map, Map) [function]   (line 284)
+  op eval : Expr Map{PROMELA-LVal, PROMELA-Ref} Map{Nat, PROMELA-Value} Map{Nat, PROMELA-Queue} -> Value .
+  --- syntax List ::= evalList(Exprs, Map, Map, Map) [function]   (line 330)
+  op evalList : Exprs Map{PROMELA-LVal, PROMELA-Ref} Map{Nat, PROMELA-Value} Map{Nat, PROMELA-Queue} -> ValueList .
+
+  var V : Value .
+  var X : Id .
+  vars I J L C S : Int .
+  vars E E1 E2 : Expr .
+  var EL : Exprs .
+  var ENV : Map{PROMELA-LVal, PROMELA-Ref} .
+  var STR : Map{Nat, PROMELA-Value} .
+  var NET : Map{Nat, PROMELA-Queue} .
+  var VL : ValueList .
+  var B : Bool .
+  vars IL IR IDX : Int .
+  vars BL BR : Bool .
+  var CH : Chan .
+  var ML : MsgList .
+
+  --- rule eval(V:Value, _, _, _) => V                        (line 287)
+  eq eval(V, ENV, STR, NET) = V .
+  --- rule eval(X:Id, ENV, STR, NET) => eval(X[0], ENV, STR, NET) // desugar   (line 288)
+  eq eval(X, ENV, STR, NET) = eval(X[# 0], ENV, STR, NET) .
+  --- rule eval(X[EXP], ENV, STR, NET) => eval(X [ eval(EXP, ENV, STR, NET) ], ENV, STR, NET) [owise]   (line 289)
+ ceq eval(X[E], ENV, STR, NET) = eval(X[# IDX], ENV, STR, NET) if not(E :: Value) /\ # IDX := eval(E, ENV, STR, NET) .
+  --- rule eval(X[I:Int], (lval(X, I) |-> loc(L)) _ENV, (L |-> V) _STR, _NET) => V // loc   (line 290)
+  eq eval(X[# I], ((lval(X, I) |-> loc(L)), ENV), ((L |-> V), STR), NET) = V .
+  --- rule eval(X[I:Int], (lval(X, I) |-> C:Chan) _ENV, _STR, _NET) => C // ch   (line 291)
+  eq eval(X[# I], ((lval(X, I) |-> CH), ENV), STR, NET) = # CH .
+
+  --- helper for arithmetic operations; no promela.k line
+  op negInt : Int -> Int .
+  op subInt : Int Int -> Int .
+  eq negInt(I) = - I .
+  eq subInt(I, J) = I + (- J) .
+
+  --- unary minus: no direct promela.k eval rule
+ ceq eval((- E), ENV, STR, NET) = # negInt(IL) if # IL := eval(E, ENV, STR, NET) .
+  --- rule eval(E1 + E2, ENV, STR, NET) => {eval(E1, ENV, STR, NET)}:>Int +Int {eval(E2, ENV, STR, NET)}:>Int
+  --- rule eval(E1 - E2, ENV, STR, NET) => {eval(E1, ENV, STR, NET)}:>Int -Int {eval(E2, ENV, STR, NET)}:>Int
+  --- rule eval(E1 * E2, ENV, STR, NET) => {eval(E1, ENV, STR, NET)}:>Int *Int {eval(E2, ENV, STR, NET)}:>Int
+  --- rule eval(E1 / E2, ENV, STR, NET) => {eval(E1, ENV, STR, NET)}:>Int /Int {eval(E2, ENV, STR, NET)}:>Int   (lines 296-299)
+ ceq eval((E1 + E2), ENV, STR, NET) = # (IL + IR) if # IL := eval(E1, ENV, STR, NET) /\ # IR := eval(E2, ENV, STR, NET) .
+ ceq eval((E1 - E2), ENV, STR, NET) = # subInt(IL, IR) if # IL := eval(E1, ENV, STR, NET) /\ # IR := eval(E2, ENV, STR, NET) .
+ ceq eval((E1 * E2), ENV, STR, NET) = # (IL * IR) if # IL := eval(E1, ENV, STR, NET) /\ # IR := eval(E2, ENV, STR, NET) .
+ ceq eval((E1 / E2), ENV, STR, NET) = # (IL quo IR) if # IL := eval(E1, ENV, STR, NET) /\ # IR := eval(E2, ENV, STR, NET) .
+
+  --- rule eval(E1 < E2, ENV, STR, NET) => {eval(E1, ENV, STR, NET)}:>Int <Int {eval(E2, ENV, STR, NET)}:>Int
+  --- rule eval(E1 <= E2, ENV, STR, NET) => {eval(E1, ENV, STR, NET)}:>Int <=Int {eval(E2, ENV, STR, NET)}:>Int
+  --- rule eval(E1 > E2, ENV, STR, NET) => {eval(E1, ENV, STR, NET)}:>Int >Int {eval(E2, ENV, STR, NET)}:>Int
+  --- rule eval(E1 >= E2, ENV, STR, NET) => {eval(E1, ENV, STR, NET)}:>Int >=Int {eval(E2, ENV, STR, NET)}:>Int   (lines 302-305)
+ ceq eval(E1 < E2, ENV, STR, NET) = # (IL < IR) if # IL := eval(E1, ENV, STR, NET) /\ # IR := eval(E2, ENV, STR, NET) .
+ ceq eval(E1 <= E2, ENV, STR, NET) = # (IL <= IR) if # IL := eval(E1, ENV, STR, NET) /\ # IR := eval(E2, ENV, STR, NET) .
+ ceq eval(E1 > E2, ENV, STR, NET) = # (IL > IR) if # IL := eval(E1, ENV, STR, NET) /\ # IR := eval(E2, ENV, STR, NET) .
+ ceq eval(E1 >= E2, ENV, STR, NET)= # (IL >= IR) if # IL := eval(E1, ENV, STR, NET) /\ # IR := eval(E2, ENV, STR, NET) .
+  --- rule eval(E1 == E2, ENV, STR, NET) => eval(E1, ENV, STR, NET) ==K eval(E2, ENV, STR, NET)
+  --- rule eval(E1 != E2, ENV, STR, NET) => eval(E1, ENV, STR, NET) =/=K eval(E2, ENV, STR, NET)   (lines 294-295)
+  eq eval(E1 == E2, ENV, STR, NET) = # (eval(E1, ENV, STR, NET) == eval(E2, ENV, STR, NET)) .
+  eq eval(E1 != E2, ENV, STR, NET) = # (eval(E1, ENV, STR, NET) =/= eval(E2, ENV, STR, NET)) .
+
+  --- unary not: no direct promela.k eval rule
+ ceq eval(! E, ENV, STR, NET) = # (not BL) if # BL := eval(E, ENV, STR, NET) .
+  --- rule eval(E1 && E2, ENV, STR, NET) => {eval(E1, ENV, STR, NET)}:>Bool andBool {eval(E2, ENV, STR, NET)}:>Bool
+  --- rule eval(E1 || E2, ENV, STR, NET) => {eval(E1, ENV, STR, NET)}:>Bool orBool {eval(E2, ENV, STR, NET)}:>Bool   (lines 300-301)
+ ceq eval(E1 && E2, ENV, STR, NET) = # (BL and BR) if # BL := eval(E1, ENV, STR, NET) /\ # BR := eval(E2, ENV, STR, NET) .
+ ceq eval(E1 || E2, ENV, STR, NET) = # (BL or BR) if # BL := eval(E1, ENV, STR, NET) /\ # BR := eval(E2, ENV, STR, NET) .
+
+  --- rule eval(full(X [ EXP ]), ENV, STR, NET) => eval(full(X [ eval(EXP, ENV, STR, NET) ]), ENV, STR, NET) requires _:Int :/=K EXP
+  --- rule eval(empty(X [ EXP ]), ENV, STR, NET) => eval(empty(X [ eval(EXP, ENV, STR, NET) ]), ENV, STR, NET) requires _:Int :/=K EXP
+  --- rule eval(nfull(X [ EXP ]), ENV, STR, NET) => eval(nfull(X [ eval(EXP, ENV, STR, NET) ]), ENV, STR, NET) requires _:Int :/=K EXP
+  --- rule eval(nempty(X [ EXP ]), ENV, STR, NET) => eval(nempty(X [ eval(EXP, ENV, STR, NET) ]), ENV, STR, NET) requires _:Int :/=K EXP   (lines 308-311)
+ ceq eval(full(X[E]), ENV, STR, NET) = eval(full(X[# IDX]), ENV, STR, NET) if not(E :: Value) /\ # IDX := eval(E, ENV, STR, NET) .
+ ceq eval(empty(X[E]), ENV, STR, NET) = eval(empty(X[# IDX]), ENV, STR, NET) if not(E :: Value) /\ # IDX := eval(E, ENV, STR, NET) .
+ ceq eval(nfull(X[E]), ENV, STR, NET) = eval(nfull(X[# IDX]), ENV, STR, NET) if not(E :: Value) /\ # IDX := eval(E, ENV, STR, NET) .
+ ceq eval(nempty(X[E]), ENV, STR, NET) = eval(nempty(X[# IDX]), ENV, STR, NET) if not(E :: Value) /\ # IDX := eval(E, ENV, STR, NET) .
+
+  --- rule eval(full(X [ I:Int ]), (lval(X, I) |-> ch(C)) _ENV, _STR, (C |-> mq(S, Q)) _NET) => size(Q) ==Int S
+  --- rule eval(empty(X [ I:Int ]), (lval(X, I) |-> ch(C)) _ENV, _STR, (C |-> mq(_S, Q)) _NET) => size(Q) ==Int 0
+  --- rule eval(nfull(X [ I:Int ]), (lval(X, I) |-> ch(C)) _ENV, _STR, (C |-> mq(S, Q)) _NET) => size(Q) <Int S
+  --- rule eval(nempty(X [ I:Int ]), (lval(X, I) |-> ch(C)) _ENV, _STR, (C |-> mq(_S, Q)) _NET) => size(Q) >Int 0   (lines 313-316)
+  eq eval(full(X[# I]), ((lval(X, I) |-> ch(C)), ENV), STR, ((C |-> mq(S, ML)), NET)) = # (msgSize(ML) == S) .
+  eq eval(empty(X[# I]), ((lval(X, I) |-> ch(C)), ENV), STR, ((C |-> mq(S, ML)), NET)) = # (msgSize(ML) == 0) .
+  eq eval(nfull(X[# I]), ((lval(X, I) |-> ch(C)), ENV), STR, ((C |-> mq(S, ML)), NET)) = # (msgSize(ML) < S) .
+  eq eval(nempty(X[# I]), ((lval(X, I) |-> ch(C)), ENV), STR, ((C |-> mq(S, ML)), NET)) = # (msgSize(ML) > 0) .
+
+  --- rule eval(full(_ [ _:Int ]), _ENV, _STR, _NET) => false [owise]
+  --- rule eval(empty(_ [ _:Int ]), _ENV, _STR, _NET) => false [owise]
+  --- rule eval(nfull(_ [ _:Int ]), _ENV, _STR, _NET) => false [owise]
+  --- rule eval(nempty(_ [ _:Int ]), _ENV, _STR, _NET) => false [owise]   (lines 318-321)
+  eq eval(full(X[# I]), ENV, STR, NET) = # false [owise] .
+  eq eval(empty(X[# I]), ENV, STR, NET) = # true [owise] .
+  eq eval(nfull(X[# I]), ENV, STR, NET) = # true [owise] .
+  eq eval(nempty(X[# I]), ENV, STR, NET) = # false [owise] .
+
+  --- bare-Vref poll desugar; no direct promela.k rule
+  eq eval(X ?[EL], ENV, STR, NET) = eval(X[# 0] ?[EL], ENV, STR, NET) .
+  --- rule eval(C [ I:Int ] ? [ EXPL ], (lval(C, I) |-> ch(J)) _ENV, _STR, (J |-> mq(_, ListItem(m(VL)) _Q)) _NET) => true requires matchMsg(EXPL, VL)   (lines 323-324)
+  eq eval(X[# I] ?[EL], ((lval(X, I) |-> ch(C)), ENV), STR, ((C |-> mq(S, (m(VL), ML))), NET)) = # matchMsg(EL, VL) .
+  --- rule eval(_ [ _:Int ] ? [ _ ], _, _, _) => false [owise]   (line 325)
+  eq eval(X[# I] ?[EL], ENV, STR, NET) = # false [owise] .
+
+  --- msgSize over MsgList; K uses builtin size, no promela.k line
+  op msgSize : MsgList -> Int .
+  eq msgSize(nil) = 0 .
+  eq msgSize((M:Msg, ML)) = 1 + msgSize(ML) .
+
+  --- rule evalList(.Exprs, _, _, _) => .List
+  --- rule evalList((E , E' , EL), ENV, STR, NET) => ListItem(eval(E, ENV, STR, NET)) evalList((E', EL), ENV, STR, NET)
+  --- rule evalList((E , .Exprs), ENV, STR, NET) => ListItem(eval(E, ENV, STR, NET))   (lines 331-333)
+  eq evalList(nil, ENV, STR, NET) = nil .
+  eq evalList((E, EL), ENV, STR, NET) = eval(E, ENV, STR, NET), evalList(EL, ENV, STR, NET) .
+
+  --- syntax Bool ::= matchMsg(Exprs, List) [function]        (line 336)
+  op matchMsg : Exprs ValueList -> Bool .
+  --- rule matchMsg((E , E' , EL), ListItem(V) VL) => matchMsg(E, ListItem(V)) andBool matchMsg((E' , EL), VL)
+  --- rule matchMsg((V:Value, .Exprs), ListItem(V)) => true
+  --- rule matchMsg((_:Vref, .Exprs), ListItem(_)) => true
+  --- rule matchMsg(_, _) => false [owise]                    (lines 337-340)
+  eq matchMsg(nil, nil) = true .
+  eq matchMsg((V, EL), (V, VL)) = matchMsg(EL, VL) .
+ ceq matchMsg((X[# I], EL), (V, VL)) = matchMsg(EL, VL) if I :: Int .
+ ceq matchMsg((X, EL), (V, VL)) = matchMsg(EL, VL) if X :: Id .
+  eq matchMsg(EL, VL) = false [owise] .
+endfm
+
+
+fmod PROMELA-PURIFY is
+  protecting PROMELA-EVAL .
+
+  --- syntax Expr ::= purify(Expr, Int) [function]            (line 344)
+  op purify : Expr Int -> Expr .
+
+  var X : Id .
+  vars E E1 E2 : Expr .
+  var EL : Exprs .
+  var V : Value .
+  var PID : Int .
+
+  --- rule purify(run _ ( _ ), PID) => PID                    (line 345)
+  eq purify(run X(EL), PID) = # PID .
+  --- rule purify(V:Value, _) => V                            (line 346)
+  eq purify(V, PID) = V .
+  --- rule purify(X:Id, _) => X                               (line 347)
+  eq purify(X, PID) = X .
+  --- rule purify(X [ IE ], PID) => (X[purify(IE, PID):Expr]):Vref   (line 348)
+  eq purify(X[E], PID) = X[purify(E, PID)] .
+  --- unary minus: no direct promela.k purify rule
+  eq purify(- E, PID) = - purify(E, PID) .
+  --- rule purify(E1 + E2, PID) => purify(E1, PID) + purify(E2, PID)
+  --- rule purify(E1 - E2, PID) => purify(E1, PID) - purify(E2, PID)
+  --- rule purify(E1 * E2, PID) => purify(E1, PID) * purify(E2, PID)
+  --- rule purify(E1 / E2, PID) => purify(E1, PID) / purify(E2, PID)   (lines 349-352)
+  eq purify(E1 + E2, PID) = purify(E1, PID) + purify(E2, PID) .
+  eq purify(E1 - E2, PID) = purify(E1, PID) - purify(E2, PID) .
+  eq purify(E1 * E2, PID) = purify(E1, PID) * purify(E2, PID) .
+  eq purify(E1 / E2, PID) = purify(E1, PID) / purify(E2, PID) .
+  --- rule purify(E1 < E2, PID) => purify(E1, PID) < purify(E2, PID)
+  --- rule purify(E1 <= E2, PID) => purify(E1, PID) <= purify(E2, PID)
+  --- rule purify(E1 > E2, PID) => purify(E1, PID) > purify(E2, PID)
+  --- rule purify(E1 >= E2, PID) => purify(E1, PID) >= purify(E2, PID)   (lines 355-358)
+  eq purify(E1 < E2, PID) = purify(E1, PID) < purify(E2, PID) .
+  eq purify(E1 <= E2, PID) = purify(E1, PID) <= purify(E2, PID) .
+  eq purify(E1 > E2, PID) = purify(E1, PID) > purify(E2, PID) .
+  eq purify(E1 >= E2, PID) = purify(E1, PID) >= purify(E2, PID) .
+  --- rule purify(E1 == E2, PID) => purify(E1, PID) == purify(E2, PID)
+  --- rule purify(E1 != E2, PID) => purify(E1, PID) != purify(E2, PID)   (lines 359-360)
+  eq purify(E1 == E2, PID) = purify(E1, PID) == purify(E2, PID) .
+  eq purify(E1 != E2, PID) = purify(E1, PID) != purify(E2, PID) .
+  --- unary not: no direct promela.k purify rule
+  eq purify(! E, PID) = ! purify(E, PID) .
+  --- rule purify(E1 && E2, PID) => purify(E1, PID) && purify(E2, PID)
+  --- rule purify(E1 || E2, PID) => purify(E1, PID) || purify(E2, PID)   (lines 353-354)
+  eq purify(E1 && E2, PID) = purify(E1, PID) && purify(E2, PID) .
+  eq purify(E1 || E2, PID) = purify(E1, PID) || purify(E2, PID) .
+
+  --- channel polls are effect-free; purify passes through; no promela.k rule
+  op purifyVref : Vref Int -> Vref .
+  var VR : Vref .
+  eq purifyVref(X, PID) = X .
+  eq purifyVref(X[E], PID) = X[purify(E, PID)] .
+  eq purify(full(VR), PID) = full(purifyVref(VR, PID)) .
+  eq purify(empty(VR), PID) = empty(purifyVref(VR, PID)) .
+  eq purify(nfull(VR), PID) = nfull(purifyVref(VR, PID)) .
+  eq purify(nempty(VR), PID) = nempty(purifyVref(VR, PID)) .
+  eq purify(VR ?[ EL ], PID) = purifyVref(VR, PID) ?[ EL ] .
+endfm
+
+
+fmod PROMELA-EXEC is
+  protecting PROMELA-PURIFY .
+
+  --- syntax Bool ::= isExec(BasicStmt, Map, Map, Map, Int) [function]   (line 479)
+  op isExec : BasicStmt Map{PROMELA-LVal, PROMELA-Ref} Map{Nat, PROMELA-Value} Map{Nat, PROMELA-Queue} Int -> Bool .
+
+  var X : Id .
+  vars E E' : Expr .
+  var EL : Exprs .
+  var ENV : Map{PROMELA-LVal, PROMELA-Ref} .
+  var STR : Map{Nat, PROMELA-Value} .
+  var NET : Map{Nat, PROMELA-Queue} .
+  vars PID I C S : Int .
+  var ML : MsgList .
+  var VL : ValueList .
+  var V : Value .
+
+  --- rule isExec(_ = _, _, _, _, _) => true // Assign        (line 484)
+  eq isExec(X = E, ENV, STR, NET, PID) = true .
+  eq isExec(X[E] = E', ENV, STR, NET, PID) = true .
+  --- skip executable: no direct promela.k rule
+  eq isExec(skip, ENV, STR, NET, PID) = true .
+  --- rule isExec(E:Expr, ENV, STR, NET, PID) => {eval(purify(E, PID), ENV, STR, NET)}:>Bool ==K true   (lines 481-483)
+ ceq isExec(E, ENV, STR, NET, PID) = true if eval(purify(E, PID), ENV, STR, NET) == # true .
+  --- rule isExec(X [ E ] ! _, ENV, STR, NET, _) => eval(nfull(X [ E ]), ENV, STR, NET) ==K true // Buf Send   (lines 485-486)
+  eq isExec(X[# I] ! EL, ((lval(X, I) |-> ch(C)), ENV), STR, ((C |-> mq(S, ML)), NET), PID) = msgSize(ML) < S .
+  eq isExec(X ! EL, ENV, STR, NET, PID) = isExec(X[# 0] ! EL, ENV, STR, NET, PID) .
+  --- rule isExec(X [ E ] ? EL, ENV, STR, NET, _) => eval(X [ E ] ? [ EL ], ENV, STR, NET) ==K true // Buf Recv   (lines 487-488)
+  eq isExec(X[# I] ? EL, ((lval(X, I) |-> ch(C)), ENV), STR, ((C |-> mq(S, (m(VL), ML))), NET), PID) = matchMsg(EL, VL) .
+  eq isExec(X ? EL, ENV, STR, NET, PID) = isExec(X[# 0] ? EL, ENV, STR, NET, PID) .
+  --- rule isExec(_, _, _, _, _) => false [owise]             (line 480)
+  eq isExec(BS:BasicStmt, ENV, STR, NET, PID) = false [owise] .
+endfm
+
+
+fmod PROMELA-EFFECT is
+  protecting PROMELA-EXEC .
+  protecting PROMELA-EFFECT-MARKER .
+
+  --- syntax K ::= effect(BasicStmt, Int) [function]          (line 495)
+  op effect : BasicStmt Int -> K .
+
+  var X : Id .
+  vars E E' E1 E2 : Expr .
+  var EL : Exprs .
+  var PID : Int .
+
+  --- rule effect(_, _) => .K [owise]                         (line 496)
+  eq effect(skip, PID) = .K .
+  --- rule effect(run X ( EL ), _) => #run(X, EL)             (line 498)
+  eq effect(run X(EL), PID) = #run(X, EL) .
+  --- rule effect(E1 + E2, PID) => effect(E1, PID) ~> effect(E2, PID)
+  --- rule effect(E1 - E2, PID) => effect(E1, PID) ~> effect(E2, PID)
+  --- rule effect(E1 * E2, PID) => effect(E1, PID) ~> effect(E2, PID)
+  --- rule effect(E1 / E2, PID) => effect(E1, PID) ~> effect(E2, PID)
+  --- rule effect(E1 && E2, PID) => effect(E1, PID) ~> effect(E2, PID)
+  --- rule effect(E1 || E2, PID) => effect(E1, PID) ~> effect(E2, PID)
+  --- rule effect(E1 < E2, PID) => effect(E1, PID) ~> effect(E2, PID)
+  --- rule effect(E1 <= E2, PID) => effect(E1, PID) ~> effect(E2, PID)
+  --- rule effect(E1 > E2, PID) => effect(E1, PID) ~> effect(E2, PID)
+  --- rule effect(E1 >= E2, PID) => effect(E1, PID) ~> effect(E2, PID)
+  --- rule effect(E1 == E2, PID) => effect(E1, PID) ~> effect(E2, PID)
+  --- rule effect(E1 != E2, PID) => effect(E1, PID) ~> effect(E2, PID)   (lines 499-510)
+  eq effect(E1 + E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  eq effect(E1 - E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  eq effect(E1 * E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  eq effect(E1 / E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  eq effect(E1 < E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  eq effect(E1 <= E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  eq effect(E1 > E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  eq effect(E1 >= E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  eq effect(E1 == E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  eq effect(E1 != E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  eq effect(E1 && E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  eq effect(E1 || E2, PID) = effect(E1, PID) ~> effect(E2, PID) .
+  --- rule effect(X = E, PID) => #assign(X, 0, purify(E, PID)) // desugar   (line 512)
+  eq effect(X = E, PID) = #assign(X, # 0, purify(E, PID)) .
+  --- rule effect(X [ E ] = E', PID) => effect(E', PID) ~> #assign(X, E, purify(E', PID))   (line 513)
+  eq effect(X[E] = E', PID) = effect(E', PID) ~> #assign(X, E, purify(E', PID)) .
+  --- rule effect(X ! EL, _) => #send(X [ 0 ], EL) // desugar   (line 514)
+  eq effect(X ! EL, PID) = #send(X[# 0], EL) .
+  --- rule effect(X [ E ] ! EL, _) => #send(X [ E ], EL)      (line 515)
+  eq effect(X[E] ! EL, PID) = #send(X[E], EL) .
+  --- rule effect(X ? EL, _) => #recv(X [ 0 ], EL) // desugar   (line 516)
+  eq effect(X ? EL, PID) = #recv(X[# 0], EL) .
+  --- rule effect(X [ E ] ? EL, _) => #recv(X [ E ], EL)      (line 517)
+  eq effect(X[E] ? EL, PID) = #recv(X[E], EL) .
+  --- rule effect(_, _) => .K [owise]                         (line 496)
+  eq effect(BS:BasicStmt, PID) = .K [owise] .
+endfm
+
+
+--- syntax KItem ::= "@[" K "]" // stores branch as a local computation K   (line 538)
+fmod K-PROGRAM is
+  protecting K-COMPUTATION .
+
+  sort BranchItem .
+  op @[_] : K -> BranchItem [ctor] .
+
+  --- BranchSet realizes K's builtin Set of @[...]; no promela.k line
+  sort BranchSet .
+  subsort BranchItem < BranchSet .
+  op .BranchSet : -> BranchSet [ctor] .
+  op __ : BranchSet BranchSet -> BranchSet [ctor assoc comm id: .BranchSet] .
+
+  subsort BranchSet < K .
+endfm
+
+
+--- promela.k:645-727  spload/#normalize is K evaluation-strategy serialization via the <pid> -1
+--- controller, not PROMELA semantics; Load is effect-free/per-process, so independent [load-*] + AC
+--- search is equivalent -- intentionally NOT ported.
+fmod PROMELA-LOAD is
+  protecting PROMELA-EFFECT .
+  protecting K-PROGRAM .
+
+  --- syntax K ::= split(Seq) [function]                      (line 524)
+  op split : Seq -> K .
+
+  --- syntax Set ::= load(Bool, K) [function]                 (line 542)
+  op load : Bool K -> BranchSet .
+
+  var B : Bool .
+  var S : Stmt .
+  var SL : Seq .
+  var BS : BasicStmt .
+  var GS : GotoStmt .
+  var K : K .
+  var OL : Optns .
+
+  --- rule split(S:Stmt ; SL:Seq) => S ~> split(SL)
+  --- rule split(.Seq) => .K                                  (lines 525-526)
+  eq split(.Decls) = .K .
+  eq split(S) = S .
+  eq split(S ; SL) = S ~> split(SL) .
+
+  --- rule load(true, BS:BasicStmt ~> K) => SetItem(@[ BS ~> K ])   (line 543)
+  eq load(true, BS ~> K) = @[ BS ~> K ] .
+  --- rule load(false, BS:BasicStmt ~> K) => load(true, BS ~> #rel ~> K)   (line 544)
+  eq load(false, BS ~> K) = load(true, BS ~> #rel ~> K) .
+  --- rule load(B, SL:Seq ~> K) => load(B, split(SL) ~> K)    (line 545)
+  eq load(B, SL ~> K) = load(B, split(SL) ~> K) [owise] .
+  --- rule load(true, atomic { SL } ~> K) => load(true, SL ~> K) // inner atomic   (line 546)
+  eq load(true, atomic{ SL } ~> K) = load(true, split(SL) ~> K) .
+  --- rule load(false, atomic { SL } ~> K) => load(true, SL ~> #rel ~> K) // outermost atomic   (line 547)
+  eq load(false, atomic{ SL } ~> K) = load(true, split(SL) ~> #rel ~> K) .
+  --- rule load(B, if (:: SL) OL fi ~> K) => load(B, SL ~> K) load(B, if OL fi ~> K)   (line 548)
+  eq load(B, if (:: SL) OL fi ~> K) = load(B, split(SL) ~> K) load(B, if OL fi ~> K) .
+  --- rule load(_, if .Optns fi ~> _) => .Set                 (line 549)
+  eq load(B, if .Optns fi ~> K) = .BranchSet .
+  --- rule load(B, do OL od ~> K) => load(B, if OL fi ~> do OL od ~> K)   (line 551)
+  eq load(B, do OL od ~> K) = load(B, if OL fi ~> do OL od ~> K) .
+  --- rule load(B, S:GotoStmt ~> K) => load(B, true ~> S ~> K)   (line 550)
+  eq load(B, GS ~> K) = load(B, # true ~> GS ~> K) .
+  --- empty computation base case: no direct promela.k rule
+  eq load(B, .K) = .BranchSet .
+endfm
+
+
+fmod PROMELA-HCHAN is
+  protecting PROMELA-LOAD .
+
+  --- syntax Bool ::= Value "==HChan" Value [function]        (line 606)
+  op _==HChan_ : Value Value -> Bool .
+
+  var I : Int .
+  var V1 V2 : Value .
+
+  --- rule hs(I) ==HChan hs(I) => true                        (line 607)
+  eq # hs(I) ==HChan # hs(I) = true .
+  --- rule _ ==HChan _ => false [owise]                       (line 608)
+  eq V1 ==HChan V2 = false [owise] .
+endfm

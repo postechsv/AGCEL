@@ -1,0 +1,57 @@
+*** One-Third-Rule consensus, 2 processes (hand-built post-INIT [...]; shared-memory round).
+*** Property: agreement -- no two processes decide different values.
+*** Expected: disagree => No solution ; bothDecided => solution (reachability control).
+*** Backend: barrier via per-proc flags (no atomic{} => [loose]-robust); 1 round, decide=adopt-min; abstraction NOT validated against benchmarks/onethirdrule/.
+
+load ../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-OTR is
+  protecting PROMELA-CONFIG .
+  protecting BOOL .
+  op disagree : GlobalState -> Bool .
+  op bothDecided : GlobalState -> Bool .
+  ceq disagree([store((0 |-> # A:Int, 1 |-> # B:Int, 6 |-> # 1, 7 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true if A:Int =/= B:Int .
+  eq disagree(C:GlobalState) = false [owise] .
+  eq bothDecided([store((6 |-> # 1, 7 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq bothDecided(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-OTR2 is
+  protecting PROMELA-SEMANTICS .
+  protecting BENCH-PROPS-OTR .
+
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('val0, 0) |-> loc(0)), (lval('val1, 0) |-> loc(1)),
+             (lval('sent0, 0) |-> loc(2)), (lval('sent1, 0) |-> loc(3)),
+             (lval('arr0, 0) |-> loc(4)), (lval('arr1, 0) |-> loc(5)),
+             (lval('decided0, 0) |-> loc(6)), (lval('decided1, 0) |-> loc(7))) .
+  eq env1 = env0 .
+
+  op body0 : -> Seq .
+  op body1 : -> Seq .
+  eq body0 = ( ('sent0 = 'val0) ; ('arr0 = # 1) ;
+               (('arr0 == # 1) && ('arr1 == # 1)) ;
+               (if (:: ('sent0 <= 'sent1) ; ('val0 = 'sent0) ; .Decls)
+                   (:: ('sent1 < 'sent0) ; ('val0 = 'sent1) ; .Decls) fi) ;
+               ('decided0 = # 1) ; .Decls ) .
+  eq body1 = ( ('sent1 = 'val1) ; ('arr1 = # 1) ;
+               (('arr0 == # 1) && ('arr1 == # 1)) ;
+               (if (:: ('sent0 <= 'sent1) ; ('val1 = 'sent0) ; .Decls)
+                   (:: ('sent1 < 'sent0) ; ('val1 = 'sent1) ; .Decls) fi) ;
+               ('decided1 = # 1) ; .Decls ) .
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+      proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+      proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)) )
+    store(((0 |-> # 0), (1 |-> # 1), (2 |-> # 0), (3 |-> # 0),
+           (4 |-> # 0), (5 |-> # 0), (6 |-> # 0), (7 |-> # 0)))
+    network(empty) lock(#none) active(0 1)
+    nextLoc(8) nextPid(2) nextBCid(0) nextHCid(0) ] .
+endm
+
+search init =>* C:GlobalState such that disagree(C:GlobalState) .
+search init =>* C:GlobalState such that bothDecided(C:GlobalState) .

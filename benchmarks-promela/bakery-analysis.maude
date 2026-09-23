@@ -1,0 +1,66 @@
+*** RL analysis layer for the 2-proc PROMELA bakery mutex model.
+*** (No peterson-*.maude exists in benchmarks-promela/; bakery is the remaining
+*** mutex benchmark, and filter-2procs is the Peterson-family algorithm.)
+*** Goal = someInCrit (reachable: a process enters its critical section).
+*** Loc layout (from bakery-2procs): disp=0, serv=1, crit=2, tick=3/4.
+*** NOTE: mutexViolated (crit>=2) is spuriously reachable under the [loose] owise
+*** gap, so the reachability goal here is the clean someInCrit (crit==1).
+
+load ../semantics/promela-agcel.maude .
+
+mod MODEL is
+  protecting PROMELA-AGCEL .
+  subsort GlobalState < State .
+
+  var S : State .
+  var CFG : KConfig .
+  var STR : Map{Nat, PROMELA-Value} .
+  vars FV FV' : FeatVec .
+
+  --- goal: a process is in its critical section (crit counter == 1)
+  op someInCrit : -> Prop [ctor] .
+  eq ([ store((2 |-> # 1, STR)) CFG ]) |= someInCrit = true .
+  eq S |= someInCrit = false [owise] .
+
+  --- mutex-violation observable (crit counter == 2)
+  op critTwo : -> Prop [ctor] .
+  eq ([ store((2 |-> # 2, STR)) CFG ]) |= critTwo = true .
+  eq S |= critTwo = false [owise] .
+
+  eq obs(S) = < obsUpto(S,
+    varEq('disp, 0, 1) ; varEq('serv, 1, 1) ; someInCrit ; critTwo ; allDone) > .
+
+  eq reward(< FV , (someInCrit : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+
+
+mod BAKERY-PROMELA-TEST is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = someInCrit .
+
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('disp, 0) |-> loc(0)), (lval('serv, 0) |-> loc(1)),
+             (lval('crit, 0) |-> loc(2)), (lval('tick, 0) |-> loc(3))) .
+  eq env1 = ((lval('disp, 0) |-> loc(0)), (lval('serv, 0) |-> loc(1)),
+             (lval('crit, 0) |-> loc(2)), (lval('tick, 0) |-> loc(4))) .
+
+  ops CYCLE0 CYCLE1 : -> Seq .
+  eq CYCLE0 = ( atomic{ ('tick = 'disp) ; ('disp = 'disp + # 1) ; .Decls } ;
+                atomic{ ('tick == 'serv) ; ('crit = 'crit + # 1) ; .Decls } ;
+                atomic{ ('serv = 'serv + # 1) ; ('crit = 'crit - # 1) ; .Decls } ;
+                .Decls ) .
+  eq CYCLE1 = CYCLE0 .
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+      proc(pid(0) name('P0) k( CYCLE0 ~> .K ) local(nil) env(env0))
+      proc(pid(1) name('P1) k( CYCLE1 ~> .K ) local(nil) env(env1)) )
+    store(((0 |-> # 0), (1 |-> # 0), (2 |-> # 0), (3 |-> # 0), (4 |-> # 0)))
+    network(empty) lock(#none) active(0 1)
+    nextLoc(5) nextPid(2) nextBCid(0) nextHCid(0) ] .
+endm

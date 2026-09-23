@@ -1,0 +1,193 @@
+*** <name> ... </name> -> op name : <payload> -> KConfigItem [ctor]
+
+load k-prelude.maude .
+
+
+--- syntax KItem ::= gotoCtx(Bool, K) // Bool indicates wherether K is in an atomic block   (line 383)
+fmod PROMELA-GOTOCTX is
+  protecting K-COMPUTATION .
+  protecting BOOL .
+
+  sort GotoCtx .
+  op gotoCtx : Bool K -> GotoCtx [ctor] .
+endfm
+
+
+--- TRIV views binding user sorts as parametric-map elements; no promela.k line
+view PROMELA-Id from TRIV to PROMELA-ID is
+  sort Elt to Id .
+endv
+
+view PROMELA-Value from TRIV to PROMELA-VALUE is
+  sort Elt to Value .
+endv
+
+view PROMELA-Chan from TRIV to PROMELA-CHAN is
+  sort Elt to Chan .
+endv
+
+view PROMELA-Loc from TRIV to PROMELA-LOC is
+  sort Elt to Loc .
+endv
+
+view PROMELA-Msg from TRIV to PROMELA-MSG is
+  sort Elt to Msg .
+endv
+
+view PROMELA-Queue from TRIV to PROMELA-QUEUE is
+  sort Elt to Queue .
+endv
+
+view PROMELA-LVal from TRIV to PROMELA-LVAL is
+  sort Elt to LVal .
+endv
+
+view PROMELA-Ref from TRIV to PROMELA-REF is
+  sort Elt to Ref .
+endv
+
+view PROMELA-GotoCtx from TRIV to PROMELA-GOTOCTX is
+  sort Elt to GotoCtx .
+endv
+
+
+fmod PROMELA-EFFECT-MARKER is
+  protecting PROMELA-STMT-DECL .
+  protecting K-COMPUTATION .
+  protecting PROMELA-MSG .
+
+  --- Stmt/Seq lifted into KLabel; Maude encoding, no promela.k line
+  subsorts Stmt Seq < KLabel .
+
+  --- syntax KItem ::= #run(Id, K) | "#wait" | "#done" | #init(Decls, List)   (line 144)
+  op #run : Id ValueList -> KLabel [ctor] .
+  op #wait : -> KLabel [ctor] .
+  op #done : -> KLabel [ctor] .
+  op #init : Decls ValueList -> KLabel [ctor] .
+  --- syntax KItem ::= "#rel"                                 (line 367)
+  op #rel : -> KLabel [ctor] .
+  --- syntax KItem ::= #assign(Id, Expr, Expr)                (line 404)
+  op #assign : Id Expr Expr -> KLabel [ctor] .
+  --- syntax KItem ::= #send(Ref, Exprs)
+  --- | #sendMsg(Chan, Msg)
+  --- | #recv(Ref, Exprs)
+  --- | #recvMsg(Exprs, Msg)                                  (lines 432-435)
+  op #send : Expr Exprs -> KLabel [ctor] .
+  op #sendMsg : Chan Msg -> KLabel [ctor] .
+  op #recv : Expr Exprs -> KLabel [ctor] .
+  op #recvMsg : Exprs Msg -> KLabel [ctor] .
+  --- syntax KItem ::= #toss(Int)                             (line 610)
+  op #toss : Int -> KLabel [ctor] .
+  --- syntax KItem ::= "#freeze"                              (line 624)
+  op #freeze : -> KLabel [ctor] .
+endfm
+
+
+--- <local color="orange"> .Set </local>                     (line 112)
+fmod PROMELA-LOCAL-SET is
+  protecting PROMELA-ID .
+  protecting PROMELA-MSG .
+
+  sort SetId .
+  subsorts EmptyList Id < SetId .
+  op _,_ : SetId SetId -> SetId [ctor ditto] .
+endfm
+
+
+--- env/store/network/gotoMap as prelude Map, active as List; no promela.k line
+fmod PROMELA-MAPS is
+  protecting PROMELA-LVAL .
+  protecting PROMELA-REF .
+  protecting PROMELA-GOTOCTX .
+  protecting PROMELA-QUEUE .
+  protecting MAP{PROMELA-LVal, PROMELA-Ref} .
+  protecting MAP{PROMELA-Id, PROMELA-GotoCtx} .
+  protecting MAP{Nat, PROMELA-Value} .
+  protecting MAP{Nat, PROMELA-Queue} .
+  protecting LIST{Int} .
+endfm
+
+
+fmod PROMELA-PROC is
+  protecting K-CONFIG .
+  protecting PROMELA-MAPS .
+  protecting PROMELA-LOCAL-SET .
+
+  --- <proc multiplicity="*" type="Map" color="orange" initial="">   (line 108)
+  op proc : KConfig -> KConfigItem [ctor] .
+  --- <pid> -1 </pid>                                         (line 109)
+  op pid : Int -> KConfigItem [ctor] .
+  --- <name> Main </name>                                    (line 110)
+  op name : Id -> KConfigItem [ctor] .
+  --- <k color="green"> $PGM:Spec </k>                        (line 111)
+  op k : K -> KConfigItem [ctor] .
+  --- <local color="orange"> .Set </local>                    (line 112)
+  op local : SetId -> KConfigItem [ctor] .
+  --- <env color="orange"> .Map </env>                        (line 113)
+  op env : Map{PROMELA-LVal, PROMELA-Ref} -> KConfigItem [ctor] .
+endfm
+
+
+fmod PROMELA-PROCTYPE is
+  protecting K-CONFIG .
+  protecting PROMELA-MAPS .
+  protecting PROMELA-STMT-DECL .
+
+  --- <proctype multiplicity="*" type="Map" initial="">       (line 98)
+  op proctype : KConfig -> KConfigItem [ctor] .
+  --- <procName> Main </procName>                             (line 99)
+  op procName : Id -> KConfigItem [ctor] .
+  --- <procParams> .Decls </procParams>                       (line 100)
+  op procParams : Decls -> KConfigItem [ctor] .
+  --- <procBody> .K </procBody> // skip:BasicStmt doesn't allow Stmt's in general   (line 101)
+  op procBody : K -> KConfigItem [ctor] .
+  --- <gotoMap> .Map </gotoMap>                               (line 102)
+  op gotoMap : Map{PROMELA-Id, PROMELA-GotoCtx} -> KConfigItem [ctor] .
+endfm
+
+
+fmod PROMELA-CONFIG is
+  protecting PROMELA-PROC .
+  protecting PROMELA-PROCTYPE .
+  protecting PROMELA-LOCK .
+
+  --- configuration <T color="yellow">                        (line 95)
+  sort GlobalState .
+  op [_] : KConfig -> GlobalState [ctor] .
+
+  --- <procs>                                                 (line 107)
+  op procs : KConfig -> KConfigItem [ctor] .
+  --- <proctypes>                                             (line 97)
+  op proctypes : KConfig -> KConfigItem [ctor] .
+
+  --- <store color="Salmon"> .Map </store>                    (line 117)
+  op store : Map{Nat, PROMELA-Value} -> KConfigItem [ctor] .
+  --- <network color="Salmon"> .Map </network>                (line 118)
+  op network : Map{Nat, PROMELA-Queue} -> KConfigItem [ctor] .
+  --- <lock> -1:Lock </lock>                                  (line 120)
+  op lock : Lock -> KConfigItem [ctor] .
+  --- <active> .List:List </active>                           (line 122)
+  op active : List{Int} -> KConfigItem [ctor] .
+  --- <nextLoc> 0 </nextLoc>                                  (line 124)
+  op nextLoc : Int -> KConfigItem [ctor] .
+  --- <nextPid> 0 </nextPid>                                  (line 125)
+  op nextPid : Int -> KConfigItem [ctor] .
+  --- <nextBCid> 0 </nextBCid>                                (line 126)
+  op nextBCid : Int -> KConfigItem [ctor] .
+  --- <nextHCid> 0 </nextHCid>                                (line 127)
+  op nextHCid : Int -> KConfigItem [ctor] .
+
+  --- syntax Map ::= gEnv(Map, Set) [function] // remove local variables from ENV   (line 135)
+  op gEnv : Map{PROMELA-LVal, PROMELA-Ref} SetId -> Map{PROMELA-LVal, PROMELA-Ref} .
+
+  var X : Id .
+  var I : Int .
+  var R : Ref .
+  var ENV : Map{PROMELA-LVal, PROMELA-Ref} .
+  var LOCAL : SetId .
+
+  --- rule gEnv((lval(X:Id, _) |-> _) M, SetItem(X) S) => gEnv(M, SetItem(X) S)   (line 136)
+  eq gEnv(((lval(X, I) |-> R), ENV), (X, LOCAL)) = gEnv(ENV, (X, LOCAL)) .
+  --- rule gEnv(M, _) => M [owise]                            (line 137)
+  eq gEnv(ENV, LOCAL) = ENV [owise] .
+endfm

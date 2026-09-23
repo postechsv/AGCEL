@@ -1,0 +1,507 @@
+*** =============================================================================
+*** TESTS-ALL.MAUDE — consolidated + extended coverage
+*** Part 1: migrated from tests.maude / tests-extended.maude (current config).
+*** Part 2: new tests, one per rule uncovered by Part 1.
+*** =============================================================================
+
+load promela-semantics.maude .
+
+*** =============================================================================
+*** TESTS.MAUDE — End-to-end semantic validation
+*** =============================================================================
+*** Each test prints a result. Compare to the comment "Expect" before each.
+*** Run: maude -no-banner tests.maude
+***
+*** Task 4 migration: surface syntax updated to the new multiset configuration
+*** and the `#_` Value wrapper convention. Test logic unchanged.
+***
+*** Reviewed restructure: backend split across five files (load chain
+*** promela-syntax -> k-prelude -> promela-config -> promela-functions ->
+*** promela-semantics). Item 1 collapsed the nested-cell sorts into the general
+*** KConfig scheme, so an empty cell-multiset is `none`; the only test surface
+*** that changed is the empty proctypes literal -> proctypes(none). Baseline
+*** preserved: 28 result lines.
+*** =============================================================================
+
+
+*** -----------------------------------------------------------------------------
+*** Test 1: Arithmetic evaluation
+*** -----------------------------------------------------------------------------
+*** Expect: # 7
+red in PROMELA-EVAL : eval(# 3 + # 4, empty, empty, empty) .
+
+*** Expect: # -1   (5 - 6 = -1)
+red in PROMELA-EVAL : eval(# 5 - # 6, empty, empty, empty) .
+
+*** Expect: # 20
+red in PROMELA-EVAL : eval(# 4 * # 5, empty, empty, empty) .
+
+*** Expect: # 3   (10 / 3 = 3 with quo)
+red in PROMELA-EVAL : eval(# 10 / # 3, empty, empty, empty) .
+
+*** Nested arithmetic: (2 + 3) * 4 = 20
+*** Expect: # 20
+red in PROMELA-EVAL : eval((# 2 + # 3) * # 4, empty, empty, empty) .
+
+*** -----------------------------------------------------------------------------
+*** Test 2: Boolean evaluation
+*** -----------------------------------------------------------------------------
+*** Expect: # true
+red in PROMELA-EVAL : eval(# 5 > # 2, empty, empty, empty) .
+
+*** Expect: # false
+red in PROMELA-EVAL : eval(# 2 > # 5, empty, empty, empty) .
+
+*** Expect: # true
+red in PROMELA-EVAL : eval(# 3 == # 3, empty, empty, empty) .
+
+*** Expect: # false
+red in PROMELA-EVAL : eval(# 3 != # 3, empty, empty, empty) .
+
+*** Logical: !(true) = false
+*** Expect: # false
+red in PROMELA-EVAL : eval(! # true, empty, empty, empty) .
+
+*** Logical: true && false = false
+*** Expect: # false
+red in PROMELA-EVAL : eval(# true && # false, empty, empty, empty) .
+
+*** Combined: (3 < 5) && (4 > 2)
+*** Expect: # true
+red in PROMELA-EVAL : eval((# 3 < # 5) && (# 4 > # 2), empty, empty, empty) .
+
+*** -----------------------------------------------------------------------------
+*** Test 3: Variable lookup
+*** -----------------------------------------------------------------------------
+*** Env: 'x[# 0] -> loc(1), Store: 1 -> # 42
+*** Expect: # 42
+red in PROMELA-EVAL : eval('x, (lval('x, 0) |-> loc(1)),
+                            (1 |-> # 42), empty) .
+
+*** Expect: # 42  (X[0] form)
+red in PROMELA-EVAL : eval('x[# 0], (lval('x, 0) |-> loc(1)),
+                            (1 |-> # 42), empty) .
+
+*** Variable in arithmetic: x + 8 where x = 42
+*** Expect: # 50
+red in PROMELA-EVAL : eval('x + # 8, (lval('x, 0) |-> loc(1)),
+                            (1 |-> # 42), empty) .
+
+*** -----------------------------------------------------------------------------
+*** Test 4: Variable assignment via #assign rules
+*** Initial: x has value # 10 at loc(1)
+*** Action:  #assign('x, # 0, # 99)
+*** Expect:  store 1 |-> # 99, K = .K
+*** -----------------------------------------------------------------------------
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(#assign('x, # 0, # 99) ~> .K)
+               local(nil) env(lval('x, 0) |-> loc(1))))
+    store(1 |-> # 10) network(empty)
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(0) nextBCid(0) nextHCid(0)] .
+
+*** -----------------------------------------------------------------------------
+*** Test 5: Channel send + receive sequence
+*** Setup: channel ch(0) capacity 2, empty initially
+*** Sender:   #send('c[# 0], # 7)
+*** Receiver: #recv('c[# 0], 'y)
+*** Expect: y has value # 7, channel empty after recv, both Ks .K
+*** -----------------------------------------------------------------------------
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(#send('c[# 0], # 7) ~> .K)
+               local(nil) env(lval('c, 0) |-> ch(0)))
+          proc(pid(1) name('Q) k(#recv('c[# 0], 'y) ~> .K)
+               local(nil) env(((lval('c, 0) |-> ch(0)), (lval('y, 0) |-> loc(1))))))
+    store(1 |-> # 0) network(0 |-> mq(2, nil))
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(2) nextBCid(1) nextHCid(0)] .
+
+*** -----------------------------------------------------------------------------
+*** Test 6: If-branch generation via load
+*** Expect: BranchSet with two @[skip] branches
+*** -----------------------------------------------------------------------------
+red in PROMELA-LOAD :
+    load(true, (if (:: skip ; .Decls) (:: skip ; .Decls) fi) ~> .K) .
+
+*** -----------------------------------------------------------------------------
+*** Test 7: Do-loop unrolling
+*** Expect: load expands do to if + recursive do
+*** -----------------------------------------------------------------------------
+red in PROMELA-LOAD :
+    load(true, (do (:: skip ; break ; .Decls) od) ~> .K) .
+
+*** -----------------------------------------------------------------------------
+*** Test 8: Process spawn via [run] rule
+*** Setup: proctype 'Worker registered, P0 calls run Worker()
+*** Expect: state has new proc 1 (Worker), nextPid becomes 2, ACT contains 1
+*** -----------------------------------------------------------------------------
+rew in PROMELA-SEMANTICS :
+    [proctypes(proctype(procName('Worker) procParams(.Decls)
+                       procBody(skip ~> .K) gotoMap(empty)))
+    procs(proc(pid(0) name('Main) k(#run('Worker, nil) ~> .K)
+               local(nil) env(empty)))
+    store(empty) network(empty)
+    lock(#none) active(0)
+    nextLoc(0) nextPid(1) nextBCid(0) nextHCid(0)] .
+
+*** -----------------------------------------------------------------------------
+*** Test 9: Guard expression — true case via # true
+*** Expect: true
+*** -----------------------------------------------------------------------------
+red in PROMELA-EXEC :
+    isExec(# true, empty, empty, empty, 0) .
+
+*** Guard — false case (# false)
+*** Expect: false
+red in PROMELA-EXEC :
+    isExec(# false, empty, empty, empty, 0) .
+
+*** Guard — comparison evaluating to true
+*** Expect: true
+red in PROMELA-EXEC :
+    isExec(# 5 > # 2, empty, empty, empty, 0) .
+
+*** Guard — comparison evaluating to false (blocking)
+*** Expect: false
+red in PROMELA-EXEC :
+    isExec(# 2 > # 5, empty, empty, empty, 0) .
+
+*** -----------------------------------------------------------------------------
+*** Test 10: BranchSet identity (sanity check from Phase 3 regression gate)
+*** Expect: @[.K]
+*** -----------------------------------------------------------------------------
+red in PROMELA-SEMANTICS : @[.K] .BranchSet .
+red in PROMELA-SEMANTICS : .BranchSet @[.K] .
+
+*** -----------------------------------------------------------------------------
+*** Test 11: End-to-end fire — guard true case
+*** Setup: process P with branch [@[# true]] sitting at K head.
+*** [fire] consumes the branch, runs effect (.K for boolean literal),
+*** leaving the process at .K with PID as the new lock.
+*** Expect: K reduces to .K, lock = 0
+*** -----------------------------------------------------------------------------
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(@[ # true ]) local(nil) env(empty)))
+    store(empty) network(empty)
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(1) nextBCid(0) nextHCid(0)] .
+
+*** -----------------------------------------------------------------------------
+*** Test 12: End-to-end fire — guard false case (blocking)
+*** Setup: same shape but # false — isExec returns false, fire blocks.
+*** Expect: branch remains @[# false], no rule fires productively
+*** -----------------------------------------------------------------------------
+rew [1] in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(@[ # false ]) local(nil) env(empty)))
+    store(empty) network(empty)
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(1) nextBCid(0) nextHCid(0)] .
+
+
+*** =============================================================================
+*** TESTS-EXTENDED.MAUDE — Extended semantic validation
+*** =============================================================================
+*** Builds on tests.maude with scenarios drawn from the bakery, qlock, and
+*** filter case studies. Focus: control flow, multi-step interactions, and
+*** mutual-exclusion patterns.
+***
+*** Task 4 migration: surface syntax updated to the new multiset configuration
+*** and the `#_` Value wrapper convention. Test logic unchanged.
+*** =============================================================================
+
+
+*** -----------------------------------------------------------------------------
+*** Test E1: Multi-step assignment via load -> fire -> assign-* chain
+*** Maps PROMELA  "x = x + 1;"  starting from a Stmt at K head.
+*** Initial:  x at loc(1) = # 5
+*** Action:   ('x = 'x + # 1) ~> .K
+*** Expect:   store 1 |-> # 6
+*** -----------------------------------------------------------------------------
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(('x = 'x + # 1) ~> .K) local(nil)
+               env(lval('x, 0) |-> loc(1))))
+    store(1 |-> # 5) network(empty)
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(0) nextBCid(0) nextHCid(0)] .
+
+*** -----------------------------------------------------------------------------
+*** Test E2: Atomic block executes both statements with no observable interleave
+*** Initial:  x = # 0, y = # 0
+*** Action:   atomic { x = x + 1 ; y = y + 1 }
+*** Expect:   store 1 |-> # 1, 2 |-> # 1
+*** -----------------------------------------------------------------------------
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P)
+               k(atomic{ ('x = 'x + # 1) ; ('y = 'y + # 1) ; .Decls } ~> .K)
+               local(nil)
+               env(((lval('x, 0) |-> loc(1)), (lval('y, 0) |-> loc(2))))))
+    store(((1 |-> # 0), (2 |-> # 0))) network(empty)
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(0) nextBCid(0) nextHCid(0)] .
+
+*** -----------------------------------------------------------------------------
+*** Test E3: If-statement selects the executable guard
+*** Initial:  x = # 7
+*** Action:   if :: x > 10 -> y = 1 :: x > 5 -> y = 2 fi
+*** Only the second branch is enabled (x > 5 = true, x > 10 = false).
+*** Expect:   store has y = # 2
+*** -----------------------------------------------------------------------------
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P)
+               k((if (:: ('x > # 10) ; ('y = # 1) ; .Decls)
+                     (:: ('x > # 5)  ; ('y = # 2) ; .Decls)
+                  fi) ~> .K)
+               local(nil)
+               env(((lval('x, 0) |-> loc(1)), (lval('y, 0) |-> loc(2))))))
+    store(((1 |-> # 7), (2 |-> # 0))) network(empty)
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(0) nextBCid(0) nextHCid(0)] .
+
+*** -----------------------------------------------------------------------------
+*** Test E4: Buffered channel — direct #send sequence
+*** Action:  three #send markers in K continuation (bypassing [fire]/isExec).
+*** Expect:  all three messages pushed to queue. Capacity is NOT enforced by
+*** [send-push] alone — capacity check is in isExec, which is consulted only
+*** by [fire] when a guarded send is loaded as a branch. Direct #send markers
+*** in the K continuation skip that gate. The original PROMELA semantics
+*** ensures capacity through the load+fire path; raw #send is internal.
+*** -----------------------------------------------------------------------------
+rew [10] in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P)
+               k(#send('c[# 0], # 1) ~>
+                 #send('c[# 0], # 2) ~>
+                 #send('c[# 0], # 3) ~> .K)
+               local(nil)
+               env(lval('c, 0) |-> ch(0))))
+    store(empty) network(0 |-> mq(2, nil))
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(1) nextBCid(1) nextHCid(0)] .
+
+*** -----------------------------------------------------------------------------
+*** Test E5: matchMsg — pattern-vs-value matching
+*** -----------------------------------------------------------------------------
+*** Exact value match
+*** Expect: true
+red in PROMELA-EVAL :
+    matchMsg((# 1, # 2), (# 1, # 2)) .
+
+*** Mismatched values
+*** Expect: false
+red in PROMELA-EVAL :
+    matchMsg((# 1, # 2), (# 1, # 99)) .
+
+*** Variable wildcard: variable absorbs any value
+*** Expect: true
+red in PROMELA-EVAL :
+    matchMsg(('x, # 2), (# 7, # 2)) .
+
+*** Length mismatch
+*** Expect: false
+red in PROMELA-EVAL :
+    matchMsg((# 1, # 2), (# 1, # 2, # 3)) .
+
+*** -----------------------------------------------------------------------------
+*** Test E6: Two processes — interleaving on independent variables
+*** Two processes each increment their own variable.
+*** Expect: both x and y reach # 1
+*** -----------------------------------------------------------------------------
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(('x = # 1) ~> .K) local(nil)
+               env(lval('x, 0) |-> loc(1)))
+          proc(pid(1) name('Q) k(('y = # 1) ~> .K) local(nil)
+               env(lval('y, 0) |-> loc(2))))
+    store(((1 |-> # 0), (2 |-> # 0))) network(empty)
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(2) nextBCid(0) nextHCid(0)] .
+
+*** -----------------------------------------------------------------------------
+*** Test E7: Search — confirm reachability of a target configuration shape.
+*** The search expects to find one state where both procs are at .K, store
+*** holds the incremented values, and lock has been released. Uses the new
+*** multiset target pattern (configuration cells juxtaposed).
+*** -----------------------------------------------------------------------------
+search [1] in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(('x = # 1) ~> .K) local(nil)
+               env(lval('x, 0) |-> loc(1)))
+          proc(pid(1) name('Q) k(('y = # 1) ~> .K) local(nil)
+               env(lval('y, 0) |-> loc(2))))
+    store(((1 |-> # 0), (2 |-> # 0))) network(empty)
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(2) nextBCid(0) nextHCid(0)]
+    =>* [procs(proc(pid(0) name('P) k(.K) local(nil) env(lval('x, 0) |-> loc(1)))
+              proc(pid(1) name('Q) k(.K) local(nil) env(lval('y, 0) |-> loc(2))))
+        store(((1 |-> # 1), (2 |-> # 1))) network(empty)
+        lock(L:Lock) active(nil)
+        nextLoc(0) nextPid(2) nextBCid(0) nextHCid(0)
+        proctypes(none)] .
+
+*** -----------------------------------------------------------------------------
+*** Test E8: Mutual exclusion micro-pattern (qlock-style turn flag)
+*** Two processes each guard on turn == own_pid; the lock taker sets turn back.
+*** This is a single-step demo: only the process whose pid matches turn
+*** can execute its critical-section assignment.
+*** Initial: turn = # 0
+*** Action:   P0 has guard (turn == 0) ; cs = 0, P1 has guard (turn == 1) ; cs = 1
+*** Expect:   only P0's update fires (turn=0 makes P0's guard true, P1's false)
+*** -----------------------------------------------------------------------------
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P)
+               k((('turn == # 0) ; ('cs = # 0) ; .Decls) ~> .K)
+               local(nil)
+               env(((lval('turn, 0) |-> loc(1)), (lval('cs, 0) |-> loc(2)))))
+          proc(pid(1) name('Q)
+               k((('turn == # 1) ; ('cs = # 1) ; .Decls) ~> .K)
+               local(nil)
+               env(((lval('turn, 0) |-> loc(1)), (lval('cs, 0) |-> loc(2))))))
+    store(((1 |-> # 0), (2 |-> # 99))) network(empty)
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(2) nextBCid(0) nextHCid(0)] .
+
+*** -----------------------------------------------------------------------------
+*** Test E9: Goto via gotoMap — jump to labeled continuation
+*** Setup:  proctype 'P with a label 'L mapped to an assignment continuation.
+*** Action: process executes 'goto L'
+*** Expect: process K becomes the labeled continuation; lock state preserved
+*** -----------------------------------------------------------------------------
+rew in PROMELA-SEMANTICS :
+    [proctypes(proctype(procName('P) procParams(.Decls) procBody(skip ~> .K)
+                       gotoMap('L |-> gotoCtx(false, ('x = # 42) ~> .K))))
+    procs(proc(pid(0) name('P) k(goto 'L ~> .K) local(nil)
+               env(lval('x, 0) |-> loc(1))))
+    store(1 |-> # 0) network(empty)
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(1) nextBCid(0) nextHCid(0)] .
+
+*** -----------------------------------------------------------------------------
+*** Test E10: Do-loop with break
+*** Action: do :: skip ; break ; .Decls od
+*** Expect: loop unrolls once, break fires, K becomes .K
+*** -----------------------------------------------------------------------------
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P)
+               k((do (:: skip ; break ; .Decls) od) ~> .K)
+               local(nil) env(empty)))
+    store(empty) network(empty)
+    lock(#none) active(nil)
+    nextLoc(0) nextPid(1) nextBCid(0) nextHCid(0)] .
+
+
+*** =============================================================================
+*** PART 2 — NEW TESTS (one per rule uncovered by Part 1)
+*** Coverage gaps found in promela-semantics.maude:
+***   [hs-fire] [toss1] [toss2] [loose] [assign-eval-index] [assign-chan]
+***   [recvMsg-match] [recvMsg-assign] [break-prop] [run-eval] [freeze]
+*** (load-break is exercised structurally by E10's do-loop body.)
+*** =============================================================================
+
+*** N1 [hs-fire]: rendezvous send/recv pair over hs(0); both branches fire.
+*** Expect: both procs reach .K, store 1 |-> # 7 (y received the sent value).
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k((@[ 'c[# 0] ! # 7 ~> .K ] .BranchSet) ~> .K)
+               local(nil) env(lval('c, 0) |-> hs(0)))
+          proc(pid(1) name('Q) k((@[ 'c[# 0] ? 'y ~> .K ] .BranchSet) ~> .K)
+               local(nil) env(((lval('c, 0) |-> hs(0)), (lval('y, 0) |-> loc(1))))))
+    store(1 |-> # 0) network(empty) lock(#none) active(nil)
+    nextLoc(0) nextPid(2) nextBCid(0) nextHCid(1)] .
+
+*** N2 [toss2]: #toss(I) ~> #rel restores the lock to I (then [loose] may release).
+*** Expect: k(.K) reached (toss2 fired; otherwise the marker pair would be stuck).
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(#toss(7) ~> #rel ~> .K) local(nil) env(empty)))
+    store(empty) network(empty) lock(#none) active(nil)
+    nextLoc(0) nextPid(1) nextBCid(0) nextHCid(0)] .
+
+*** N3 [toss1]: #toss bubbles right past a non-#rel KItem; #wait (no partner) then blocks it.
+*** Expect: k(#wait ~> #toss(7) ~> #rel ~> .K)  (one step, then stuck — faithful to K:611).
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(#toss(7) ~> #wait ~> #rel ~> .K) local(nil) env(empty)))
+    store(empty) network(empty) lock(#none) active(nil)
+    nextLoc(0) nextPid(1) nextBCid(0) nextHCid(0)] .
+
+*** N4 [loose]: a held integer lock is released with no enabled process.
+*** Expect: lock(#none).
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(.K) local(nil) env(empty)))
+    store(empty) network(empty) lock(@ 3) active(nil)
+    nextLoc(0) nextPid(1) nextBCid(0) nextHCid(0)] .
+
+*** N5 [assign-eval-index]: non-Value index expression is evaluated before the store.
+*** Expect: store 1 |-> # 5.
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(#assign('x, (# 0 + # 0), # 5) ~> .K)
+               local(nil) env(lval('x, 0) |-> loc(1))))
+    store(1 |-> # 9) network(empty) lock(#none) active(nil)
+    nextLoc(0) nextPid(0) nextBCid(0) nextHCid(0)] .
+
+*** N6 [assign-chan]: a channel value is written into the env ref slot, not the store.
+*** Expect: env lval('c, 0) |-> ch(5).
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(#assign('c, # 0, # ch(5)) ~> .K)
+               local(nil) env(lval('c, 0) |-> ch(0))))
+    store(empty) network(empty) lock(#none) active(nil)
+    nextLoc(0) nextPid(0) nextBCid(0) nextHCid(0)] .
+
+*** N7 [recvMsg-match]: literal values in the recv pattern match message values.
+*** Expect: k(.K)  (both fields matched, then recvMsg-done).
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(#recvMsg((# 7, # 8), m((# 7, # 8))) ~> .K)
+               local(nil) env(empty)))
+    store(empty) network(empty) lock(#none) active(nil)
+    nextLoc(0) nextPid(0) nextBCid(0) nextHCid(0)] .
+
+*** N8 [recvMsg-assign]: an indexed recv target stores the received value.
+*** Expect: store 1 |-> # 7.
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(#recvMsg('x[# 0], m(# 7)) ~> .K)
+               local(nil) env(lval('x, 0) |-> loc(1))))
+    store(1 |-> # 0) network(empty) lock(#none) active(nil)
+    nextLoc(0) nextPid(0) nextBCid(0) nextHCid(0)] .
+
+*** N9 [break-prop]: break propagates past a non-do/od KItem (#rel), dropping it,
+*** then [break] consumes the enclosing do/od.
+*** Expect: k(.K).
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P)
+               k(break ~> #rel ~> (do (:: skip ; .Decls) od) ~> .K)
+               local(nil) env(empty)))
+    store(empty) network(empty) lock(#none) active(nil)
+    nextLoc(0) nextPid(0) nextBCid(0) nextHCid(0)] .
+
+*** N10 [run-eval]: run arguments (Exprs) are evaluated before the spawn.
+*** Expect: child proc 1 (W) spawned, nextPid 2, active 0 1.
+rew in PROMELA-SEMANTICS :
+    [proctypes(proctype(procName('W) procParams(.Decls) procBody(skip ~> .K) gotoMap(empty)))
+    procs(proc(pid(0) name('Main) k(#run('W, (# 1 + # 1)) ~> .K) local(nil) env(empty)))
+    store(empty) network(empty) lock(#none) active(0)
+    nextLoc(0) nextPid(1) nextBCid(0) nextHCid(0)] .
+
+*** N11 [freeze]: #freeze with a free lock freezes the lock and empties the active list.
+*** Expect: lock(#frozen), active(nil), k(.K).
+rew in PROMELA-SEMANTICS :
+    [proctypes(none)
+    procs(proc(pid(0) name('P) k(#freeze ~> .K) local(nil) env(empty)))
+    store(empty) network(empty) lock(#none) active(0)
+    nextLoc(0) nextPid(1) nextBCid(0) nextHCid(0)] .
+
+quit

@@ -1,0 +1,30 @@
+*** bufchan1.pml: buffered channel send/recv, 2 procs (hand-built post-INIT [...]).
+*** P0 sends 42 on cap-3 chan; P1 receives into x.
+*** Expected: xIs42 => solution.
+*** Constructs: buffered channel, [send-push], [recv-pop].
+
+load ../../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-BUFCHAN1 is
+  protecting PROMELA-CONFIG . protecting BOOL .
+  op xIs42 : GlobalState -> Bool .
+  eq xIs42([store((0 |-> # 42, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq xIs42(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-BUFCHAN1 is
+  protecting PROMELA-SEMANTICS . protecting BENCH-PROPS-BUFCHAN1 .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = (lval('c, 0) |-> ch(0)) .
+  eq env1 = ((lval('c, 0) |-> ch(0)), (lval('x, 0) |-> loc(0))) .
+  op body0 : -> Seq .  op body1 : -> Seq .
+  eq body0 = ( ('c ! # 42) ; .Decls ) .   eq body1 = ( ('c ? 'x) ; .Decls ) .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+          proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)))
+    store(0 |-> # 0) network((0 |-> mq(3, nil))) lock(#none) active(0 1)
+    nextLoc(1) nextPid(2) nextBCid(1) nextHCid(0) ] .
+endm
+
+search init =>* C:GlobalState such that xIs42(C:GlobalState) .

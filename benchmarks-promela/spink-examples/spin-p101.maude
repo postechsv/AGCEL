@@ -1,0 +1,31 @@
+*** spin-p101.pml: rendezvous multi-field match, 2 procs (hand-built post-INIT [...]).
+*** A sends (33,124); B recv-matches first field 33, assigns 2nd to state.
+*** Expected: stateIs124 => solution.
+*** Constructs: handshake channel, receive-match on a value field.
+
+load ../../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-SPIN-P101 is
+  protecting PROMELA-CONFIG . protecting BOOL .
+  op stateIs124 : GlobalState -> Bool .
+  eq stateIs124([store((0 |-> # 124, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq stateIs124(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-SPIN-P101 is
+  protecting PROMELA-SEMANTICS . protecting BENCH-PROPS-SPIN-P101 .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = (lval('name, 0) |-> hs(0)) .
+  eq env1 = ((lval('name, 0) |-> hs(0)), (lval('state, 0) |-> loc(0))) .
+  op body0 : -> Seq .  op body1 : -> Seq .
+  eq body0 = ( ('name[# 0] ! (# 33, # 124)) ; ('name[# 0] ! (# 33, # 121)) ; .Decls ) .
+  eq body1 = ( ('name[# 0] ? (# 33, 'state)) ; .Decls ) .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('A) k( body0 ~> .K ) local(nil) env(env0))
+          proc(pid(1) name('B) k( body1 ~> .K ) local(nil) env(env1)))
+    store(0 |-> # 0) network(empty) lock(#none) active(0 1)
+    nextLoc(1) nextPid(2) nextBCid(0) nextHCid(1) ] .
+endm
+
+search init =>* C:GlobalState such that stateIs124(C:GlobalState) .

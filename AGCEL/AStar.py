@@ -1,4 +1,13 @@
+import os
 import heapq
+
+_USE_FOCUS = bool(os.environ.get("AGCEL_FOCUS"))
+_LABELS = {}
+def _rule_labels(m):
+    k = id(m)
+    if k not in _LABELS:
+        _LABELS[k] = [r.getLabel() for r in m.getRules() if r.getLabel() is not None]
+    return _LABELS[k]
 
 class Node():
     def __init__(self, m, t):
@@ -28,16 +37,23 @@ class Node():
         obs.reduce()
         return obs
 
+    def get_focus(self):
+        labels = _rule_labels(self.m)
+        appl = [any(True for _ in self.t.apply(l)) for l in labels]
+        ft = tuple(sorted(l for l, a in zip(labels, appl) if a))
+        fv = [1.0 if a else 0.0 for a in appl]
+        return ft, fv
+
     def get_score(self, V): # V: Value function (State -> Score)
-        # obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
-        # obs.reduce()
-        # return V(obs, self.t)
         if getattr(V, 'needs_obs', True) is False:
             return V(None, self.t)
         if self._obs is None:
             self._ensure_key()
             self._obs = self.m.parseTerm('obs(' + self.key + ')')
             self._obs.reduce()
+        if _USE_FOCUS:
+            ft, fv = self.get_focus()
+            return V(self._obs, self.t, ft, fv)
         return V(self._obs, self.t)
 
     def get_next(self):

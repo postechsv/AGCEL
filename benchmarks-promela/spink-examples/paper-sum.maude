@@ -1,0 +1,22 @@
+*** paper-sum.pml: do-loop summation, 1 proc (hand-built post-INIT [...]).
+*** Deterministic: s := n + (n-1) + ... + 1 for n=5.
+*** Expected (rew): store 0 |-> # 0 (n), 1 |-> # 15 (s).
+*** Constructs: [load-do], arith, [break].
+
+load ../../semantics/promela-semantics.maude .
+
+mod BENCH-PAPER-SUM is
+  protecting PROMELA-SEMANTICS .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('n, 0) |-> loc(0)), (lval('s, 0) |-> loc(1))) .
+  op body0 : -> Seq .
+  eq body0 = ( do (:: (# 0 < 'n) ; ('s = 's + 'n) ; ('n = 'n - # 1) ; .Decls)
+                  (:: (# 0 >= 'n) ; break ; .Decls) od ) ; .Decls .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0)))
+    store(((0 |-> # 5), (1 |-> # 0))) network(empty) lock(#none) active(0)
+    nextLoc(2) nextPid(1) nextBCid(0) nextHCid(0) ] .
+endm
+
+rew init .

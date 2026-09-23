@@ -1,0 +1,61 @@
+*** Shared PROMELA-AGCEL predicate vocabulary + meta-free observation infra.
+*** Benchmarks: `protecting PROMELA-AGCEL`, add `subsort GlobalState < State`
+*** locally, and define their own obs / goal / reward.
+
+load promela-semantics.maude .
+load ../tool2.maude .
+
+mod PROMELA-AGCEL is
+  pr PROMELA-SEMANTICS .
+  inc SATISFACTION .
+
+  vars CFG PR INNER-REST PS : KConfig .
+  var STR : Map{Nat, PROMELA-Value} .
+  vars L V I : Int .
+  var X : Id .
+  var GS : GlobalState .
+  vars FV FV' : FeatVec .
+  var P : Prop .
+  var PL : PropList .
+  var B : Bool .
+  vars Q Q' : Qid .
+  var U : Univ .
+  var S : State .
+
+  --- meta-free observation infra: OBSERVATION does `pr META-LEVEL`, whose
+  --- META-TERM/LIST/SET reuse PROMELA object symbols with incompatible
+  --- attributes (unpatchable), so its meta-free ops are re-declared here.
+  op obs : State -> MDPState .
+  op obsUpto : State PropList -> FeatVec .
+  eq obsUpto(S, P ; PL) = (P : (S |= P)) , obsUpto(S, PL) .
+  eq obsUpto(S, nil) = nil .
+  op obs : Qid Qid Univ -> MDPActBinding? .
+  eq obs(Q, Q', U) = none [owise] .
+  eq < FV , (P : B) , FV' > |= P = B .
+
+  --- Common predicate vocabulary. The state side is GlobalState-typed; each
+  --- benchmark's local `subsort GlobalState < State` lets obsUpto's State-level
+  --- _|=_ dispatch to these equations. [frozen] matches tool2's _|=_ so the two
+  --- overloads merge cleanly once the subsort is added.
+  op _|=_ : GlobalState Prop -> Bool [frozen] .
+
+  --- varEq(name, storeIndex, value): store[storeIndex] = # value (name is a
+  --- vocabulary label; the index/value do the matching).
+  op varEq : Id Int Int -> Prop [ctor] .
+  eq ([ store((L |-> # V, STR)) CFG ]) |= varEq(X, L, V) = true .
+  eq GS |= varEq(X, L, V) = false [owise] .
+
+  --- locked(pid): the atomic lock is held by pid.
+  op locked : Int -> Prop [ctor] .
+  eq ([ lock(@ I) CFG ]) |= locked(I) = true .
+  eq GS |= locked(I) = false [owise] .
+
+  --- allDone: every process has an empty <k>.
+  op allDone : -> Prop [ctor] .
+  op allDoneAux : KConfig -> Bool .
+  eq allDoneAux(proc(INNER-REST k(.K)) PR) = allDoneAux(PR) .
+  eq allDoneAux(none) = true .
+  eq allDoneAux(PS) = false [owise] .
+  ceq ([ procs(PS) CFG ]) |= allDone = true if allDoneAux(PS) .
+  eq GS |= allDone = false [owise] .
+endm

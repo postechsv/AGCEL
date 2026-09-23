@@ -1,0 +1,30 @@
+*** handshake1.pml: rendezvous send/recv, 2 procs (hand-built post-INIT [...]).
+*** P0 sends 42 on handshake chan; P1 receives into x (rendezvous).
+*** Expected: xIs42 => solution.   [validates [hs-fire]/[toss1]]
+*** Constructs: handshake channel hs(0), [hs-fire].
+
+load ../../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-HANDSHAKE1 is
+  protecting PROMELA-CONFIG . protecting BOOL .
+  op xIs42 : GlobalState -> Bool .
+  eq xIs42([store((0 |-> # 42, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq xIs42(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-HANDSHAKE1 is
+  protecting PROMELA-SEMANTICS . protecting BENCH-PROPS-HANDSHAKE1 .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = (lval('c, 0) |-> hs(0)) .
+  eq env1 = ((lval('c, 0) |-> hs(0)), (lval('x, 0) |-> loc(0))) .
+  op body0 : -> Seq .  op body1 : -> Seq .
+  eq body0 = ( ('c[# 0] ! # 42) ; .Decls ) .   eq body1 = ( ('c[# 0] ? 'x) ; .Decls ) .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+          proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)))
+    store(0 |-> # 0) network(empty) lock(#none) active(0 1)
+    nextLoc(1) nextPid(2) nextBCid(0) nextHCid(1) ] .
+endm
+
+search init =>* C:GlobalState such that xIs42(C:GlobalState) .
