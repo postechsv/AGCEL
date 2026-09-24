@@ -1,4 +1,3 @@
-import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -101,8 +100,6 @@ class DQNLearner:
         self.state_encoder = state_encoder
         self.input_dim = input_dim
         self.num_actions = num_actions
-        self.use_focus = bool(os.environ.get("AGCEL_FOCUS"))
-        self.net_input_dim = input_dim + (num_actions if self.use_focus else 0)
 
         # detect device
         if device is None:
@@ -116,8 +113,8 @@ class DQNLearner:
             self.device = torch.device(device)
         
         # double DQN structure: q_network (online), target_network (moving copy)
-        self.q_network = DQN(self.net_input_dim, num_actions).to(self.device)
-        self.target_network = DQN(self.net_input_dim, num_actions).to(self.device)
+        self.q_network = DQN(input_dim, num_actions).to(self.device)
+        self.target_network = DQN(input_dim, num_actions).to(self.device)
         self.target_network.load_state_dict(self.q_network.state_dict())
         self.target_network.eval()
         
@@ -149,14 +146,9 @@ class DQNLearner:
         # cache for value function lookup during search
         self.value_cache = {}
    
-    def _encode(self, state, focus_vec=None):
-        """encode state, concatenating the focus (action-mask) vector when enabled."""
-        v = self.state_encoder(state)
-        if self.use_focus:
-            if focus_vec is None:
-                focus_vec = [0] * self.num_actions
-            v = torch.cat([v, torch.tensor(focus_vec, dtype=torch.float32)])
-        return v
+    def _encode(self, state):
+        """encode state via the state encoder."""
+        return self.state_encoder(state)
 
     def diagnose_buffer(self):
         """
@@ -199,7 +191,7 @@ class DQNLearner:
             return random.choice(legal_actions)
         else:
             with torch.no_grad():
-                state_tensor = self._encode(obs['state'], action_mask).unsqueeze(0).to(self.device)
+                state_tensor = self._encode(obs['state']).unsqueeze(0).to(self.device)
                 q_values = self.q_network(state_tensor).squeeze(0)
                 
                 # mask illegal actions
@@ -210,11 +202,10 @@ class DQNLearner:
                 
                 return masked_q_values.argmax().item()
     
-    def store_experience(self, state, action, reward, next_state, done,
-                         focus_vec=None, next_focus_vec=None):
+    def store_experience(self, state, action, reward, next_state, done):
         """store observed trainsition while in replay buffer while training"""
-        state_tensor = self._encode(state, focus_vec)
-        next_state_tensor = self._encode(next_state, next_focus_vec) if next_state is not None else torch.zeros_like(state_tensor)
+        state_tensor = self._encode(state)
+        next_state_tensor = self._encode(next_state) if next_state is not None else torch.zeros_like(state_tensor)
         
         self.replay_buffer.push(
             state_tensor,
@@ -313,9 +304,7 @@ class DQNLearner:
                     action_idx,
                     reward,
                     next_obs['state'] if not done else None,
-                    done,
-                    obs.get('focus_vec'),
-                    next_obs.get('focus_vec') if not done else None
+                    done
                 )
                 
                 if self.training_step % self.update_frequency == 0:
@@ -348,13 +337,13 @@ class DQNLearner:
         self.q_network.eval()
         
         @torch.no_grad()
-        def V(obs_term, g_state=None, focus_t=None, focus_v=None) -> float:
+        def V(obs_term, g_state=None) -> float:
             if obs_term is not None:
-                ck = (obs_term.prettyPrint(0), focus_t)
+                ck = obs_term.prettyPrint(0)
                 if ck in self.value_cache:
                     return self.value_cache[ck]
 
-            state_tensor = self._encode(obs_term, focus_v).unsqueeze(0).to(self.device)
+            state_tensor = self._encode(obs_term).unsqueeze(0).to(self.device)
             q_values = self.q_network(state_tensor).squeeze(0)
 
             if mode == "zero":

@@ -1,6 +1,8 @@
 *** rule [r] -> rl/crl [r]
 *** Configuration = procs(... PROC-REST) store(...) lock(...) ... CFG-REST
 *** Process = proc(pid(...) name(...) k(...) local(...) env(...))
+*** PENDING (spec item 14): action recording Top = KConfig x Action with
+*** exec(label, pid) on all 51 rules, per the dining N-DINING-PHILOSOPHERS2 template.
 
 load promela-functions.maude .
 

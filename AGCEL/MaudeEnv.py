@@ -74,24 +74,8 @@ class MaudeEnv():
         for t in acts:  # t = self.obs_act(rule label, substitution)
             if not any(t.equal(u) for u in out):
                 out.append(t)
-        return {'G_state': self.G_state, 'state': self.state,
-                'actions': out, 'focus': self.get_focus(),
-                'focus_vec': list(self._action_mask)}
+        return {'G_state': self.G_state, 'state': self.state, 'actions': out}
 
-
-    def get_focus(self, g_state=None):
-        """
-        focus = enabled-transition signature: the set of currently applicable
-        rule labels. Derived from the action mask already computed in reset()
-        via apply(label); no Maude canApply extractor is needed.
-        (return) sorted tuple of applicable rule labels
-        """
-        if g_state is None:
-            labels = [self.rules[i] for i, on in enumerate(self._action_mask) if on]
-        else:
-            labels = [lbl for lbl in self.rules if any(True for _ in g_state.apply(lbl))]
-        return tuple(sorted(set(labels)))
-    
 
     def is_done(self):
         """check if current state satisfies goal or is terminal"""

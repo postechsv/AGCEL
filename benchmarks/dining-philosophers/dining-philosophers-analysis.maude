@@ -1,21 +1,39 @@
 load ../../tool2 .
 load dining-philosophers .
 
-mod MODEL is
+--- focus is a proposition parameter, not an action: focusIds selects which ids
+--- are observed individually; all others collapse to *. mt = no-focus.
+fmod NAT-SET is
+  protecting NAT .
+  sort NatSet .
+  subsort Nat < NatSet .
+  op mt : -> NatSet [ctor] .
+  op _,_ : NatSet NatSet -> NatSet [ctor assoc comm id: mt] .
+  op _in_ : Nat NatSet -> Bool .
+  var N : Nat . var NS : NatSet .
+  eq N in (N , NS) = true .
+  eq N in NS = false [owise] .
+endfm
+
+--- fixed predicate module: parameterized enabled-rule predicates, never edited
+--- per focus. Nat?/* come from DINING-PHILOSOPHERS-BASE; focusIds is declared
+--- here and defined in thin including modules (mt = no-focus).
+mod DP-PREDS is
   pr N-DINING-PHILOSOPHERS .
+  pr NAT-SET .
   inc SATISFACTION .
-  inc OBSERVATION .
 
   subsort Conf < State .
 
   var S : State .
   var C : Conf .
   vars I J : Nat .
+  var NQ : Nat? .
+  var NS : NatSet .
 
-  --- Defining State Propositions ---
+  op focusIds : -> NatSet .
+
   op deadlock : -> Prop [ctor] .
-  --- ceq p(I, hungry) || C |= deadlock = true 
-  ---   if not canProgress(p(I, hungry) || C) .
   ceq S |= deadlock = true
     if canProgress(S) = false .
   eq S |= deadlock = false [owise] .
@@ -27,26 +45,48 @@ mod MODEL is
   eq canProgress(p(I, think) || C) = true .
   eq canProgress(C) = false [owise] .
 
-  op thLHS : -> Prop [ctor] .
-  eq p(I, think) || C |= thLHS = true .
-  eq S |= thLHS = false [owise] .
+  ops thLHS hsLHS seLHS etLHS : Nat? -> Prop [ctor] .
 
-  op hsLHS : -> Prop [ctor] .
-  ceq p(I, hungry) || c(J) || C |= hsLHS = true
-    if adj(I, J) = true .
-  eq S |= hsLHS = false [owise] .
+  ceq p(I, think) || C |= thLHS(I) = true if I in focusIds .
+  ceq p(I, think) || C |= thLHS(*) = true if not (I in focusIds) .
+  eq S |= thLHS(NQ) = false [owise] .
 
-  op seLHS : -> Prop [ctor] .
-  ceq p(I, single) || c(J) || C |= seLHS = true
-    if adj(I, J) = true .
-  eq S |= seLHS = false [owise] .
+  ceq p(I, hungry) || c(J) || C |= hsLHS(I) = true
+    if adj(I, J) = true /\ I in focusIds .
+  ceq p(I, hungry) || c(J) || C |= hsLHS(*) = true
+    if adj(I, J) = true /\ not (I in focusIds) .
+  eq S |= hsLHS(NQ) = false [owise] .
 
-  op etLHS : -> Prop [ctor] .
-  eq p(I, eat) || C |= etLHS = true .
-  eq S |= etLHS = false [owise] .
+  ceq p(I, single) || c(J) || C |= seLHS(I) = true
+    if adj(I, J) = true /\ I in focusIds .
+  ceq p(I, single) || c(J) || C |= seLHS(*) = true
+    if adj(I, J) = true /\ not (I in focusIds) .
+  eq S |= seLHS(NQ) = false [owise] .
 
-  --- Defining Observations ---
-  eq obs(S) = < obsUpto(S, thLHS ; hsLHS ; seLHS ; etLHS ; deadlock) > .
+  ceq p(I, eat) || C |= etLHS(I) = true if I in focusIds .
+  ceq p(I, eat) || C |= etLHS(*) = true if not (I in focusIds) .
+  eq S |= etLHS(NQ) = false [owise] .
+
+  --- PropList helpers driven by focusIds
+  op idProps : Nat? -> PropList .
+  eq idProps(NQ) = thLHS(NQ) ; hsLHS(NQ) ; seLHS(NQ) ; etLHS(NQ) .
+
+  op focusProps : NatSet -> PropList .
+  eq focusProps(mt) = nil .
+  eq focusProps((I , NS)) = idProps(I) ; focusProps(NS) .
+endm
+
+--- enabled-predicate observation model (State = Conf)
+mod MODEL is
+  pr DP-PREDS .
+  inc OBSERVATION .
+
+  var S : State .
+
+  op obsProps : -> PropList .
+  eq obsProps = focusProps(focusIds) ; idProps(*) ; deadlock .
+
+  eq obs(S) = < obsUpto(S, obsProps) > .
   eq reward(< FV:FeatVec , (deadlock : true) , FV':FeatVec >) = 1.0 .
   eq reward(MS:MDPState) = 0.0 [owise] .
   var P : Prop . var B : Bool .
@@ -82,4 +122,6 @@ mod DINING-PHILOSOPHERS-TEST is
   --- eq #N = 6 .
 endm
 
+--- focusIds is defined in thin modules: dining-philosophers-focus-mt.maude
+--- for no-focus, dining-philosophers-focus-12.maude for focus on ids 1,2.
 --- search [1] init =>* C:Conf such that C:Conf |= deadlock = true .

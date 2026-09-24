@@ -3,6 +3,10 @@ fmod DINING-PHILOSOPHERS-BASE is
   sorts Status .
   ops think hungry single eat : -> Status [ctor] .
 
+  --- focus parameter domain (shared by enabled predicates and action recording)
+  sort Nat? .  subsort Nat < Nat? .
+  op * : -> Nat? [ctor] .
+
   op #N : ~> Nat .  --- total number of philosophers
   vars I J : Nat .
 
@@ -42,4 +46,32 @@ mod N-DINING-PHILOSOPHERS is
    if adj(I,J) = true .
 
   rl [et]: p(I,eat) => p(I,think) || c(lc(I)) || c(rc(I)) .
+endm
+
+fmod DINING-PHILOSOPHERS-EXEC is
+  including DINING-PHILOSOPHERS-BASE .
+  sort RuleLabel .
+  ops th hs se et : -> RuleLabel [ctor] .
+  sort Action .
+  op noAct : -> Action [ctor] .
+  op exec : RuleLabel Nat? -> Action [ctor] .
+endfm
+
+mod N-DINING-PHILOSOPHERS2 is
+  including DINING-PHILOSOPHERS-EXEC .
+
+  vars I J : Nat .  var C : Conf .  var ACT : Action .
+
+  sort Top .
+  op {_|_} : Conf Action -> Top [ctor] .
+
+  rl [th]: {p(I,think) || C | ACT} => {p(I,hungry) || C | exec(th,I)} .
+
+ crl [hs]: {p(I,hungry) || c(J) || C | ACT} => {p(I,single) || C | exec(hs,I)}
+   if adj(I,J) = true .
+
+ crl [se]: {p(I,single) || c(J) || C | ACT} => {p(I,eat) || C | exec(se,I)}
+   if adj(I,J) = true .
+
+  rl [et]: {p(I,eat) || C | ACT} => {p(I,think) || c(lc(I)) || c(rc(I)) || C | exec(et,I)} .
 endm

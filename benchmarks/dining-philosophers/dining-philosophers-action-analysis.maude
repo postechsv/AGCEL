@@ -1,0 +1,63 @@
+load ../../tool2 .
+load dining-philosophers .
+load dining-philosophers-analysis .
+
+--- action-recording observation model (State = Top = Conf x Action).
+--- Enabled predicates are delegated through the {_|_} wrapper; execP observes
+--- the recorded action. obs = enabled predicates + execP instances + deadlock.
+mod ACTION-MODEL is
+  pr N-DINING-PHILOSOPHERS2 .
+  pr DP-PREDS .
+  inc OBSERVATION .
+
+  var C : Conf . var ACT : Action . var RL : RuleLabel .
+  var I : Nat . var NQ : Nat? . var NS : NatSet . var S : State .
+
+  subsort Top < State .
+
+  --- delegate enabled predicates + deadlock to the inner configuration
+  eq {C | ACT} |= thLHS(NQ) = C |= thLHS(NQ) .
+  eq {C | ACT} |= hsLHS(NQ) = C |= hsLHS(NQ) .
+  eq {C | ACT} |= seLHS(NQ) = C |= seLHS(NQ) .
+  eq {C | ACT} |= etLHS(NQ) = C |= etLHS(NQ) .
+  eq {C | ACT} |= deadlock = C |= deadlock .
+
+  --- action predicate (same focus pattern as the enabled predicates)
+  op execP : RuleLabel Nat? -> Prop [ctor] .
+  ceq {C | exec(RL,I)} |= execP(RL,I) = true if I in focusIds .
+  ceq {C | exec(RL,I)} |= execP(RL,*) = true if not (I in focusIds) .
+  eq S |= execP(RL,NQ) = false [owise] .
+
+  op execIdProps : Nat? -> PropList .
+  eq execIdProps(NQ) = execP(th,NQ) ; execP(hs,NQ) ; execP(se,NQ) ; execP(et,NQ) .
+  op execProps : NatSet -> PropList .
+  eq execProps(mt) = nil .
+  eq execProps((I , NS)) = execIdProps(I) ; execProps(NS) .
+
+  op obsProps : -> PropList .
+  eq obsProps = focusProps(focusIds) ; idProps(*)
+              ; execProps(focusIds) ; execIdProps(*) ; deadlock .
+
+  eq obs(S) = < obsUpto(S, obsProps) > .
+  eq reward(< FV:FeatVec , (deadlock : true) , FV':FeatVec >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+  var P : Prop . var B : Bool .
+  eq < FV:FeatVec , (P : B) , FV':FeatVec > |= P = B .
+endm
+
+--- concrete focus config for the action track; swap focusIds like the enabled
+--- thin modules to compare configurations.
+mod DINING-PHILOSOPHERS-ACTION-TEST is
+  including ACTION-MODEL .
+  eq focusIds = 1, 2 .
+
+  op goal : -> Prop .
+  eq goal = deadlock .
+
+  ops init3 init : -> Top .
+  eq init3 = {p(0, think) || p(1, think) || p(2, think) || c(0) || c(1) || c(2) | noAct} .
+  eq init = init3 .
+  eq #N = 3 .
+endm
+
+--- search [1] init =>* T:Top such that T:Top |= deadlock = true .

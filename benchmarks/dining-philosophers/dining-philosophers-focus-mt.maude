@@ -1,0 +1,7 @@
+load dining-philosophers-analysis .
+
+--- no-focus: every id collapses to *
+mod DINING-PHILOSOPHERS-FOCUS-MT is
+  including DINING-PHILOSOPHERS-TEST .
+  eq focusIds = mt .
+endm
