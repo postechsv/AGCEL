@@ -117,6 +117,14 @@ if __name__ == "__main__":
     num_samples  = int(sys.argv[4])
     output_pref  = sys.argv[5]
 
+    # fixed seed for reproducible runs (AGCEL_SEED); unset = nondeterministic
+    _seed = os.environ.get("AGCEL_SEED")
+    if _seed is not None:
+        _seed = int(_seed)
+        import random as _random, torch as _torch
+        _random.seed(_seed); np.random.seed(_seed); _torch.manual_seed(_seed)
+        print(f'  Seed            : {_seed}')
+
     trace_path = None
     sweep_mode = False
     

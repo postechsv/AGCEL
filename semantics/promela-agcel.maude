@@ -1,8 +1,10 @@
 *** Shared PROMELA-AGCEL predicate vocabulary + meta-free observation infra.
 *** Benchmarks: `protecting PROMELA-AGCEL`, add `subsort GlobalState < State`
 *** locally, and define their own obs / goal / reward.
-*** PENDING (spec item 13): NatSet/Nat?/focusIds parameterization by process id,
-*** following benchmarks/dining-philosophers/dining-philosophers-analysis.maude.
+--- OPEN item 8/12/13: NatSet/Nat?/focusIds parameterization by pid + rebuilt obs
+--- across the 6 benchmarks-promela/*-analysis files is a coupled multi-file change
+--- validated only by E3 (compute-infeasible this session). Deferred to avoid
+--- breaking the working analysis files; dining template is the reference.
 
 load promela-semantics.maude .
 load ../tool2.maude .

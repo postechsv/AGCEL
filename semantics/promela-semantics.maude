@@ -1,8 +1,13 @@
 *** rule [r] -> rl/crl [r]
 *** Configuration = procs(... PROC-REST) store(...) lock(...) ... CFG-REST
 *** Process = proc(pid(...) name(...) k(...) local(...) env(...))
-*** PENDING (spec item 14): action recording Top = KConfig x Action with
-*** exec(label, pid) on all 51 rules, per the dining N-DINING-PHILOSOPHERS2 template.
+*** OPEN item 9/10/11/14: a last(exec(label,pid)) cell wired into this shared
+*** module distinguishes states by firing rule, so PROMELA safety counts -- filter
+*** 801, qlock 782, chan 166, OTR 749 -- would change, conflicting with E4 which
+*** requires them unchanged. Correct approach is a SEPARATE augmented semantics
+*** module duplicating the 51 rules, per the #6 keep-originals principle, validated
+*** by E3 which is compute-infeasible this session. Deferred; dining
+*** N-DINING-PHILOSOPHERS2 is the reference template.
 
 load promela-functions.maude .
 

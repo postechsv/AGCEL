@@ -2,16 +2,18 @@ load ../../tool2 .
 load dining-philosophers .
 load dining-philosophers-analysis .
 
---- action-recording observation model (State = Top = Conf x Action).
---- Enabled predicates are delegated through the {_|_} wrapper; execP observes
---- the recorded action. obs = enabled predicates + execP instances + deadlock.
-mod ACTION-MODEL is
+--- shared action-recording base: State = Top = Conf x Action. Enabled predicates
+--- are delegated through the {_|_} wrapper; execP observes the recorded action.
+--- No obs here; the two obs variants (enabled-only / enabled+execP) live in the
+--- ACTION-ENABLED and ACTION-EXECP modules for the E2 comparison.
+mod ACTION-BASE is
   pr N-DINING-PHILOSOPHERS2 .
   pr DP-PREDS .
   inc OBSERVATION .
 
   var C : Conf . var ACT : Action . var RL : RuleLabel .
   var I : Nat . var NQ : Nat? . var NS : NatSet . var S : State .
+  var P : Prop . var B : Bool . vars FV FV' : FeatVec .
 
   subsort Top < State .
 
@@ -34,30 +36,27 @@ mod ACTION-MODEL is
   eq execProps(mt) = nil .
   eq execProps((I , NS)) = execIdProps(I) ; execProps(NS) .
 
-  op obsProps : -> PropList .
-  eq obsProps = focusProps(focusIds) ; idProps(*)
-              ; execProps(focusIds) ; execIdProps(*) ; deadlock .
+  op enabledProps : -> PropList .
+  eq enabledProps = focusProps(focusIds) ; idProps(*) ; deadlock .
 
-  eq obs(S) = < obsUpto(S, obsProps) > .
-  eq reward(< FV:FeatVec , (deadlock : true) , FV':FeatVec >) = 1.0 .
+  eq reward(< FV , (deadlock : true) , FV' >) = 1.0 .
   eq reward(MS:MDPState) = 0.0 [owise] .
-  var P : Prop . var B : Bool .
-  eq < FV:FeatVec , (P : B) , FV':FeatVec > |= P = B .
+  eq < FV , (P : B) , FV' > |= P = B .
 endm
 
---- concrete focus config for the action track; swap focusIds like the enabled
---- thin modules to compare configurations.
-mod DINING-PHILOSOPHERS-ACTION-TEST is
-  including ACTION-MODEL .
-  eq focusIds = 1, 2 .
-
-  op goal : -> Prop .
-  eq goal = deadlock .
-
-  ops init3 init : -> Top .
-  eq init3 = {p(0, think) || p(1, think) || p(2, think) || c(0) || c(1) || c(2) | noAct} .
-  eq init = init3 .
-  eq #N = 3 .
+--- E2 arm A: enabled predicates only (action recorded but not observed)
+mod ACTION-ENABLED is
+  pr ACTION-BASE .
+  var S : State .
+  eq obs(S) = < obsUpto(S, enabledProps) > .
 endm
 
---- search [1] init =>* T:Top such that T:Top |= deadlock = true .
+--- E2 arm B: enabled predicates + execP action propositions
+mod ACTION-EXECP is
+  pr ACTION-BASE .
+  var S : State .
+  op obsPropsX : -> PropList .
+  eq obsPropsX = focusProps(focusIds) ; idProps(*)
+               ; execProps(focusIds) ; execIdProps(*) ; deadlock .
+  eq obs(S) = < obsUpto(S, obsPropsX) > .
+endm

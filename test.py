@@ -129,6 +129,13 @@ if __name__ == "__main__":
     prop  = sys.argv[3]
     qtable_file = sys.argv[4]
 
+    # fixed seed for reproducible runs (AGCEL_SEED); unset = nondeterministic
+    _seed = os.environ.get("AGCEL_SEED")
+    if _seed is not None:
+        _seed = int(_seed)
+        import numpy as _np
+        random.seed(_seed); _np.random.seed(_seed); torch.manual_seed(_seed)
+
     mode = os.environ.get("MODE")
     if mode:
         maude.init()
