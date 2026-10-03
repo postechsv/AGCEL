@@ -95,8 +95,8 @@ class Search():
         vis.add(init_node)
 
         while True:
-            cnt += 1
             if que.is_empty(): return (False, cnt)
+            cnt += 1
             _, d, curr_node = que.pop()
 
             for next_node in curr_node.get_next():

@@ -49,6 +49,13 @@ class QLearner():
         if s in q_dict: # assume q_dict[t] is nonempty
             return max(q_dict[s].values())
         return self.q_init
+
+    def max_q_avail(self, s, actions):
+        """max Q(s, a) over the given (available) actions; q_init if there are none"""
+        d = self.q_dict.get(s)
+        if d is None or len(actions) == 0:
+            return self.q_init
+        return max(d.get(a, self.q_init) for a in actions)
     
     def get_size(self):
         # returns the number of nonzero entries in the QTable
@@ -213,10 +220,12 @@ class QLearner():
                 obs, reward, done = env.step(a)
                 ns = obs['state']
 
-                # Update Q(s,a) = Q(s,a) + lr [R(s,a) + gamma * max Q(s',a') - Q(s,a)]
+                # Update Q(s,a) = Q(s,a) + lr [R(s,a) + gamma * max Q(s',a') - Q(s,a)],
+                # max over the actions available in s'; no bootstrap from a terminal s'
                 q_sa = self.get_q(s, a)
+                next_q = 0.0 if done else self.max_q_avail(ns, obs['actions'])
                 nq = q_sa + learning_rate * (
-                    reward + gamma * self.max_q(ns) - q_sa
+                    reward + gamma * next_q - q_sa
                 )
                 self.set_q(s, a, nq)
 

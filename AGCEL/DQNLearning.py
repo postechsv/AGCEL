@@ -148,10 +148,21 @@ class DQNLearner:
         
         # cache for value function lookup during search
         self.value_cache = {}
+
+        # rules seen applicable per observation while training (legal_any: in any state);
+        # the search value takes its max over these, so it depends on the observation only
+        self.legal_by_obs = {}
+        self.legal_any = set()
    
     def _encode(self, state):
         """encode state via the state encoder."""
         return self.state_encoder(state)
+
+    def _note_legal(self, obs, env):
+        """record the rules applicable in the current env state under its observation"""
+        legal = {i for i, on in enumerate(env.action_mask()) if on}
+        self.legal_by_obs.setdefault(obs['state'].prettyPrint(0), set()).update(legal)
+        self.legal_any |= legal
 
     def diagnose_buffer(self):
         """
@@ -298,7 +309,9 @@ class DQNLearner:
 
             self.episode_count = episode
             obs = env.reset()
+            self._note_legal(obs, env)
             episode_reward = 0.0
+            steps = 0  # environment steps actually taken this episode
 
             for step in range(max_steps):
                 action_idx = self.select_action(env, obs)
@@ -307,6 +320,7 @@ class DQNLearner:
                     break
                 
                 next_obs, reward, done = env.step_indexed(action_idx)
+                self._note_legal(next_obs, env)
                 episode_reward += reward
                 
                 self.store_experience(
@@ -325,6 +339,7 @@ class DQNLearner:
                     self.update_target_network()
                 
                 self.training_step += 1
+                steps += 1
                 obs = next_obs
                 
                 if done:
@@ -333,7 +348,7 @@ class DQNLearner:
                     break
             
             episode_rewards.append(episode_reward)
-            episode_lengths.append(step + 1)
+            episode_lengths.append(steps)
 
             if len(self.loss_history) >= 100 and episode % 50 == 0:
                 recent_avg_loss = np.mean(self.loss_history[-100:])
@@ -344,23 +359,23 @@ class DQNLearner:
         
         return episode_rewards, episode_lengths
     
-    def get_value_function(self, mode: str = "dqn", rules=None) -> Callable:
+    def get_value_function(self, mode: str = "dqn") -> Callable:
         """
-        V(obs_term, g_state): max Q over the rules applicable in g_state (rules = env.rules,
-        index-aligned with the network outputs). Without rules or g_state it falls back to
-        the max over all outputs (obs-only use, e.g. compare_qtable_dqn).
+        V(obs_term): max Q over the rules that were applicable, during training, in some state
+        with this observation (unseen observation: rules applicable in any training state).
+        A function of the observation only; g_state is accepted for the search interface
+        and ignored.
         """
         self.q_network.eval()
         
         @torch.no_grad()
         def V(obs_term, g_state=None) -> float:
-            legal = None
-            if rules is not None and g_state is not None:
-                legal = tuple(i for i, l in enumerate(rules) if any(True for _ in g_state.apply(l)))
             if obs_term is not None:
-                ck = (obs_term.prettyPrint(0), legal)
+                ck = obs_term.prettyPrint(0)
                 if ck in self.value_cache:
                     return self.value_cache[ck]
+            seen = self.legal_by_obs.get(ck) if obs_term is not None else None
+            legal = seen if seen is not None else self.legal_any
 
             state_tensor = self._encode(obs_term).unsqueeze(0).to(self.device)
             q_values = self.q_network(state_tensor).squeeze(0)
@@ -369,12 +384,12 @@ class DQNLearner:
                 result = 0.0
             elif mode == "random":
                 result = random.random()
-            elif legal is None:
-                result = q_values.max().item()
             elif legal:
-                result = q_values[list(legal)].max().item()
-            else:  # no applicable rule: terminal, nothing to bootstrap
+                result = q_values[sorted(legal)].max().item()
+            elif seen is not None:  # only ever observed in states with no applicable rule
                 result = 0.0
+            else:  # no applicability recorded (untrained learner): all outputs
+                result = q_values.max().item()
 
             # cache result if state is seen
             if obs_term is not None:
@@ -393,6 +408,8 @@ class DQNLearner:
             'training_step': self.training_step,
             'episode_count': self.episode_count,
             'loss_history': self.loss_history,
+            'legal_by_obs': {k: sorted(v) for k, v in self.legal_by_obs.items()},
+            'legal_any': sorted(self.legal_any),
             'hyperparameters': {
                 'input_dim': self.input_dim,
                 'num_actions': self.num_actions,
@@ -415,6 +432,8 @@ class DQNLearner:
         self.training_step = checkpoint['training_step']
         self.episode_count = checkpoint['episode_count']
         self.loss_history = checkpoint['loss_history']
+        self.legal_by_obs = {k: set(v) for k, v in checkpoint.get('legal_by_obs', {}).items()}
+        self.legal_any = set(checkpoint.get('legal_any', []))
         
         if 'hyperparameters' in checkpoint:
             hp = checkpoint['hyperparameters']
@@ -429,10 +448,7 @@ class DQNLearner:
             f.write(f'  pr HEURISTIC-BASE . pr {module_name} .\n')
             f.write('  var S : MDPState . var A : MDPAct .\n')
             
-            best = {}  # obs-level export: best value over the applicable sets seen per obs
-            for (state_str, _), value in self.value_cache.items():
-                best[state_str] = max(value, best.get(state_str, value))
-            for state_str, value in best.items():
+            for state_str, value in self.value_cache.items():
                 f.write(f'  eq score({goal}, {state_str}) = {value} .\n')
             
             f.write(f'  eq score({goal}, S) = 0.0 [owise] .\n')
