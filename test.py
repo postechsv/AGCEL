@@ -152,6 +152,8 @@ if __name__ == "__main__":
             print(f'  Init            : {init}')
             print(f'  Goal            : {prop}')
             print(f'  QTable          : {qtable_file}')
+            if _seed is not None:
+                print(f'  Seed            : {_seed}')
 
         if mode == "bfs":
             run_bfs(m, env, n0)
