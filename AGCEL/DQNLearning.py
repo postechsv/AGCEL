@@ -9,15 +9,18 @@ import datetime
 from typing import Dict, Optional, Callable
 from AGCEL.MaudeEnv import *
 
-Experience = namedtuple('Experience', 
-                        ['state', 'action', 'reward', 'next_state', 'done'])
+# next_mask: legal-action mask of next_state (None = all actions), used to restrict the
+# bootstrap max to rules applicable there
+Experience = namedtuple('Experience',
+                        ['state', 'action', 'reward', 'next_state', 'done', 'next_mask'],
+                        defaults=(None,))
 
 class ReplayBuffer:
     def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
 
-    def push(self, state, action, reward, next_state, done):
-        self.buffer.append(Experience(state, action, reward, next_state, done))
+    def push(self, state, action, reward, next_state, done, next_mask=None):
+        self.buffer.append(Experience(state, action, reward, next_state, done, next_mask))
 
     def sample(self, batch_size: int):
         return random.sample(self.buffer, batch_size)
@@ -36,8 +39,8 @@ class PrioritizedReplayBuffer:
         self.goal_buffer = deque(maxlen=capacity)
         self.non_goal_buffer = deque(maxlen=capacity)
     
-    def push(self, state, action, reward, next_state, done):
-        exp = Experience(state, action, reward, next_state, done)
+    def push(self, state, action, reward, next_state, done, next_mask=None):
+        exp = Experience(state, action, reward, next_state, done, next_mask)
         self.buffer.append(exp)
         if reward == 1.0:
             self.goal_buffer.append(exp)
@@ -202,7 +205,7 @@ class DQNLearner:
                 
                 return masked_q_values.argmax().item()
     
-    def store_experience(self, state, action, reward, next_state, done):
+    def store_experience(self, state, action, reward, next_state, done, next_mask=None):
         """store observed trainsition while in replay buffer while training"""
         state_tensor = self._encode(state)
         next_state_tensor = self._encode(next_state) if next_state is not None else torch.zeros_like(state_tensor)
@@ -212,7 +215,8 @@ class DQNLearner:
             action,
             reward,
             next_state_tensor,
-            done
+            done,
+            next_mask
         )
 
     def optimize_model(self, env=None):
@@ -227,13 +231,14 @@ class DQNLearner:
         reward_batch = torch.tensor([e.reward for e in batch], dtype=torch.float32, device=self.device)
         next_state_batch = torch.stack([e.next_state for e in batch]).to(self.device)
         done_batch = torch.tensor([e.done for e in batch], dtype=torch.float32, device=self.device)
+        next_mask_batch = torch.tensor([e.next_mask if e.next_mask is not None else [1] * self.num_actions
+                                        for e in batch], dtype=torch.bool, device=self.device)
         
         current_q_values = self.q_network(state_batch).gather(1, action_batch).squeeze(1)
         
         # use online network to select best action, and use target network to evaluate that action
         with torch.no_grad():
-            next_q_values_online = self.q_network(next_state_batch)
-            next_actions = next_q_values_online.argmax(dim=1, keepdim=True)
+            next_actions = self._target_actions(next_state_batch, next_mask_batch)
 
             next_q_values_target = self.target_network(next_state_batch)
             next_q_values = next_q_values_target.gather(1, next_actions).squeeze(1)
@@ -251,6 +256,11 @@ class DQNLearner:
         
         self.loss_history.append(loss.item())
         
+    def _target_actions(self, next_state_batch, next_mask_batch):
+        """double-DQN action choice at s', restricted to the rules applicable in s'"""
+        q = self.q_network(next_state_batch).masked_fill(~next_mask_batch, -float('inf'))
+        return q.argmax(dim=1, keepdim=True)
+
     def update_target_network(self):
         # soft update: target = tau * online + (1 - tau) * target
         for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
@@ -304,7 +314,8 @@ class DQNLearner:
                     action_idx,
                     reward,
                     next_obs['state'] if not done else None,
-                    done
+                    done,
+                    list(env.action_mask()) if not done else None
                 )
                 
                 if self.training_step % self.update_frequency == 0:
@@ -333,13 +344,21 @@ class DQNLearner:
         
         return episode_rewards, episode_lengths
     
-    def get_value_function(self, mode: str = "dqn") -> Callable:
+    def get_value_function(self, mode: str = "dqn", rules=None) -> Callable:
+        """
+        V(obs_term, g_state): max Q over the rules applicable in g_state (rules = env.rules,
+        index-aligned with the network outputs). Without rules or g_state it falls back to
+        the max over all outputs (obs-only use, e.g. compare_qtable_dqn).
+        """
         self.q_network.eval()
         
         @torch.no_grad()
         def V(obs_term, g_state=None) -> float:
+            legal = None
+            if rules is not None and g_state is not None:
+                legal = tuple(i for i, l in enumerate(rules) if any(True for _ in g_state.apply(l)))
             if obs_term is not None:
-                ck = obs_term.prettyPrint(0)
+                ck = (obs_term.prettyPrint(0), legal)
                 if ck in self.value_cache:
                     return self.value_cache[ck]
 
@@ -350,8 +369,12 @@ class DQNLearner:
                 result = 0.0
             elif mode == "random":
                 result = random.random()
-            else:  # original dqn
+            elif legal is None:
                 result = q_values.max().item()
+            elif legal:
+                result = q_values[list(legal)].max().item()
+            else:  # no applicable rule: terminal, nothing to bootstrap
+                result = 0.0
 
             # cache result if state is seen
             if obs_term is not None:
@@ -406,7 +429,10 @@ class DQNLearner:
             f.write(f'  pr HEURISTIC-BASE . pr {module_name} .\n')
             f.write('  var S : MDPState . var A : MDPAct .\n')
             
-            for state_str, value in self.value_cache.items():
+            best = {}  # obs-level export: best value over the applicable sets seen per obs
+            for (state_str, _), value in self.value_cache.items():
+                best[state_str] = max(value, best.get(state_str, value))
+            for state_str, value in best.items():
                 f.write(f'  eq score({goal}, {state_str}) = {value} .\n')
             
             f.write(f'  eq score({goal}, S) = 0.0 [owise] .\n')

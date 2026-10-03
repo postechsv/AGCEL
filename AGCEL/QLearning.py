@@ -113,7 +113,10 @@ class QLearner():
         # returns -1 for error
         state = obs["state"]
         actions = obs["actions"]
-        return self.argmax_q(state, actions)
+        a = self.argmax_q(state, actions)
+        if isinstance(a, int) and a == -1 and actions:  # unseen state: every Q is q_init
+            return random.choice(actions)
+        return a
     
     def eps_greedy_policy(self, obs, epsilon):
         """epsilon-greedy action selection"""

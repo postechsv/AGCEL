@@ -103,7 +103,7 @@ def run_dqn_mode(m, env, n0, qtable_file, mode="dqn"):
     """
     dqn = run_dqn(m, env, n0, qtable_file)
     dqn.value_cache.clear()
-    V_dqn = dqn.get_value_function(mode=mode)
+    V_dqn = dqn.get_value_function(mode=mode, rules=env.rules)
 
     mode_names = {"zero": "DQN-Zero", "random": "DQN-Random", "dqn": "DQN"}
     method_name = mode_names.get(mode, f"DQN-{mode.upper()}")

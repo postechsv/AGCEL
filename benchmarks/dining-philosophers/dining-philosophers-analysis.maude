@@ -19,7 +19,9 @@ endfm
 --- per focus. Nat?/* come from DINING-PHILOSOPHERS-BASE; focusIds is declared
 --- here and defined in thin including modules (mt = no-focus).
 mod DP-PREDS is
-  pr N-DINING-PHILOSOPHERS .
+  --- signature only (no rules): systems that bring their own transitions, e.g.
+  --- ACTION-BASE with N-DINING-PHILOSOPHERS2, must not inherit the Conf rules
+  pr DINING-PHILOSOPHERS-BASE .
   pr NAT-SET .
   inc SATISFACTION .
 
@@ -78,6 +80,7 @@ endm
 
 --- enabled-predicate observation model (State = Conf)
 mod MODEL is
+  pr N-DINING-PHILOSOPHERS .
   pr DP-PREDS .
   inc OBSERVATION .
 

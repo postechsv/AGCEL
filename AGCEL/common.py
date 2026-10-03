@@ -30,7 +30,7 @@ def build_vocab(env):   # ["critLHS", "waitLHS"]
     (return) list of unique predicate names - ["critLHS", "waitLHS"]
     """
 
-    return list({name for name, _ in extract_predicate_vector(env.get_obs()['state'])})
+    return sorted({name for name, _ in extract_predicate_vector(env.get_obs()['state'])})
 
 def make_encoder(vocab):
     """
