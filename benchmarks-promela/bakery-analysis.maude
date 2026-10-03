@@ -7,6 +7,8 @@
 *** gap, so the reachability goal here is the clean someInCrit (crit==1).
 
 load ../semantics/promela-agcel.maude .
+load ../semantics/promela-obs-generated.maude .
+load focus-mt.maude .
 
 mod MODEL is
   protecting PROMELA-AGCEL .
@@ -27,11 +29,31 @@ mod MODEL is
   eq ([ store((2 |-> # 2, STR)) CFG ]) |= critTwo = true .
   eq S |= critTwo = false [owise] .
 
-  eq obs(S) = < obsUpto(S,
-    varEq('disp, 0, 1) ; varEq('serv, 1, 1) ; someInCrit ; critTwo ; allDone) > .
+  --- benchmark-global vocabulary (pre-focus observation)
+  op plainProps : -> PropList .
+  eq plainProps = varEq('disp, 0, 1) ; varEq('serv, 1, 1) ; someInCrit ; critTwo ; allDone .
+
+  --- pid-scoped vocabulary, expanded over focusIds then * by pidObs
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    assignP(NQ, 'tick) ; assignP(NQ, 'disp) ; assignP(NQ, 'crit) ;
+    assignP(NQ, 'serv) ; locked(NQ) .
 
   eq reward(< FV , (someInCrit : true) , FV' >) = 1.0 .
   eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+
+--- obs variants: plain = pre-focus vocabulary; focus = pidObs + plain
+mod MODEL-PLAIN is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, plainProps) > .
+endm
+
+mod MODEL-FOCUS is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, pidObs ; plainProps) > .
 endm
 
 
@@ -63,4 +85,12 @@ mod BAKERY-PROMELA-TEST is
     store(((0 |-> # 0), (1 |-> # 0), (2 |-> # 0), (3 |-> # 0), (4 |-> # 0)))
     network(empty) lock(#none) active(0 1)
     nextLoc(5) nextPid(2) nextBCid(0) nextHCid(0) ] .
+endm
+
+--- default run: parameterized obs, focusIds = mt, action-binding hook on
+mod BAKERY-PROMELA-RUN is
+  inc BAKERY-PROMELA-TEST .
+  inc MODEL-FOCUS .
+  inc FOCUS-MT .
+  inc PROMELA-OBS-GEN .
 endm

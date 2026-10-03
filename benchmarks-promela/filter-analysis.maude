@@ -3,6 +3,8 @@
 *** Loc layout (from filter-2procs): flag0=0, flag1=1, turn=2, in0=3, in1=4.
 
 load ../semantics/promela-agcel.maude .
+load ../semantics/promela-obs-generated.maude .
+load focus-mt.maude .
 
 mod MODEL is
   protecting PROMELA-AGCEL .
@@ -19,12 +21,31 @@ mod MODEL is
   eq ([ store((4 |-> # 1, STR)) CFG ]) |= someInCS = true .
   eq S |= someInCS = false [owise] .
 
-  eq obs(S) = < obsUpto(S,
-    varEq('flag0, 0, 1) ; varEq('flag1, 1, 1) ; varEq('turn, 2, 1) ;
-    varEq('in0, 3, 1) ; varEq('in1, 4, 1) ; allDone ; someInCS) > .
+  --- benchmark-global vocabulary (pre-focus observation)
+  op plainProps : -> PropList .
+  eq plainProps = varEq('flag0, 0, 1) ; varEq('flag1, 1, 1) ; varEq('turn, 2, 1) ; varEq('in0, 3, 1) ; varEq('in1, 4, 1) ; allDone ; someInCS .
+
+  --- pid-scoped vocabulary, expanded over focusIds then * by pidObs
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    assignP(NQ, 'flag0) ; assignP(NQ, 'flag1) ; assignP(NQ, 'turn) ;
+    assignP(NQ, 'in0) ; assignP(NQ, 'in1) ; locked(NQ) .
 
   eq reward(< FV , (someInCS : true) , FV' >) = 1.0 .
   eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+
+--- obs variants: plain = pre-focus vocabulary; focus = pidObs + plain
+mod MODEL-PLAIN is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, plainProps) > .
+endm
+
+mod MODEL-FOCUS is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, pidObs ; plainProps) > .
 endm
 
 
@@ -58,4 +79,12 @@ mod FILTER-PROMELA-TEST is
     store(((0 |-> # 0), (1 |-> # 0), (2 |-> # 0), (3 |-> # 0), (4 |-> # 0)))
     network(empty) lock(#none) active(0 1)
     nextLoc(5) nextPid(2) nextBCid(0) nextHCid(0) ] .
+endm
+
+--- default run: parameterized obs, focusIds = mt, action-binding hook on
+mod FILTER-PROMELA-RUN is
+  inc FILTER-PROMELA-TEST .
+  inc MODEL-FOCUS .
+  inc FOCUS-MT .
+  inc PROMELA-OBS-GEN .
 endm

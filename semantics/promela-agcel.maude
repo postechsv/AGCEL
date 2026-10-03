@@ -1,22 +1,44 @@
 *** Shared PROMELA-AGCEL predicate vocabulary + meta-free observation infra.
 *** Benchmarks: `protecting PROMELA-AGCEL`, add `subsort GlobalState < State`
 *** locally, and define their own obs / goal / reward.
---- OPEN item 8/12/13: NatSet/Nat?/focusIds parameterization by pid + rebuilt obs
---- across the 6 benchmarks-promela/*-analysis files is a coupled multi-file change
---- validated only by E3 (compute-infeasible this session). Deferred to avoid
---- breaking the working analysis files; dining template is the reference.
+*** Focus is a proposition parameter: focusIds (declared here, defined in the
+*** thin benchmarks-promela/focus-*.maude modules) selects which pids are
+*** observed individually; every other pid collapses to *. mt = no-focus.
+*** Action bindings come from PROMELA-OBS-GEN (promela-obs-generated.maude).
 
 load promela-semantics.maude .
 load ../tool2.maude .
 
+fmod NAT-SET is
+  protecting INT .
+  sort NatSet .
+  subsort Nat < NatSet .
+  op mt : -> NatSet [ctor] .
+  op _,_ : NatSet NatSet -> NatSet [ctor assoc comm id: mt] .
+  op _in_ : Int NatSet -> Bool .
+  var N : Nat . var I : Int . var NS : NatSet .
+  eq N in (N , NS) = true .
+  eq I in NS = false [owise] .
+endfm
+
 mod PROMELA-AGCEL is
   pr PROMELA-SEMANTICS .
+  pr NAT-SET .
   inc SATISFACTION .
 
   vars CFG PR INNER-REST PS : KConfig .
   var STR : Map{Nat, PROMELA-Value} .
-  vars L V I : Int .
+  var NET : Map{Nat, PROMELA-Queue} .
+  vars L V I C SZ : Int .
+  var N : Nat .
+  var NQ : Nat? .
+  var NS : NatSet .
   var X : Id .
+  vars VA VB : Value .
+  var K : K .
+  var EL : Exprs .
+  var VL : ValueList .
+  var ML : MsgList .
   var GS : GlobalState .
   vars FV FV' : FeatVec .
   var P : Prop .
@@ -33,9 +55,19 @@ mod PROMELA-AGCEL is
   op obsUpto : State PropList -> FeatVec .
   eq obsUpto(S, P ; PL) = (P : (S |= P)) , obsUpto(S, PL) .
   eq obsUpto(S, nil) = nil .
+  --- action-binding hook: PROMELA-OBS-GEN supplies the per-rule equations;
+  --- this [owise] stays as the fallback for every unselected binding.
   op obs : Qid Qid Univ -> MDPActBinding? .
   eq obs(Q, Q', U) = none [owise] .
   eq < FV , (P : B) , FV' > |= P = B .
+
+  --- focus parameter
+  sort Nat? .  subsort Nat < Nat? .
+  op * : -> Nat? [ctor] .
+  op focusIds : -> NatSet .
+  op tag : Int -> Nat? .
+  ceq tag(N) = N if N in focusIds .
+  eq tag(I) = * [owise] .
 
   --- Common predicate vocabulary. The state side is GlobalState-typed; each
   --- benchmark's local `subsort GlobalState < State` lets obsUpto's State-level
@@ -44,15 +76,55 @@ mod PROMELA-AGCEL is
   op _|=_ : GlobalState Prop -> Bool [frozen] .
 
   --- varEq(name, storeIndex, value): store[storeIndex] = # value (name is a
-  --- vocabulary label; the index/value do the matching).
+  --- vocabulary label; the index/value do the matching). Global store, so not
+  --- pid-parameterized: every benchmark variable is shared by all processes.
   op varEq : Id Int Int -> Prop [ctor] .
   eq ([ store((L |-> # V, STR)) CFG ]) |= varEq(X, L, V) = true .
   eq GS |= varEq(X, L, V) = false [owise] .
 
-  --- locked(pid): the atomic lock is held by pid.
-  op locked : Int -> Prop [ctor] .
-  eq ([ lock(@ I) CFG ]) |= locked(I) = true .
-  eq GS |= locked(I) = false [owise] .
+  --- pid-parameterized predicates: two conditional equations each (focused pid
+  --- / *) plus [owise] false; fixed, never edited when the focus changes.
+
+  --- locked(P): the atomic lock is held by pid P.
+  op locked : Nat? -> Prop [ctor] .
+  ceq ([ lock(@ N) CFG ]) |= locked(N) = true if N in focusIds .
+  ceq ([ lock(@ I) CFG ]) |= locked(*) = true if not (I in focusIds) .
+  eq GS |= locked(NQ) = false [owise] .
+
+  --- assignP(P, X): pid P is about to store into X ([assign-store] LHS).
+  op assignP : Nat? Id -> Prop [ctor] .
+  ceq ([ procs(proc(pid(N) INNER-REST k(#assign(X, VA, VB) ~> K)) PR) CFG ])
+      |= assignP(N, X) = true if N in focusIds .
+  ceq ([ procs(proc(pid(I) INNER-REST k(#assign(X, VA, VB) ~> K)) PR) CFG ])
+      |= assignP(*, X) = true if not (I in focusIds) .
+  eq GS |= assignP(NQ, X) = false [owise] .
+
+  --- sendP(P, C): pid P is about to push onto channel C ([send-push] LHS).
+  op sendP : Nat? Int -> Prop [ctor] .
+  ceq ([ procs(proc(pid(N) INNER-REST k(#send(# ch(C), EL) ~> K)) PR) CFG ])
+      |= sendP(N, C) = true if N in focusIds .
+  ceq ([ procs(proc(pid(I) INNER-REST k(#send(# ch(C), EL) ~> K)) PR) CFG ])
+      |= sendP(*, C) = true if not (I in focusIds) .
+  eq GS |= sendP(NQ, C) = false [owise] .
+
+  --- recvP(P, C): pid P can pop a message from channel C ([recv-pop] LHS).
+  op recvP : Nat? Int -> Prop [ctor] .
+  ceq ([ procs(proc(pid(N) INNER-REST k(#recv(# ch(C), EL) ~> K)) PR)
+         network(((C |-> mq(SZ, (m(VL), ML))), NET)) CFG ])
+      |= recvP(N, C) = true if N in focusIds .
+  ceq ([ procs(proc(pid(I) INNER-REST k(#recv(# ch(C), EL) ~> K)) PR)
+         network(((C |-> mq(SZ, (m(VL), ML))), NET)) CFG ])
+      |= recvP(*, C) = true if not (I in focusIds) .
+  eq GS |= recvP(NQ, C) = false [owise] .
+
+  --- per-pid PropList: each benchmark defines pidProps; pidObs expands it over
+  --- the focused pids, then *.
+  op pidProps : Nat? -> PropList .
+  op focusProps : NatSet -> PropList .
+  eq focusProps(mt) = nil .
+  eq focusProps((N , NS)) = pidProps(N) ; focusProps(NS) .
+  op pidObs : -> PropList .
+  eq pidObs = focusProps(focusIds) ; pidProps(*) .
 
   --- allDone: every process has an empty <k>.
   op allDone : -> Prop [ctor] .
