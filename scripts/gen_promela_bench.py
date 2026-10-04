@@ -1,0 +1,389 @@
+#!/usr/bin/env python3
+"""Generate N-process PROMELA analysis files in the layout of benchmarks-promela/*-analysis.maude
+(modules MODEL, MODEL-PLAIN, MODEL-FOCUS and a *-PROMELA-TEST module with init and goal).
+
+Families (FAMILY: test module, goal):
+  qlock         FIFO-queue mutex; goal someInCS
+  dining        philosopher i takes fork i, then fork (i+1) mod N; goal deadlock (every process blocked)
+  filter        filter lock with N-1 levels; goal someInCS
+  onethirdrule  one round: send, wait for all N arrivals, adopt the minimum, decide; goal allDecided
+
+For N = 2, qlock, dining and onethirdrule are the hand-written benchmarks; filter is the same
+algorithm in level/victim form (Peterson's flag/turn form in filter-analysis.maude).
+The vocabulary follows the hand-written files: one varEq per non-zero value of each shared
+variable, the per-process predicates of the family, allDone and the goal; pidProps lists
+assignP for every variable, sendP/recvP for every channel, and locked.
+
+  gen_promela_bench.py <family> <n> <out.maude>
+"""
+import os, sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FAMILY = {'qlock': ('QLOCK-PROMELA-TEST', 'someInCS'), 'dining': ('DINING-PROMELA-TEST', 'deadlock'),
+          'filter': ('FILTER-PROMELA-TEST', 'someInCS'), 'onethirdrule': ('OTR-PROMELA-TEST', 'allDecided')}
+
+HEAD = f'''load {REPO}/semantics/promela-agcel.maude .
+load {REPO}/semantics/promela-obs-generated.maude .
+load {REPO}/benchmarks-promela/focus-mt.maude .
+'''
+
+OBS = '''
+mod MODEL-PLAIN is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, plainProps) > .
+endm
+
+mod MODEL-FOCUS is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, pidObs ; plainProps) > .
+endm
+'''
+
+
+def procs(n):
+    return '\n'.join(f"      proc(pid({i}) name('P{i}) k( body{i} ~> .K ) local(nil) env(env{i}))" for i in range(n))
+
+
+def envs(n):
+    return '\n'.join(f'  op env{i} : -> Map{{PROMELA-LVal, PROMELA-Ref}} .\n  eq env{i} = env .' for i in range(n))
+
+
+def ids(n):
+    return ' '.join(map(str, range(n)))
+
+
+def conj(xs):
+    return xs[0] if len(xs) == 1 else '(' + ' && '.join(xs) + ')'
+
+
+def qlock(n):
+    locs = ', '.join(f"(lval('in{i}, 0) |-> loc({i}))" for i in range(n))
+    goal = '\n'.join(f'  eq ([ store(({i} |-> # 1, STR)) CFG ]) |= someInCS = true .' for i in range(n))
+    plain = ' ; '.join([f"varEq('in{i}, {i}, 1)" for i in range(n)] + ['allDone', 'someInCS'])
+    pid = ' ; '.join([f"assignP(NQ, 'in{i})" for i in range(n)] + ['sendP(NQ, 0)', 'recvP(NQ, 0)', 'locked(NQ)'])
+    bodies = '\n'.join(
+        f"  op body{i} : -> Seq .\n  eq body{i} = ( ('q ! # {i}) ; ('q ?[ # {i} ]) ;\n"
+        f"               ('in{i} = # 1) ; ('in{i} = # 0) ; ('q ? # {i}) ; .Decls ) ." for i in range(n))
+    store = ', '.join(f'({i} |-> # 0)' for i in range(n))
+    return f'''*** RL analysis layer for the {n}-process PROMELA qlock (FIFO mutex) model.
+*** Goal = someInCS. Loc layout: in<i> = i; queue on channel 0 (capacity {n}).
+
+{HEAD}
+mod MODEL is
+  protecting PROMELA-AGCEL .
+  subsort GlobalState < State .
+
+  var S : State .
+  var CFG : KConfig .
+  var STR : Map{{Nat, PROMELA-Value}} .
+  vars FV FV' : FeatVec .
+
+  op someInCS : -> Prop [ctor] .
+{goal}
+  eq S |= someInCS = false [owise] .
+
+  op plainProps : -> PropList .
+  eq plainProps = {plain} .
+
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    {pid} .
+
+  eq reward(< FV , (someInCS : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+{OBS}
+mod QLOCK-PROMELA-TEST is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = someInCS .
+
+  op env : -> Map{{PROMELA-LVal, PROMELA-Ref}} .
+  eq env = ((lval('q, 0) |-> ch(0)), {locs}) .
+{envs(n)}
+
+{bodies}
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+{procs(n)} )
+    store(({store}))
+    network((0 |-> mq({n}, nil)))
+    lock(#none) active({ids(n)})
+    nextLoc({n}) nextPid({n}) nextBCid(1) nextHCid(0) ] .
+endm
+'''
+
+
+def dining(n):
+    env = ', '.join([f"(lval('fork{i}, 0) |-> loc({i}))" for i in range(n)]
+                    + [f"(lval('eat{i}, 0) |-> loc({n + i}))" for i in range(n)])
+    preds = []
+    for i in range(n):
+        preds.append(f'''  eq ([ procs(proc(pid({i}) INNER-REST k(.K)) PR) CFG ]) |= p{i}Done = true .
+  eq S |= p{i}Done = false [owise] .
+''')
+    for i in range(n):
+        preds.append(f'''  eq ([ store(({n + i} |-> # 1, STR)) CFG ]) |= eat{i} = true .
+  eq S |= eat{i} = false [owise] .
+''')
+    for i in range(n):
+        preds.append(f'''  ceq ([ procs(proc(pid({i}) INNER-REST k((@[ G ~> KL ] BR) ~> KG) env(E)) PR)
+         store(ST) network(NET) CFG ]) |= p{i}Blocked = true
+    if G :: Expr /\\ isExec(G, E, ST, NET, {i}) = false .
+  eq S |= p{i}Blocked = false [owise] .
+''')
+    blocked = ' /\\ '.join(f'(GS |= p{i}Blocked) = true' for i in range(n))
+    names = ' '.join([f'p{i}Done' for i in range(n)] + [f'p{i}Blocked' for i in range(n)] + ['lockFree']
+                     + [f'eat{i}' for i in range(n)])
+    plain = ' ; '.join([f'p{i}Blocked' for i in range(n)] + [f'p{i}Done' for i in range(n)] + ['lockFree']
+                       + [f'eat{i}' for i in range(n)] + ['deadlock'])
+    pid = ' ; '.join([f"assignP(NQ, 'fork{i})" for i in range(n)] + [f"assignP(NQ, 'eat{i})" for i in range(n)]
+                     + ['locked(NQ)'])
+    bodies = []
+    for i in range(n):
+        a, b = i, (i + 1) % n
+        bodies.append(f'''  op body{i} : -> Seq .
+  eq body{i} = ( atomic{{ ('fork{a} == # 0) ; ('fork{a} = # 1) ; .Decls }} ;
+               atomic{{ ('fork{b} == # 0) ; ('fork{b} = # 1) ; .Decls }} ;
+               ('eat{i} = # 1) ; ('eat{i} = # 0) ;
+               ('fork{a} = # 0) ; ('fork{b} = # 0) ; .Decls ) .''')
+    store = ', '.join(f'({i} |-> # 0)' for i in range(2 * n))
+    return f'''*** RL analysis layer for the {n}-process PROMELA dining philosophers model.
+*** Philosopher i takes fork i, then fork (i+1) mod {n}. Goal = deadlock (every process blocked).
+*** Loc layout: fork<i> = i, eat<i> = {n} + i.
+
+{HEAD}
+mod MODEL is
+  protecting PROMELA-AGCEL .
+  subsort GlobalState < State .
+
+  var S : State .
+  var GS : GlobalState .
+  vars CFG PR INNER-REST : KConfig .
+  vars ST STR : Map{{Nat, PROMELA-Value}} .
+  var NET : Map{{Nat, PROMELA-Queue}} .
+  var E : Map{{PROMELA-LVal, PROMELA-Ref}} .
+  var G : BasicStmt .
+  vars KL KG : K .
+  var BR : BranchSet .
+  vars FV FV' : FeatVec .
+
+  op deadlock : -> Prop [ctor] .
+  ops {names} : -> Prop [ctor] .
+
+{''.join(preds)}
+  eq ([ lock(#none) CFG ]) |= lockFree = true .
+  eq S |= lockFree = false [owise] .
+
+  op canProgress : GlobalState -> Bool .
+  ceq canProgress(GS) = false
+    if {blocked} .
+  eq canProgress(GS) = true [owise] .
+
+  ceq S |= deadlock = true if canProgress(S) = false .
+  eq S |= deadlock = false [owise] .
+
+  op plainProps : -> PropList .
+  eq plainProps = {plain} .
+
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    {pid} .
+
+  eq reward(< FV , (deadlock : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+{OBS}
+mod DINING-PROMELA-TEST is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = deadlock .
+
+  op env : -> Map{{PROMELA-LVal, PROMELA-Ref}} .
+  eq env = ({env}) .
+{envs(n)}
+
+{chr(10).join(bodies)}
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+{procs(n)} )
+    store(({store}))
+    network(empty) lock(#none) active({ids(n)})
+    nextLoc({2 * n}) nextPid({n}) nextBCid(0) nextHCid(0) ] .
+endm
+'''
+
+
+def filt(n):
+    lv = {f'level{i}': i for i in range(n)}
+    vi = {f'victim{L}': n + L - 1 for L in range(1, n)}
+    inn = {f'in{i}': 2 * n - 1 + i for i in range(n)}
+    allv = {**lv, **vi, **inn}
+    env = ', '.join(f"(lval('{k}, 0) |-> loc({v}))" for k, v in allv.items())
+    goal = '\n'.join(f'  eq ([ store(({v} |-> # 1, STR)) CFG ]) |= someInCS = true .' for v in inn.values())
+    plain = ' ; '.join([f"varEq('{k}, {v}, {x})" for k, v in {**lv, **vi}.items() for x in range(1, n)]
+                       + [f"varEq('{k}, {v}, 1)" for k, v in inn.items()] + ['allDone', 'someInCS'])
+    pid = ' ; '.join([f"assignP(NQ, '{k})" for k in allv] + ['locked(NQ)'])
+    bodies = []
+    for i in range(n):
+        st = []
+        for L in range(1, n):
+            below = conj([f"('level{j} < # {L})" for j in range(n) if j != i])
+            st.append(f"('level{i} = # {L}) ; ('victim{L} = # {i}) ;\n"
+                      f"               ({below} || ('victim{L} != # {i})) ;")
+        st.append(f"('in{i} = # 1) ; ('in{i} = # 0) ; ('level{i} = # 0) ; .Decls")
+        bodies.append(f'  op body{i} : -> Seq .\n  eq body{i} = ( ' + '\n               '.join(st) + ' ) .')
+    store = ', '.join(f'({i} |-> # 0)' for i in range(len(allv)))
+    return f'''*** RL analysis layer for the {n}-process PROMELA filter lock model ({n - 1} level(s)).
+*** Process i at level L: level<i> = L ; victim<L> = i ; wait until every other process is
+*** below level L or victim<L> != i. Goal = someInCS.
+*** Loc layout: level<i> = i, victim<L> = {n} + L - 1, in<i> = {2 * n - 1} + i.
+
+{HEAD}
+mod MODEL is
+  protecting PROMELA-AGCEL .
+  subsort GlobalState < State .
+
+  var S : State .
+  var CFG : KConfig .
+  var STR : Map{{Nat, PROMELA-Value}} .
+  vars FV FV' : FeatVec .
+
+  op someInCS : -> Prop [ctor] .
+{goal}
+  eq S |= someInCS = false [owise] .
+
+  op plainProps : -> PropList .
+  eq plainProps = {plain} .
+
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    {pid} .
+
+  eq reward(< FV , (someInCS : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+{OBS}
+mod FILTER-PROMELA-TEST is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = someInCS .
+
+  op env : -> Map{{PROMELA-LVal, PROMELA-Ref}} .
+  eq env = ({env}) .
+{envs(n)}
+
+{chr(10).join(bodies)}
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+{procs(n)} )
+    store(({store}))
+    network(empty) lock(#none) active({ids(n)})
+    nextLoc({len(allv)}) nextPid({n}) nextBCid(0) nextHCid(0) ] .
+endm
+'''
+
+
+def onethirdrule(n):
+    names = ([f'val{i}' for i in range(n)] + [f'sent{i}' for i in range(n)] + [f'arr{i}' for i in range(n)]
+             + [f'decided{i}' for i in range(n)])
+    loc = {k: j for j, k in enumerate(names)}
+    env = ', '.join(f"(lval('{k}, 0) |-> loc({v}))" for k, v in loc.items())
+    alld = ', '.join(f"{loc[f'decided{i}']} |-> # 1" for i in range(n))
+    plain = ' ; '.join([f"varEq('arr{i}, {loc[f'arr{i}']}, 1)" for i in range(n)]
+                       + [f"varEq('decided{i}, {loc[f'decided{i}']}, 1)" for i in range(n)]
+                       + ['allDone', 'allDecided'])
+    pid = ' ; '.join([f"assignP(NQ, 'sent{i})" for i in range(n)] + [f"assignP(NQ, 'arr{i})" for i in range(n)]
+                     + [f"assignP(NQ, 'val{i})" for i in range(n)]
+                     + [f"assignP(NQ, 'decided{i})" for i in range(n)] + ['locked(NQ)'])
+    bodies = []
+    for i in range(n):
+        arrived = conj([f"('arr{j} == # 1)" for j in range(n)])
+        opts = []
+        for k in range(n):  # sent<k> is the minimum; the lowest index wins ties
+            g = conj([f"('sent{k} <= 'sent{j})" if j > k else f"('sent{k} < 'sent{j})" for j in range(n) if j != k])
+            opts.append(f"(:: {g} ; ('val{i} = 'sent{k}) ; .Decls)")
+        bodies.append(f'''  op body{i} : -> Seq .
+  eq body{i} = ( ('sent{i} = 'val{i}) ; ('arr{i} = # 1) ;
+               {arrived} ;
+               (if {(chr(10) + '                   ').join(opts)} fi) ;
+               ('decided{i} = # 1) ; .Decls ) .''')
+    store = ', '.join(f'({loc[k]} |-> # {int(k[3:]) if k.startswith("val") else 0})' for k in names)
+    return f'''*** RL analysis layer for the {n}-process PROMELA One-Third-Rule consensus model (one round).
+*** Goal = allDecided. Initial values 0..{n - 1}.
+*** Loc layout: val<i> = i, sent<i> = {n} + i, arr<i> = {2 * n} + i, decided<i> = {3 * n} + i.
+
+{HEAD}
+mod MODEL is
+  protecting PROMELA-AGCEL .
+  subsort GlobalState < State .
+
+  var S : State .
+  var CFG : KConfig .
+  var STR : Map{{Nat, PROMELA-Value}} .
+  vars FV FV' : FeatVec .
+
+  op allDecided : -> Prop [ctor] .
+  eq ([ store(({alld}, STR)) CFG ]) |= allDecided = true .
+  eq S |= allDecided = false [owise] .
+
+  op plainProps : -> PropList .
+  eq plainProps = {plain} .
+
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    {pid} .
+
+  eq reward(< FV , (allDecided : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+{OBS}
+mod OTR-PROMELA-TEST is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = allDecided .
+
+  op env : -> Map{{PROMELA-LVal, PROMELA-Ref}} .
+  eq env = ({env}) .
+{envs(n)}
+
+{chr(10).join(bodies)}
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+{procs(n)} )
+    store(({store}))
+    network(empty) lock(#none) active({ids(n)})
+    nextLoc({len(names)}) nextPid({n}) nextBCid(0) nextHCid(0) ] .
+endm
+'''
+
+
+GEN = {'qlock': qlock, 'dining': dining, 'filter': filt, 'onethirdrule': onethirdrule}
+
+
+def generate(family, n):
+    if family not in GEN:
+        raise ValueError(f'unknown family {family!r}; one of {sorted(GEN)}')
+    if n < 2:
+        raise ValueError('n must be at least 2')
+    return GEN[family](n)
+
+
+if __name__ == '__main__':
+    fam, n, out = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+    with open(out, 'w') as f:
+        f.write(generate(fam, n))
