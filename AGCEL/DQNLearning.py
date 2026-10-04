@@ -15,6 +15,9 @@ Experience = namedtuple('Experience',
                         ['state', 'action', 'reward', 'next_state', 'done', 'next_mask'],
                         defaults=(None,))
 
+# how the search value is read from the network outputs (get_value_function)
+READOUTS = ('per-obs', 'all')
+
 class ReplayBuffer:
     def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
@@ -359,21 +362,26 @@ class DQNLearner:
         
         return episode_rewards, episode_lengths
     
-    def get_value_function(self, mode: str = "dqn") -> Callable:
+    def get_value_function(self, mode: str = "dqn", readout: str = "per-obs") -> Callable:
         """
-        V(obs_term): max Q over the rules that were applicable, during training, in some state
-        with this observation (unseen observation: rules applicable in any training state).
-        A function of the observation only; g_state is accepted for the search interface
-        and ignored.
+        V(obs_term): a function of the observation only; g_state is accepted for the search
+        interface and ignored.
+        readout "per-obs": max Q over the rules that were applicable, during training, in some
+        state with this observation (unseen observation: rules applicable in any training state).
+        readout "all": max Q over every output.
+        Each returned V has its own cache, kept in self.value_cache.
         """
+        if readout not in READOUTS:
+            raise ValueError(f'readout must be one of {READOUTS}, got {readout!r}')
         self.q_network.eval()
-        
+        cache = self.value_cache = {}
+
         @torch.no_grad()
         def V(obs_term, g_state=None) -> float:
             if obs_term is not None:
                 ck = obs_term.prettyPrint(0)
-                if ck in self.value_cache:
-                    return self.value_cache[ck]
+                if ck in cache:
+                    return cache[ck]
             seen = self.legal_by_obs.get(ck) if obs_term is not None else None
             legal = seen if seen is not None else self.legal_any
 
@@ -384,6 +392,8 @@ class DQNLearner:
                 result = 0.0
             elif mode == "random":
                 result = random.random()
+            elif readout == "all":
+                result = q_values.max().item()
             elif legal:
                 result = q_values[sorted(legal)].max().item()
             elif seen is not None:  # only ever observed in states with no applicable rule
@@ -393,10 +403,10 @@ class DQNLearner:
 
             # cache result if state is seen
             if obs_term is not None:
-                self.value_cache[ck] = result
+                cache[ck] = result
 
             return result
-        
+
         V.needs_obs = True
         return V
     

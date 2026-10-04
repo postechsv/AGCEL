@@ -2,14 +2,14 @@ import maude
 from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
 from AGCEL.AStar import *
-from AGCEL.DQNLearning import DQNLearner
+from AGCEL.DQNLearning import DQNLearner, READOUTS
 from AGCEL.common import make_encoder, compare_qtable_dqn
 import os, sys, re, json, time, subprocess, random
 import torch
 torch.set_grad_enabled(False)
 
 # Usage:
-# python3 test.py <maude_model> <init_term> <goal_prop> <qtable_file>
+# python3 test.py <maude_model> <init_term> <goal_prop> <qtable_file> [--dqn-readout per-obs|all]
 
 def run_bfs(m, env, n0):
     """run BFS (search with score 0 for all states)"""
@@ -96,20 +96,23 @@ def run_dqn(m, env, n0, qtable_file):
 
     return dqn
 
-def run_dqn_mode(m, env, n0, qtable_file, mode="dqn"):
+def run_dqn_mode(m, env, n0, qtable_file, mode="dqn", readout="per-obs"):
     """
     run search with DQN heuristic
     mode: "zero" (all zero), "random" (random value), "dqn" (trained value)
+    readout: how the trained value is read from the network outputs ("per-obs" or "all")
     """
     dqn = run_dqn(m, env, n0, qtable_file)
     dqn.value_cache.clear()
-    V_dqn = dqn.get_value_function(mode=mode)
+    V_dqn = dqn.get_value_function(mode=mode, readout=readout)
 
     mode_names = {"zero": "DQN-Zero", "random": "DQN-Random", "dqn": "DQN"}
     method_name = mode_names.get(mode, f"DQN-{mode.upper()}")
 
     print(f'\nMethod: {method_name}')
     print('-' * 40)
+    if mode == "dqn":
+        print(f'  Readout         : {readout}')
     start_time = time.perf_counter()
     res = Search().search(n0, V_dqn, 9999)
     end_time = time.perf_counter()
@@ -120,10 +123,18 @@ def run_dqn_mode(m, env, n0, qtable_file, mode="dqn"):
 
     # compare qtable and DQN value order
     if mode == "dqn":
-        compare_qtable_dqn(qtable_file, dqn, m)
+        compare_qtable_dqn(qtable_file, dqn, m, readout=readout)
 
 
 if __name__ == "__main__":
+    readout = "per-obs"
+    if "--dqn-readout" in sys.argv:
+        i = sys.argv.index("--dqn-readout")
+        readout = sys.argv[i + 1]
+        del sys.argv[i:i + 2]
+    if readout not in READOUTS:
+        sys.exit(f'--dqn-readout must be one of {READOUTS}')
+
     model = sys.argv[1]
     init  = sys.argv[2]
     prop  = sys.argv[3]
@@ -163,13 +174,13 @@ if __name__ == "__main__":
             run_qtable(m, env, n0, qtable_file)
         elif mode in ("dqn", "dqn-zero", "dqn-random"):
             dqn_mode = mode.replace("dqn-", "") if "-" in mode else "dqn"
-            run_dqn_mode(m, env, n0, qtable_file, mode=dqn_mode)
+            run_dqn_mode(m, env, n0, qtable_file, mode=dqn_mode, readout=readout)
         sys.exit(0)
 
     for mode in ["bfs", "random", "qtable", "dqn"]:
         envp = os.environ.copy(); envp["MODE"] = mode
         p = subprocess.Popen(
-            [sys.executable, sys.argv[0], model, init, prop, qtable_file],
+            [sys.executable, sys.argv[0], model, init, prop, qtable_file, "--dqn-readout", readout],
             env=envp, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
         out, err = p.communicate()

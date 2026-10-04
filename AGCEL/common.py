@@ -115,7 +115,7 @@ def parse_qtable_file(filepath):
                 entries[key.strip()] = float(val.strip())
     return entries
 
-def compare_qtable_dqn(qtable_file, dqn, m):
+def compare_qtable_dqn(qtable_file, dqn, m, readout="per-obs"):
     """
     compare qtable and DQN value functions using Spearman rank correlation:
     measures how well DQN ordering of states matches qtable entry ordering
@@ -132,7 +132,7 @@ def compare_qtable_dqn(qtable_file, dqn, m):
         return
 
     q_vals, dqn_vals = [], []
-    V_dqn = dqn.get_value_function(mode="dqn")
+    V_dqn = dqn.get_value_function(mode="dqn", readout=readout)
 
     for state_str, q_val in qtable.items():
         obs_term = m.parseTerm(state_str)
