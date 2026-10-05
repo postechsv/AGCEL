@@ -1,0 +1,71 @@
+*** Action recording: the last executed action is kept in the configuration and
+*** read by state propositions (execP / execKP in promela-agcel.maude).
+***   last(noAct)             in every initial configuration
+***   last(exec(L, P, KP))    written by every rule of PROMELA-SEMANTICS-ACT:
+***                           L  = the rule label,
+***                           P  = tag(pid of the process that acted),
+***                           KP = prefix(that process's computation before the step, propKsize)
+*** PROMELA-SEMANTICS-ACT (promela-semantics-act.maude) is generated from
+*** PROMELA-SEMANTICS by scripts/gen_promela_act.py; this file is its hand-written
+*** part. PROMELA-SEMANTICS itself does not import it.
+*** focusIds and propKsize are parameters: a thin module gives each one equation.
+*** Load chain: ... -> promela-functions -> promela-semantics -> promela-action ->
+*** promela-semantics-act -> promela-agcel, so that every file is read once.
+
+load promela-semantics.maude .
+
+fmod NAT-SET is
+  protecting INT .
+  sort NatSet .
+  subsort Nat < NatSet .
+  op mt : -> NatSet [ctor] .
+  op _,_ : NatSet NatSet -> NatSet [ctor assoc comm id: mt] .
+  op _in_ : Int NatSet -> Bool .
+  var N : Nat . var I : Int . var NS : NatSet .
+  eq N in (N , NS) = true .
+  eq I in NS = false [owise] .
+endfm
+
+--- focus parameter: focusIds selects the pids observed individually; tag maps
+--- every other pid to *. focusIds = mt is no focus.
+fmod PROMELA-FOCUS is
+  protecting NAT-SET .
+  sort Nat? .  subsort Nat < Nat? .
+  op * : -> Nat? [ctor] .
+  op focusIds : -> NatSet .
+  op tag : Int -> Nat? .
+  var N : Nat . var I : Int .
+  ceq tag(N) = N if N in focusIds .
+  eq tag(I) = * [owise] .
+endfm
+
+fmod PROMELA-ACTION is
+  protecting K-CONFIG .
+  protecting K-PROGRAM .
+  protecting PROMELA-FOCUS .
+
+  --- one RuleLabel constant per labeled rule, declared with the generated rules
+  sort RuleLabel .
+  sort Action .
+  op noAct : -> Action [ctor] .
+  op exec : RuleLabel Nat? K -> Action [ctor] .
+  op last : Action -> KConfigItem [ctor] .
+
+  --- propKsize: how many items of the acting process's computation are kept.
+  --- 0 keeps none (rule label and pid only); a value larger than the computation
+  --- keeps all of it.
+  op propKsize : -> Nat .
+
+  --- prefix(K, N): the first N items of K. An item is whatever _~>_ separates: a
+  --- KLabel, a branch set, or a term that has no sort yet (#run(X, EL) until
+  --- [run-eval] has evaluated EL), so the variables range over the kind [K].
+  op prefix : K Nat -> K .
+  op single : K -> Bool .   --- exactly one item
+  vars X Y : [K] . var N : Nat .
+  eq prefix(X, 0) = .K .
+  eq prefix(.K, N) = .K .
+  ceq prefix(X ~> Y, s N) = X ~> prefix(Y, N) if single(X) .
+  ceq single(X ~> Y) = false if X =/= .K /\ Y =/= .K .
+  eq single(.K) = false .
+  eq single(X) = true [owise] .
+endfm

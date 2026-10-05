@@ -1,29 +1,24 @@
 *** Shared PROMELA-AGCEL predicate vocabulary + meta-free observation infra.
 *** Benchmarks: `protecting PROMELA-AGCEL`, add `subsort GlobalState < State`
 *** locally, and define their own obs / goal / reward.
-*** Focus is a proposition parameter: focusIds (declared here, defined in the
-*** thin benchmarks-promela/focus-*.maude modules) selects which pids are
-*** observed individually; every other pid collapses to *. mt = no-focus.
-*** Action bindings come from PROMELA-OBS-GEN (promela-obs-generated.maude).
+*** Focus is a proposition parameter: focusIds (declared in PROMELA-FOCUS,
+*** promela-action.maude; defined in the thin benchmarks-promela/focus-*.maude
+*** modules) selects which pids are observed individually; every other pid
+*** collapses to *. mt = no-focus.
+*** The vocabulary itself (PROMELA-AGCEL-VOCAB) has no rules, so that it serves both
+***   PROMELA-AGCEL      over PROMELA-SEMANTICS
+***   PROMELA-AGCEL-ACT  over PROMELA-SEMANTICS-ACT, which records the last executed
+***                      action in the state (promela-action.maude); execP / execKP
+***                      read it.
+*** Action bindings on the action term (PROMELA-AGCEL only) come from
+*** PROMELA-OBS-GEN (promela-obs-generated.maude).
 
-load promela-semantics.maude .
+load promela-semantics-act.maude .
 load ../tool2.maude .
 
-fmod NAT-SET is
-  protecting INT .
-  sort NatSet .
-  subsort Nat < NatSet .
-  op mt : -> NatSet [ctor] .
-  op _,_ : NatSet NatSet -> NatSet [ctor assoc comm id: mt] .
-  op _in_ : Int NatSet -> Bool .
-  var N : Nat . var I : Int . var NS : NatSet .
-  eq N in (N , NS) = true .
-  eq I in NS = false [owise] .
-endfm
-
-mod PROMELA-AGCEL is
-  pr PROMELA-SEMANTICS .
-  pr NAT-SET .
+mod PROMELA-AGCEL-VOCAB is
+  pr PROMELA-HCHAN .
+  pr PROMELA-ACTION .
   inc SATISFACTION .
 
   vars CFG PR INNER-REST PS : KConfig .
@@ -35,7 +30,7 @@ mod PROMELA-AGCEL is
   var NS : NatSet .
   var X : Id .
   vars VA VB : Value .
-  var K : K .
+  vars K KP : K .
   var EL : Exprs .
   var VL : ValueList .
   var ML : MsgList .
@@ -47,6 +42,7 @@ mod PROMELA-AGCEL is
   vars Q Q' : Qid .
   var U : Univ .
   var S : State .
+  var RL : RuleLabel .
 
   --- meta-free observation infra: OBSERVATION does `pr META-LEVEL`, whose
   --- META-TERM/LIST/SET reuse PROMELA object symbols with incompatible
@@ -60,14 +56,6 @@ mod PROMELA-AGCEL is
   op obs : Qid Qid Univ -> MDPActBinding? .
   eq obs(Q, Q', U) = none [owise] .
   eq < FV , (P : B) , FV' > |= P = B .
-
-  --- focus parameter
-  sort Nat? .  subsort Nat < Nat? .
-  op * : -> Nat? [ctor] .
-  op focusIds : -> NatSet .
-  op tag : Int -> Nat? .
-  ceq tag(N) = N if N in focusIds .
-  eq tag(I) = * [owise] .
 
   --- Common predicate vocabulary. The state side is GlobalState-typed; each
   --- benchmark's local `subsort GlobalState < State` lets obsUpto's State-level
@@ -134,4 +122,55 @@ mod PROMELA-AGCEL is
   eq allDoneAux(PS) = false [owise] .
   ceq ([ procs(PS) CFG ]) |= allDone = true if allDoneAux(PS) .
   eq GS |= allDone = false [owise] .
+
+  --- Action propositions: they read last(exec(L, P, KP)), the last executed action
+  --- as PROMELA-SEMANTICS-ACT records it. P is already tag(pid): a focused pid or *.
+  --- Over PROMELA-SEMANTICS there is no last(...) and they are false.
+
+  --- execP(L, P): the last step applied rule L and was taken by pid P.
+  op execP : RuleLabel Nat? -> Prop [ctor] .
+  ceq ([ last(exec(RL, N, KP)) CFG ]) |= execP(RL, N) = true if N in focusIds .
+  eq ([ last(exec(RL, *, KP)) CFG ]) |= execP(RL, *) = true .
+  eq GS |= execP(RL, NQ) = false [owise] .
+
+  --- execKP(P, KP): the last step was taken by pid P, whose computation began with
+  --- KP before the step (its first propKsize items).
+  op execKP : Nat? K -> Prop [ctor] .
+  ceq ([ last(exec(RL, N, KP)) CFG ]) |= execKP(N, KP) = true if N in focusIds .
+  eq ([ last(exec(RL, *, KP)) CFG ]) |= execKP(*, KP) = true .
+  eq GS |= execKP(NQ, KP) = false [owise] .
+
+  --- kPre(P, KP): the computation of pid P now begins with KP (its first propKsize
+  --- items): what the process will do next. A separate idea, compared on its own;
+  --- it does not use the recorded action.
+  op kPre : Nat? K -> Prop [ctor] .
+  ceq ([ procs(proc(pid(N) INNER-REST k(K)) PR) CFG ]) |= kPre(N, KP) = true
+      if N in focusIds /\ prefix(K, propKsize) = KP .
+  ceq ([ procs(proc(pid(I) INNER-REST k(K)) PR) CFG ]) |= kPre(*, KP) = true
+      if not (I in focusIds) /\ prefix(K, propKsize) = KP .
+  eq GS |= kPre(NQ, KP) = false [owise] .
+
+  --- For the generators of proposition lists: the action propositions and the
+  --- kPre propositions that hold in a state, and the state without its action.
+  op lastProps : GlobalState -> PropList .
+  eq lastProps([ last(exec(RL, NQ, KP)) CFG ]) = execP(RL, NQ) ; execKP(NQ, KP) .
+  eq lastProps(GS) = nil [owise] .
+  op kPreProps : GlobalState -> PropList .
+  op kPreAux : KConfig -> PropList .
+  eq kPreProps([ procs(PS) CFG ]) = kPreAux(PS) .
+  eq kPreAux(proc(pid(I) INNER-REST k(K)) PR) = kPre(tag(I), prefix(K, propKsize)) ; kPreAux(PR) .
+  eq kPreAux(none) = nil .
+  op noLast : GlobalState -> GlobalState .
+  eq noLast([ last(LA:[Action]) CFG ]) = [ CFG ] .
+  eq noLast(GS) = GS [owise] .
+endm
+
+mod PROMELA-AGCEL is
+  pr PROMELA-SEMANTICS .
+  pr PROMELA-AGCEL-VOCAB .
+endm
+
+mod PROMELA-AGCEL-ACT is
+  pr PROMELA-SEMANTICS-ACT .
+  pr PROMELA-AGCEL-VOCAB .
 endm
