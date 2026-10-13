@@ -21,6 +21,8 @@ import os, sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FAMILY = {'qlock': ('QLOCK-PROMELA-TEST', 'someInCS'), 'dining': ('DINING-PROMELA-TEST', 'deadlock'),
           'filter': ('FILTER-PROMELA-TEST', 'someInCS'), 'onethirdrule': ('OTR-PROMELA-TEST', 'allDecided')}
+# further goals of a family, selected as <family>-<n>.<variant>: (test module, goal)
+VARIANT = {('qlock', 'mutex'): ('QLOCK-PROMELA-MUTEX', 'twoInCS'), ('filter', 'mutex'): ('FILTER-PROMELA-MUTEX', 'twoInCS')}
 
 HEAD = f'''load {REPO}/semantics/promela-agcel.maude .
 load {REPO}/semantics/promela-obs-generated.maude .
@@ -58,6 +60,63 @@ def conj(xs):
     return xs[0] if len(xs) == 1 else '(' + ' && '.join(xs) + ')'
 
 
+# Progress toward the goal, declared next to it: goalProgress(S) is in 0 .. goalMax and equals
+# goalMax exactly in the goal states. A search that is being watched reports the best value it
+# has seen; it is not part of any observation.
+PROGRESS = '''
+  --- progress toward the goal: 0 .. goalMax, goalMax exactly in the goal states
+  op goalProgress : State -> Nat .
+  op goalMax : -> Nat .
+  op cnt : Bool Nat -> Nat .
+  var GP-S : State .  var GP-N : Nat .
+  eq cnt(true, GP-N) = s GP-N .
+  eq cnt(false, GP-N) = GP-N .
+'''
+
+
+def count(props):
+    """the number of the propositions that hold in GP-S, as a term"""
+    t = '0'
+    for q in reversed(props):
+        t = f'cnt(GP-S |= {q}, {t})'
+    return t
+
+
+def steps(cases, last='0'):
+    """nested if: the value of the first case whose condition holds"""
+    t = last
+    for cond, val in reversed(cases):
+        t = f'if {cond} then {val} else {t} fi'
+    return t
+
+
+def progress(kmax, term, extra=''):
+    return PROGRESS + extra + f'  eq goalMax = {kmax} .\n  eq goalProgress(GP-S) = {term} .\n'
+
+
+def pairs_prop(name, locs):
+    """the proposition `name`: at least two of the store locations hold 1"""
+    eqs = [f'  eq ([ store(({a} |-> # 1, {b} |-> # 1, STR)) CFG ]) |= {name} = true .'
+           for i, a in enumerate(locs) for b in locs[i + 1:]]
+    return f'  op {name} : -> Prop [ctor] .\n' + '\n'.join(eqs) + f'\n  eq S |= {name} = false [owise] .\n'
+
+
+def variant(text, test, name, goal, prog):
+    """the analysis file with a copy of its TEST module under another goal and progress measure"""
+    i = text.index(f'mod {test} is')
+    j = text.index('\nendm', i) + len('\nendm\n')
+    blk = text[i:j].replace(f'mod {test} is', f'mod {name} is', 1)
+    a = blk.index('  eq goal = ')
+    b = blk.index('\n  op env')
+    return text + '\n' + blk[:a] + f'  eq goal = {goal} .\n' + prog + blk[b:]
+
+
+QUEUED = '''  op queued : State -> Bool .
+  eq queued([ network((0 |-> mq(GP-I:Int, (GP-M:Msg, GP-ML:MsgList)), GP-NET:Map{Nat, PROMELA-Queue})) GP-CFG:KConfig ]) = true .
+  eq queued(GP-S) = false [owise] .
+'''
+
+
 def qlock(n):
     locs = ', '.join(f"(lval('in{i}, 0) |-> loc({i}))" for i in range(n))
     goal = '\n'.join(f'  eq ([ store(({i} |-> # 1, STR)) CFG ]) |= someInCS = true .' for i in range(n))
@@ -67,7 +126,10 @@ def qlock(n):
         f"  op body{i} : -> Seq .\n  eq body{i} = ( ('q ! # {i}) ; ('q ?[ # {i} ]) ;\n"
         f"               ('in{i} = # 1) ; ('in{i} = # 0) ; ('q ? # {i}) ; .Decls ) ." for i in range(n))
     store = ', '.join(f'({i} |-> # 0)' for i in range(n))
-    return f'''*** RL analysis layer for the {n}-process PROMELA qlock (FIFO mutex) model.
+    two = pairs_prop('twoInCS', list(range(n)))
+    prog = progress(2, steps([('GP-S |= someInCS', 2), ('queued(GP-S)', 1)]), QUEUED)
+    mutex = progress(2, steps([('GP-S |= twoInCS', 2), ('GP-S |= someInCS', 1)]))
+    return variant(f'''*** RL analysis layer for the {n}-process PROMELA qlock (FIFO mutex) model.
 *** Goal = someInCS. Loc layout: in<i> = i; queue on channel 0 (capacity {n}).
 
 {HEAD}
@@ -84,6 +146,8 @@ mod MODEL is
 {goal}
   eq S |= someInCS = false [owise] .
 
+  --- error condition (not observed): two processes in their critical sections at once
+{two}
   op plainProps : -> PropList .
   eq plainProps = {plain} .
 
@@ -99,7 +163,7 @@ mod QLOCK-PROMELA-TEST is
   pr MODEL .
   op goal : -> Prop .
   eq goal = someInCS .
-
+{prog}
   op env : -> Map{{PROMELA-LVal, PROMELA-Ref}} .
   eq env = ((lval('q, 0) |-> ch(0)), {locs}) .
 {envs(n)}
@@ -116,7 +180,7 @@ mod QLOCK-PROMELA-TEST is
     lock(#none) active({ids(n)})
     nextLoc({n}) nextPid({n}) nextBCid(1) nextHCid(0) ] .
 endm
-'''
+''', 'QLOCK-PROMELA-TEST', 'QLOCK-PROMELA-MUTEX', 'twoInCS', mutex)
 
 
 def dining(n):
@@ -203,7 +267,7 @@ mod DINING-PROMELA-TEST is
   pr MODEL .
   op goal : -> Prop .
   eq goal = deadlock .
-
+{progress(n, count([f'p{i}Blocked' for i in range(n)]))}
   op env : -> Map{{PROMELA-LVal, PROMELA-Ref}} .
   eq env = ({env}) .
 {envs(n)}
@@ -242,7 +306,11 @@ def filt(n):
         st.append(f"('in{i} = # 1) ; ('in{i} = # 0) ; ('level{i} = # 0) ; .Decls")
         bodies.append(f'  op body{i} : -> Seq .\n  eq body{i} = ( ' + '\n               '.join(st) + ' ) .')
     store = ', '.join(f'({i} |-> # 0)' for i in range(len(allv)))
-    return f'''*** RL analysis layer for the {n}-process PROMELA filter lock model ({n - 1} level(s)).
+    two = pairs_prop('twoInCS', list(inn.values()))
+    at = lambda L: ' or '.join(f"(GP-S |= varEq('{k}, {v}, {L}))" for k, v in lv.items())
+    prog = progress(n, steps([('GP-S |= someInCS', n)] + [(at(L), L) for L in range(n - 1, 0, -1)]))
+    mutex = progress(2, steps([('GP-S |= twoInCS', 2), ('GP-S |= someInCS', 1)]))
+    return variant(f'''*** RL analysis layer for the {n}-process PROMELA filter lock model ({n - 1} level(s)).
 *** Process i at level L: level<i> = L ; victim<L> = i ; wait until every other process is
 *** below level L or victim<L> != i. Goal = someInCS.
 *** Loc layout: level<i> = i, victim<L> = {n} + L - 1, in<i> = {2 * n - 1} + i.
@@ -261,6 +329,8 @@ mod MODEL is
 {goal}
   eq S |= someInCS = false [owise] .
 
+  --- error condition (not observed): two processes in their critical sections at once
+{two}
   op plainProps : -> PropList .
   eq plainProps = {plain} .
 
@@ -276,7 +346,7 @@ mod FILTER-PROMELA-TEST is
   pr MODEL .
   op goal : -> Prop .
   eq goal = someInCS .
-
+{prog}
   op env : -> Map{{PROMELA-LVal, PROMELA-Ref}} .
   eq env = ({env}) .
 {envs(n)}
@@ -292,7 +362,7 @@ mod FILTER-PROMELA-TEST is
     network(empty) lock(#none) active({ids(n)})
     nextLoc({len(allv)}) nextPid({n}) nextBCid(0) nextHCid(0) ] .
 endm
-'''
+''', 'FILTER-PROMELA-TEST', 'FILTER-PROMELA-MUTEX', 'twoInCS', mutex)
 
 
 def onethirdrule(n):
@@ -353,7 +423,7 @@ mod OTR-PROMELA-TEST is
   pr MODEL .
   op goal : -> Prop .
   eq goal = allDecided .
-
+{progress(n, count([f"varEq('decided{i}, {loc[f'decided{i}']}, 1)" for i in range(n)]))}
   op env : -> Map{{PROMELA-LVal, PROMELA-Ref}} .
   eq env = ({env}) .
 {envs(n)}

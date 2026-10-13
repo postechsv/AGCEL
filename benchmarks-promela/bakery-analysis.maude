@@ -62,6 +62,19 @@ mod BAKERY-PROMELA-TEST is
   op goal : -> Prop .
   eq goal = someInCrit .
 
+  --- progress toward the goal: 0 .. goalMax, goalMax exactly in the goal states
+  op goalProgress : State -> Nat .
+  op goalMax : -> Nat .
+  op cnt : Bool Nat -> Nat .
+  var GP-S : State .  var GP-N : Nat .
+  eq cnt(true, GP-N) = s GP-N .
+  eq cnt(false, GP-N) = GP-N .
+  op dispensed : State -> Bool .   --- a ticket has been taken (disp > 0)
+  eq dispensed([ store((0 |-> #(s GP-D:Nat), GP-STR:Map{Nat, PROMELA-Value})) GP-CFG:KConfig ]) = true .
+  eq dispensed(GP-S) = false [owise] .
+  eq goalMax = 2 .
+  eq goalProgress(GP-S) = if GP-S |= someInCrit then 2 else if dispensed(GP-S) then 1 else 0 fi fi .
+
   op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
   op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
   eq env0 = ((lval('disp, 0) |-> loc(0)), (lval('serv, 0) |-> loc(1)),

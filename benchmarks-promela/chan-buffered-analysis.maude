@@ -57,6 +57,19 @@ mod CHANBUF-PROMELA-TEST is
   op goal : -> Prop .
   eq goal = qDequeued .
 
+  --- progress toward the goal: 0 .. goalMax, goalMax exactly in the goal states
+  op goalProgress : State -> Nat .
+  op goalMax : -> Nat .
+  op cnt : Bool Nat -> Nat .
+  var GP-S : State .  var GP-N : Nat .
+  eq cnt(true, GP-N) = s GP-N .
+  eq cnt(false, GP-N) = GP-N .
+  op queued : State -> Bool .
+  eq queued([ network((0 |-> mq(GP-I:Int, (GP-M:Msg, GP-ML:MsgList)), GP-NET:Map{Nat, PROMELA-Queue})) GP-CFG:KConfig ]) = true .
+  eq queued(GP-S) = false [owise] .
+  eq goalMax = 2 .
+  eq goalProgress(GP-S) = if GP-S |= qDequeued then 2 else if queued(GP-S) then 1 else 0 fi fi .
+
   op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
   op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
   eq env0 = (lval('q, 0) |-> ch(0)) .
