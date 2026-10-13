@@ -3,7 +3,7 @@ from AGCEL.MaudeEnv import MaudeEnv
 from AGCEL.QLearning import QLearner
 from AGCEL.AStar import *
 from AGCEL.DQNLearning import DQNLearner, READOUTS
-from AGCEL.common import make_encoder, compare_qtable_dqn
+from AGCEL.common import build_vocab, extract_predicate_vector, make_encoder, compare_qtable_dqn
 import os, sys, re, json, time, subprocess, random
 import torch
 torch.set_grad_enabled(False)
@@ -57,10 +57,23 @@ def run_random(m, env, n0, n_runs=10, base_seed=42):
     print(f'  Time (avg)      : {avg_time:.3f} ms')
     print(f'  Goal            : {goal_count}/{n_runs} reached')
 
+def assert_same_vocabulary(saved, env, source):
+    """the propositions a value was learned over must be those of the model it is used on, as an
+    ordered list: with other propositions the value would be read for the wrong observations"""
+    here = build_vocab(env)
+    if list(saved) != here:
+        only_value = [x for x in saved if x not in here][:3]
+        only_model = [x for x in here if x not in saved][:3]
+        raise ValueError(f'{source}: the value was learned over {len(saved)} propositions and this model has {len(here)}; '
+                         f'only in the value: {only_value}; only in the model: {only_model}')
+
+
 def run_qtable(m, env, n0, qtable_file):
     """run search with qtable heuristic"""
     learner = QLearner()
     learner.load_value_function(qtable_file + '.agcel', m)
+    for t in learner.v_dict:   # every stored observation must list the propositions of this model
+        assert_same_vocabulary(sorted(name for name, _ in extract_predicate_vector(t)), env, qtable_file + '.agcel')
     V = learner.get_value_function()
 
     print('\nMethod: QTable')
@@ -83,6 +96,7 @@ def run_dqn(m, env, n0, qtable_file):
 
     with open(dqn_vocab_file, 'r') as f:
         vocab = json.load(f)
+    assert_same_vocabulary(vocab, env, dqn_vocab_file)
 
     dqn = DQNLearner(
         state_encoder=make_encoder(vocab),

@@ -45,7 +45,7 @@ class PrioritizedReplayBuffer:
     def push(self, state, action, reward, next_state, done, next_mask=None):
         exp = Experience(state, action, reward, next_state, done, next_mask)
         self.buffer.append(exp)
-        if reward == 1.0:
+        if reward > 0:
             self.goal_buffer.append(exp)
         else:
             self.non_goal_buffer.append(exp)

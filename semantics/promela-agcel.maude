@@ -25,7 +25,7 @@ mod PROMELA-AGCEL-VOCAB is
   var STR : Map{Nat, PROMELA-Value} .
   var NET : Map{Nat, PROMELA-Queue} .
   vars L V I C SZ : Int .
-  var N : Nat .
+  vars N J : Nat .
   var NQ : Nat? .
   var NS : NatSet .
   var X : Id .
@@ -150,8 +150,52 @@ mod PROMELA-AGCEL-VOCAB is
       if not (I in focusIds) /\ prefix(K, propKsize) = KP .
   eq GS |= kPre(NQ, KP) = false [owise] .
 
-  --- For the generators of proposition lists: the action propositions and the
-  --- kPre propositions that hold in a state, and the state without its action.
+  --- Item propositions. scripts/gen_promela_props.py derives from the text of a model the
+  --- items a computation of that model can begin with, and writes them into the module
+  --- ARM-PROPS of an arm as equations
+  ---   kItem(J, <item J>) = true    xItem(J, <item J>) = true    rItem(J, <pid>, <item>) = true .
+  --- An item may contain variables where a value is known only at run time (the value an
+  --- assignment stores, the message received, ...): an item proposition holds when the
+  --- computation matches the item, not when it equals it. They name no pid.
+  op kItem : Nat K -> Bool .
+  op xItem : Nat K -> Bool .
+  op rItem : Nat Int K -> Bool .
+  eq kItem(J, K) = false [owise] .
+  eq xItem(J, K) = false [owise] .
+  eq rItem(J, I, K) = false [owise] .
+
+  --- kAt(J): the computation of some process begins with item J (its first propKsize items).
+  op kAt : Nat -> Prop [ctor] .
+  ceq ([ procs(proc(pid(I) INNER-REST k(K)) PR) CFG ]) |= kAt(J) = true
+      if kItem(J, prefix(K, propKsize)) .
+  eq GS |= kAt(J) = false [owise] .
+
+  --- execAt(J): the process that acted last had a computation beginning with item J before
+  --- the step (what last(exec(L, P, KP)) recorded as KP).
+  op execAt : Nat -> Prop [ctor] .
+  ceq ([ last(exec(RL, NQ, KP)) CFG ]) |= execAt(J) = true if xItem(J, KP) .
+  eq GS |= execAt(J) = false [owise] .
+
+  --- Role positions. Processes whose texts differ only in names and numbers are instances of
+  --- one template; rItem(J, P, K) says that K is position J of the template as process P has
+  --- it. nAt(J, PS) counts the processes of PS that are at position J.
+  --- rSome(J): at least one process is at position J; rTwo(J): at least two; rAll(J): every
+  --- process. None of them mentions a process or a name of one process.
+  op nAt : Nat KConfig -> Nat .
+  ceq nAt(J, proc(pid(I) INNER-REST k(K)) PR) = s(nAt(J, PR)) if rItem(J, I, prefix(K, propKsize)) .
+  eq nAt(J, proc(INNER-REST) PR) = nAt(J, PR) [owise] .
+  eq nAt(J, none) = 0 .
+  op nProc : KConfig -> Nat .
+  eq nProc(proc(INNER-REST) PR) = s(nProc(PR)) .
+  eq nProc(none) = 0 .
+  ops rSome rTwo rAll : Nat -> Prop [ctor] .
+  eq ([ procs(PS) CFG ]) |= rSome(J) = nAt(J, PS) >= 1 .
+  eq ([ procs(PS) CFG ]) |= rTwo(J) = nAt(J, PS) >= 2 .
+  eq ([ procs(PS) CFG ]) |= rAll(J) = nAt(J, PS) == nProc(PS) .
+
+  --- For the reference enumeration of proposition lists (not the production path): the
+  --- action propositions and the kPre propositions that hold in a state, and the state
+  --- without its action.
   op lastProps : GlobalState -> PropList .
   eq lastProps([ last(exec(RL, NQ, KP)) CFG ]) = execP(RL, NQ) ; execKP(NQ, KP) .
   eq lastProps(GS) = nil [owise] .
