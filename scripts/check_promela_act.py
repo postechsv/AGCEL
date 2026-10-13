@@ -1,23 +1,32 @@
 #!/usr/bin/env python3
-"""Regression for the action-recording semantics (PROMELA-SEMANTICS-ACT).
+"""Regression for the generated parts of the PROMELA semantics: canStep, the condition of
+[loose], and the action-recording semantics (PROMELA-SEMANTICS-ACT).
 
-  sync         semantics/promela-semantics-act.maude is what gen_promela_act.py generates
+  sync         the canStep block of semantics/promela-semantics.maude and
+               semantics/promela-semantics-act.maude are what gen_promela_act.py generates;
+               canStep has one equation per rule other than [loose];
+               semantics/promela-obs-generated.maude is what promela-rule-extract.maude prints
+  sync --write-hook   the same, after rewriting semantics/promela-obs-generated.maude
   prefix       prefix(K, N) on a hand-built computation, N = 0, 1, 2 and larger than K
   tests        tests / tests-extended / tests-all / tests-init give, over PROMELA-SEMANTICS-ACT,
                the results they give over PROMELA-SEMANTICS once last(...) is removed
   safety       the six safety files: every search has the same verdict over both modules; the
                state counts over PROMELA-SEMANTICS-ACT are printed for propKsize 0, 1, 2
-  transitions  from the initial states of the safety files and of the test files: for every
-               reachable configuration and every rule label, the successors over
-               PROMELA-SEMANTICS-ACT without last(...) are the successors over
+  transitions  from the initial states of the safety files, of the test files and of the
+               atomicity files: for every reachable configuration and every rule label, the
+               successors over PROMELA-SEMANTICS-ACT without last(...) are the successors over
                PROMELA-SEMANTICS, and every successor carries
-               last(exec(label, tag(pid), prefix(computation of that pid before the step, propKsize)))
+               last(exec(label, tag(pid), prefix(computation of that pid before the step, propKsize)));
+               over both modules canStep is true exactly in the configurations a rule other
+               than [loose] can rewrite, and [loose] applies only where canStep is false
+  atomic       semantics/tests-atomic.maude gives the verdicts of its Expect lines, and the
+               examples that depend on atomic blocks give theirs, over both modules
   props        on the dining philosophers analysis layer: execP / execKP are false initially,
                hold after the matching step, and are listed in obs(init)
 
   check_promela_act.py [check ...]        all checks when none is named; exit 1 on a failure
 """
-import json, os, re, subprocess, sys, tempfile
+import ast, json, os, re, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -28,6 +37,16 @@ BP = os.path.join(REPO, 'benchmarks-promela')
 MAUDE = os.environ.get('MAUDE', '/usr/local/bin/maude')
 SAFETY = ['dining-philosophers-2', 'filter-2procs', 'qlock-2procs', 'onethirdrule-2procs', 'chan-buffered-1', 'bakery-2procs']
 TESTS = ['tests', 'tests-extended', 'tests-all', 'tests-init']
+# files whose verdicts depend on atomic blocks: (path, has each search a solution; None: the
+# Expect lines of the file), and for the transition check (module, start terms)
+ATOMIC = [
+    ('semantics/tests-atomic.maude', None, 'ATOMIC-TESTS', ['initA1', 'initA2', 'initA3']),
+    ('benchmarks-promela/spink-examples/spin-atomic1.maude', [False], 'BENCH-SPIN-ATOMIC1', ['init']),
+    ('benchmarks-promela/spink-examples/spin-atomic2.maude', [False], 'BENCH-SPIN-ATOMIC2', ['init']),
+    ('benchmarks-promela/spink-examples/paper-spin-atomic-handshake.maude', [False], 'BENCH-PSAH', ['init']),
+    ('benchmarks-promela/bakery-2procs.maude', [False, True], None, []),   # mutexViolated, someInCrit
+]
+COMMAND = re.compile(r'^(?:rew|frew|search|red)\b.*?\s\.[ \t]*$|^quit[ \t]*$', re.M | re.S)
 LIMIT = 20000  # configurations explored per initial state in the transition check
 # start terms for the rules that neither the benchmarks nor the test files exercise
 EXTRA = [
@@ -86,10 +105,34 @@ def act_test(text):
     return re.sub(r'\bprotecting PROMELA-SEMANTICS \.', 'protecting PROMELA-SEMANTICS-ACT-T .', text)
 
 
-def check_sync():
-    new, info = gen.semantics(open(gen.SRC).read())
-    ok = os.path.exists(gen.DST) and open(gen.DST).read() == new
-    print(f'sync: {"ok" if ok else "FAIL"} ({len(info)} rules)')
+HOOK = os.path.join(SEM, 'promela-obs-generated.maude')
+
+
+def hook_text():
+    """the module promela-rule-extract.maude prints for the rules of PROMELA-SEMANTICS"""
+    r = subprocess.run([MAUDE, '-no-banner', '-no-advise', '-no-wrap', '-batch', 'promela-rule-extract.maude'], cwd=SEM,
+                       env=dict(os.environ, MAUDE_LIB=SEM), stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    out = r.stdout
+    lit = re.sub(r'\s*Bye\.\s*\Z', '', out[out.rindex('result String:') + len('result String:'):]).strip()
+    return ast.literal_eval(lit)
+
+
+def check_sync(write_hook=False):
+    hook = hook_text()
+    if write_hook and open(HOOK).read() != hook:
+        with open(HOOK, 'w') as f:
+            f.write(hook)
+        print(f'sync: rewrote {HOOK}')
+    hook_ok = open(HOOK).read() == hook
+    src = open(gen.SRC).read()
+    block, eqs = gen.canstep(src[:src.index(gen.CS_BEGIN)] + src[src.index(gen.CS_END) + len(gen.CS_END):])
+    new, info = gen.semantics(src)
+    n = len(re.findall(r'^[ \t]*c?eq canStep\(', src, re.M))
+    ok = (gen.with_canstep(src) == src and os.path.exists(gen.DST) and open(gen.DST).read() == new
+          and len(eqs) == len(info) - len(gen.OWISE) and n == len(eqs) + 1 and hook_ok)
+    print(f'sync: {"ok" if ok else "FAIL"} ({len(info)} rules; canStep: {len(eqs)} equations, one per rule other than '
+          f'{", ".join("[" + l + "]" for l in gen.OWISE)}, and the owise equation; the action-binding hook is '
+          f'{"what" if hook_ok else "NOT what"} promela-rule-extract.maude prints)')
     return ok
 
 
@@ -158,12 +201,16 @@ def check_safety(tmp):
 
 
 def start_terms():
-    """[(name, loader lines, module, start term)] for the transition check"""
+    """[(name, file or None, module, start term)] for the transition check"""
     out = []
     for b in SAFETY:
         text = open(os.path.join(BP, b + '.maude')).read()
         mod = re.findall(r'^mod (\S+) is', text, re.M)[-1]
         out.append((b, os.path.join(BP, b + '.maude'), mod, 'init'))
+    for rel, _, mod, starts in ATOMIC:
+        for st in starts:
+            out.append((os.path.basename(rel)[:-len('.maude')] + (f':{st}' if len(starts) > 1 else ''),
+                        os.path.join(REPO, rel), mod, st))
     for t in ('tests-all', 'tests-init'):
         text = open(os.path.join(SEM, t + '.maude')).read()
         k = 0
@@ -194,6 +241,7 @@ def canon(s): return red(s).prettyPrint(0)
 def proj(t): return red('noLast(' + t.prettyPrint(0) + ')').prettyPrint(0) if act else t.prettyPrint(0)
 t0 = red(spec['start'])
 seen, order, trans, bad, used = {proj(t0): t0}, [proj(t0)], {}, [], set()
+ncan, badcan = 0, []
 i = 0
 while i < len(order) and len(order) <= spec['limit']:
     key = order[i]; t = seen[key]; i += 1
@@ -213,6 +261,12 @@ while i < len(order) and len(order) <= spec['limit']:
                 ok = red(f'lastOf({rhs.prettyPrint(0)}) == exec({L}, tag({pid}), {kt})').prettyPrint(0)
                 if ok != 'true' and len(bad) < 5: bad.append((L, cur[:200], rhs.prettyPrint(0)[:300]))
         if succ: trans.setdefault(key, {})[L] = sorted(succ)
+    steps = sorted(L for L in trans.get(key, {}) if L not in spec['owise'])
+    # [loose] passes the configuration without last(...): a recorded computation may have no sort
+    cs = red('canStep(' + ('noLast(' + cur + ')' if act else cur) + ')').prettyPrint(0)
+    ncan += 1
+    if cs != ('true' if steps else 'false') or (steps and any(L in trans.get(key, {}) for L in spec['owise'])):
+        if len(badcan) < 5: badcan.append((cur[:300], cs, steps))
     seen[key] = None
 same = None
 if spec.get('base'):   # the transitions over PROMELA-SEMANTICS, printed again by this module
@@ -223,8 +277,8 @@ if spec.get('base'):   # the transitions over PROMELA-SEMANTICS, printed again b
     base = json.load(open(spec['base']))
     same = {c(k): {L: sorted(map(c, v)) for L, v in d.items()} for k, d in base['trans'].items()} == trans \
         and base['states'] == len(order)
-json.dump(dict(states=len(order), complete=i == len(order), trans=trans, bad=bad, used=sorted(used), same=same),
-          open(sys.argv[2], 'w'))
+json.dump(dict(states=len(order), complete=i == len(order), trans=trans, bad=bad, used=sorted(used), same=same,
+               ncan=ncan, badcan=badcan), open(sys.argv[2], 'w'))
 '''
 
 HELPER = '''
@@ -249,9 +303,11 @@ def check_transitions(tmp):
     worker = os.path.join(tmp, 'worker.py')
     with open(worker, 'w') as f:
         f.write(WORKER)
-    ok, used, n = True, set(), 0
+    ok, used, n, ncan = True, set(), 0, 0
     for name, path, mod, start in start_terms():
         res = {}
+        src_dir = os.path.dirname(path) if path else None
+        absolute = lambda m: f'load {os.path.normpath(os.path.join(src_dir, m.group(1) + ".maude"))} .'
         for focus, ksize in ((None, None), ('mt', 0), ('0, 1', 2)):
             act = focus is not None
             stem = os.path.join(tmp, re.sub(r'\W', '_', f'tr_{name}_{focus}_{ksize}'))
@@ -260,11 +316,11 @@ def check_transitions(tmp):
             elif act:
                 load = [stem + '.maude']
                 with open(load[0], 'w') as f:
-                    f.write(re.sub(r'^search .*$', '', gen.act_file(open(path).read(), BP), flags=re.M))
+                    f.write(COMMAND.sub('', gen.act_file(open(path).read(), src_dir)))
             else:
                 load = [stem + '.maude']
                 with open(load[0], 'w') as f:
-                    f.write(re.sub(r'^search .*$', '', open(path).read(), flags=re.M).replace('load ../semantics/', f'load {SEM}/'))
+                    f.write(gen.LOAD.sub(absolute, COMMAND.sub('', open(path).read())))
             module, st = mod, start
             if act:
                 module = 'CHECK-ACT'
@@ -277,7 +333,7 @@ def check_transitions(tmp):
                     st = '[ last(noAct)' + st[1:]
             with open(stem + '.json', 'w') as f:
                 json.dump(dict(load=load, module=module, start=st, act=act, limit=LIMIT, pidvar=pidvar, nokt=nokt,
-                               base=base_out if act else None), f)
+                               owise=list(gen.OWISE), base=base_out if act else None), f)
             if not act:
                 base_out = stem + '.out.json'
             r = subprocess.run([sys.executable, worker, stem + '.json', stem + '.out.json'],
@@ -287,6 +343,12 @@ def check_transitions(tmp):
             res[focus] = json.load(open(stem + '.out.json'))
         if res is None: continue
         base = res[None]
+        for focus, a in res.items():
+            ncan += a['ncan']
+            if a['badcan']:
+                ok = False
+                print(f'transitions: {name} ({"PROMELA-SEMANTICS" if focus is None else "focus " + focus}): '
+                      f'canStep DISAGREES with the rules, e.g. (configuration, canStep, rules that apply) = {a["badcan"][0]}')
         for focus in ('mt', '0, 1'):
             a = res[focus]
             used |= set(a['used'])
@@ -301,7 +363,31 @@ def check_transitions(tmp):
                   + f', {sum(len(v) for d in base["trans"].values() for v in d.values())} transitions: same over both modules')
     missing = sorted(set(pidvar) - used)
     print(f'transitions: {"ok" if ok else "FAIL"} ({n} initial states; {len(used)} of {len(pidvar)} rules exercised'
-          + (f'; not exercised: {" ".join(missing)}' if missing else '') + ')')
+          + (f'; not exercised: {" ".join(missing)}' if missing else '')
+          + f'; canStep agrees with the rules in {ncan} configurations)')
+    return ok
+
+
+def check_atomic(tmp):
+    ok = True
+    for rel, want, _, _ in ATOMIC:
+        src = os.path.join(REPO, rel)
+        d, text = os.path.dirname(src), open(src).read()
+        if want is None:
+            want = [x == 'Solution' for x in re.findall(r'^\*\*\* Expect: (No solution|Solution)\b', text, re.M)]
+        got = [[s for s, _ in verdicts(maude(src, d)[0])]]
+        for ks in (0, 2):
+            p = os.path.join(tmp, f'atomic-{os.path.basename(rel)[:-len(".maude")]}-k{ks}.maude')
+            with open(p, 'w') as f:
+                f.write(gen.act_file(text, d, focus=[], ksize=ks))
+            got.append([s for s, _ in verdicts(maude(p, tmp)[0])])
+        good = all(g == want for g in got)
+        ok &= good
+        show = lambda v: ' '.join('yes' if x else 'no' for x in v)
+        print(f'atomic: {rel}: {len(want)} searches, solution expected: {show(want)} | '
+              + ('as expected over PROMELA-SEMANTICS and over PROMELA-SEMANTICS-ACT (propKsize 0, 2)' if good
+                 else 'DIFFERENT: ' + ' / '.join(show(g) for g in got)))
+    print(f'atomic: {"ok" if ok else "FAIL"}')
     return ok
 
 
@@ -334,8 +420,10 @@ red obs(init) .
 
 
 def main():
-    checks = dict(sync=lambda t: check_sync(), prefix=check_prefix, tests=check_tests, safety=check_safety,
-                  transitions=check_transitions, props=check_props)
+    write_hook = '--write-hook' in sys.argv
+    if write_hook: sys.argv.remove('--write-hook')
+    checks = dict(sync=lambda t: check_sync(write_hook), prefix=check_prefix, tests=check_tests, safety=check_safety,
+                  transitions=check_transitions, atomic=check_atomic, props=check_props)
     names = sys.argv[1:] or list(checks)
     with tempfile.TemporaryDirectory() as tmp:
         ok = [checks[n](tmp) for n in names]

@@ -265,10 +265,41 @@ Semantic verification (extended tests):
 
 ## Known open issues — status after restructuring
 
-1. **`[loose]` losing `[owise]` semantics**: NOT resolved by restructuring. Maude rules still cannot carry `[owise]`. `[loose]` retains its documented non-deterministic-race compromise. The multiset matching did not provide a cleaner expression.
+1. **`[loose]` losing `[owise]` semantics** (resolved later, see "2026-10-14" at the end): NOT resolved by restructuring. Maude rules still cannot carry `[owise]`. `[loose]` retains its documented non-deterministic-race compromise. The multiset matching did not provide a cleaner expression.
 2. **Latent `[hs-fire]` `_[_]` overload bug** (Task 1 audit Part D, item D8): UNCHANGED. `[hs-fire]` still uses `X[I] ! EL1` (Int-index pattern). Fix would require widening to `VR : Vref` analogous to `[send-eval-chan]`. Not done in Task 4 per the constraint to preserve known design decisions.
 3. **Ambiguous send/recv parsing** (Task 1 audit Part D, item D37 - `[load-basic]` coverage): UNCHANGED. The `subsort Expr < BasicStmt` chain still allows `[load-basic]` to fire on bare Values. No test exercises this boundary; behavior unverified.
 4. **Benign `_-_` kind-level warnings** in PROMELA-EVAL/PURIFY/EFFECT: **resolved as a side effect of the EmptyList-ditto unification**. The new sort structure for ValueList/Exprs/MsgList apparently disambiguates the kind for `_-_` and Maude no longer reports the alternate parse. Backend is now warning-free.
 
 ## Backend ready for frontend implementation
 After Task 4, the backend exhibits the multiset configuration pattern faithfully, all rules match against the nested cell hierarchy, tests pass, and load is clean. Frontend implementation can resume.
+
+## 2026-10-14 — `[loose]` carries the owise condition; loading keeps the atomic context
+
+Two departures from `promela.k` are removed. Both made the lock leave its holder in the middle
+of a statement or of an atomic block, so atomic blocks were not atomic (bakery's mutual
+exclusion, `spin-atomic1`, `spin-atomic2` and `paper-spin-atomic-handshake` had spurious
+violations).
+
+- **`[loose]`** (promela.k:376, `[owise]`). K tries an owise rule only when no other rule
+  applies to the configuration. A Maude rule cannot carry `owise`, but a condition can state
+  it: `crl [loose] : ... if not canStep([lock(@ PID) CFG-REST])`. `canStep(GS)` is true when a
+  rule other than `[loose]` can rewrite `GS`. It has one equation per such rule, with the
+  left-hand side and the condition of the rule, and `canStep(GS) = false [owise]`; an equation
+  can carry `owise`. The equations are generated from the rules by
+  `scripts/gen_promela_act.py` into the block at the end of `PROMELA-SEMANTICS`, and
+  `scripts/check_promela_act.py` compares `canStep` with the rules on every configuration it
+  explores. `META-LEVEL` is not imported. This supersedes "Pattern 4" and "A4" above, which
+  recorded that `[loose]` stays an `rl` without the condition.
+- **`[load-*]`** (promela.k:680-691 `[spload-true]`, 719-726 `[spload-atomic]`). K loads a
+  statement with `spload(true, ...)` when the loading process holds the lock and with
+  `spload(false, ...)` when the lock is free. The seven `[load-*]` rules passed `false`
+  always, which put a `#rel` after every statement of an atomic block from the second one on.
+  They now pass `LCK == @ PID`. The scheduling around `spload` (`#normalize`, the controller
+  process, the priorities) is still not ported.
+- `[rel]` (promela.k:373) is unchanged: it frees the lock whoever holds it, as in K.
+
+Effect on the state spaces: a statement is no longer interleaved between `[fire]` and its
+effect, so every benchmark has fewer states (dining-philosophers-2 1473 -> 185, filter-2procs
+801 -> 336, qlock-2procs 782 -> 255, onethirdrule-2procs 749 -> 299, chan-buffered-1 166 -> 58,
+bakery-2procs 6214 -> 268). Verdicts are unchanged except where they depended on atomicity.
+New tests: `tests-atomic.maude` (13 searches).

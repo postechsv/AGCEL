@@ -69,3 +69,27 @@ DQN success 53/80, ~2x search reduction. 500-episode figures recorded at report 
 Deferred to Phase 2 proper (gated on the above): Action sort + `last` cell + `prefix`/`propKsize`
 + 44-rule wiring (D2-D6), `execProp` / `isIndicator` focus (D3, D7), action-vs-store learning
 comparison (D9). Python side (MaudeEnv, learners, AStar, train/test) stays untouched throughout.
+
+## Update 2026-10-14: `[loose]` with the owise condition, atomic loading
+
+The baselines above were taken while `[loose]` could fire whenever the lock was held and every
+`[load-*]` rule loaded with `false`. Since then `[loose]` carries the K `[owise]` as the
+condition `not canStep(...)` and `[load-*]` load with `LCK == @ PID`
+(`semantics/promela-semantics.maude`). Safety verdicts are unchanged except bakery, whose
+spurious violation is gone; the state spaces are smaller because a statement is no longer
+interleaved between its guard and its effect.
+
+| Benchmark | Safety property | Result | State space |
+|---|---|---|---|
+| dining-philosophers-2 | bothEating | No solution (holds) | 185 |
+| filter-2procs | bothInCS | No solution (holds) | 336 |
+| qlock-2procs | bothInCS | No solution (holds) | 255 |
+| onethirdrule-2procs | disagree | No solution (holds) | 299 |
+| chan-buffered-1 | qOutOfOrder | No solution (holds) | 58 |
+| bakery-2procs | mutexViolated | No solution (holds) | 268 |
+
+Test suites: `tests.maude` = 28, `tests-extended.maude` = 13, `tests-all.maude` = 52, with the
+same results; `tests-atomic.maude` = 13 (new). The three spink examples marked "BLOCKED on
+[loose] owise fix" (`spin-atomic1`, `spin-atomic2`, `paper-spin-atomic-handshake`) now give
+No solution. Section 4 (BFS states of the RL pipeline) and the dining RL figures describe the
+earlier semantics.

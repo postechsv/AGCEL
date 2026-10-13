@@ -1,7 +1,7 @@
 *** paper-spin-atomic-handshake.pml: atomic + rendezvous + toss, 3 procs (hand-built post-INIT [...]).
 *** X atomically does x++ ; q!0 (rendezvous, toss back) ; x++, so x goes 0->2; Z reads y := x.
-*** BLOCKED on [loose] owise fix: safety yIs1 SHOULD be No solution (x never observed as 1),
-*** but [loose] over-fire may expose transient x=1 => spurious y=1. Also first atomic+rendezvous toss test.
+*** Safety yIs1: No solution (x is never observed as 1). While [loose] could fire at any time the
+*** transient x=1 was visible and y=1 had spurious solutions. Also the atomic+rendezvous toss test.
 *** Constructs: atomic{}, handshake rendezvous inside atomic, [toss1].
 
 load ../../semantics/promela-semantics.maude .

@@ -3,10 +3,11 @@
 *** Process = proc(pid(...) name(...) k(...) local(...) env(...))
 *** Action recording, a last(exec(label, pid, k)) cell, is not wired into this
 *** module: it distinguishes states by the rule that fired, which changes the
-*** safety state counts -- filter 801, qlock 782, chan 166, OTR 749. It lives in
+*** safety state counts -- filter 336, qlock 255, chan 58, OTR 299. It lives in
 *** the separate module PROMELA-SEMANTICS-ACT (promela-semantics-act.maude),
-*** generated from this file by scripts/gen_promela_act.py. After editing a rule
-*** here, regenerate it and run scripts/check_promela_act.py.
+*** generated from this file by scripts/gen_promela_act.py. The same script writes
+*** the canStep block at the end of this module (the condition of [loose]). After
+*** editing a rule here, run it and then scripts/check_promela_act.py.
 
 load promela-functions.maude .
 
@@ -169,10 +170,17 @@ mod PROMELA-SEMANTICS is
     lock(#none) CFG-REST] .
 
   --- rule [loose]: <lock> _:Int => #none </lock> [owise]   (line 376)
-  rl [loose] :
+  --- [owise]: K tries this rule only when no other rule applies to the configuration, so the
+  --- lock is taken from its holder only when nothing else can move (the holder is blocked
+  --- inside its atomic block). A Maude rule cannot carry owise; the condition states it.
+  --- canStep(GS) holds when some rule of this module other than [loose] can rewrite GS; its
+  --- equations are generated from the rules, one per rule (the block at the end of this
+  --- module, written by scripts/gen_promela_act.py).
+  crl [loose] :
     [lock(@ PID) CFG-REST]
     =>
-    [lock(#none) CFG-REST] .
+    [lock(#none) CFG-REST]
+    if not canStep([lock(@ PID) CFG-REST]) .
 
   --- rule [toss1]: <k> (.K => KI) ~> #toss(_) ~> (KI:KItem => .K) ...</k> requires KI =/=K #rel   (line 611)
   crl [toss1] :
@@ -539,66 +547,73 @@ mod PROMELA-SEMANTICS is
   --- module LOAD: the load function is promela.k:542-551 (ported in promela-functions.maude).
   --- K dispatches per statement shape via spload (promela.k:566-567):
   --- rule spload(B, S:Stmt ~> K) => load(B, S) ~> K requires (_:DeclStmt :/=K S)
+  --- and takes B, whether the statement is loaded inside an atomic block, from the lock:
+  --- rule [spload-true]: <lock> #none </lock> <pid> PID </pid> <k> KI:KItem => spload(false, KI) ...</k>   (lines 680-691)
+  --- rule [spload-atomic]: <lock> PID:Int </lock> <pid> PID </pid> <k> KI:KItem => spload(true, KI) ...</k>   (lines 719-726)
+  --- Only that choice is ported: every [load-*] rule passes LCK == @ PID, which is true exactly
+  --- when the loading process holds the lock. The scheduling around spload (#normalize, the
+  --- controller process with pid -1, the rule priorities) is not ported; a process that does
+  --- not hold the lock loads with false, as [spload-true] does once the lock is free.
   --- Each [load-*] rule below cites the load equation it invokes.
   --- rule load(B, SL:Seq ~> K) => load(B, split(SL) ~> K)   (line 545)
   rl [load-seq] :
     [procs(proc(pid(PID) k((ST ; SL) ~> K) INNER-REST) PROC-REST)
-    CFG-REST]
+    lock(LCK) CFG-REST]
     =>
-    [procs(proc(pid(PID) k(load(false, split(ST ; SL) ~> K)) INNER-REST) PROC-REST)
-    CFG-REST] .
+    [procs(proc(pid(PID) k(load(LCK == @ PID, split(ST ; SL) ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
 
   --- rule load(true, atomic { SL } ~> K) => load(true, SL ~> K) // inner atomic
   --- rule load(false, atomic { SL } ~> K) => load(true, SL ~> #rel ~> K) // outermost atomic   (lines 546-547)
   rl [load-atomic] :
     [procs(proc(pid(PID) k(atomic{ SL } ~> K) INNER-REST) PROC-REST)
-    CFG-REST]
+    lock(LCK) CFG-REST]
     =>
-    [procs(proc(pid(PID) k(load(false, atomic{ SL } ~> K)) INNER-REST) PROC-REST)
-    CFG-REST] .
+    [procs(proc(pid(PID) k(load(LCK == @ PID, atomic{ SL } ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
 
   --- rule load(B, if (:: SL) OL fi ~> K) => load(B, SL ~> K) load(B, if OL fi ~> K)
   --- rule load(_, if .Optns fi ~> _) => .Set   (lines 548-549)
   rl [load-if] :
     [procs(proc(pid(PID) k(if OL fi ~> K) INNER-REST) PROC-REST)
-    CFG-REST]
+    lock(LCK) CFG-REST]
     =>
-    [procs(proc(pid(PID) k(load(false, if OL fi ~> K)) INNER-REST) PROC-REST)
-    CFG-REST] .
+    [procs(proc(pid(PID) k(load(LCK == @ PID, if OL fi ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
 
   --- rule load(B, do OL od ~> K) => load(B, if OL fi ~> do OL od ~> K)   (line 551)
   rl [load-do] :
     [procs(proc(pid(PID) k(do OL od ~> K) INNER-REST) PROC-REST)
-    CFG-REST]
+    lock(LCK) CFG-REST]
     =>
-    [procs(proc(pid(PID) k(load(false, do OL od ~> K)) INNER-REST) PROC-REST)
-    CFG-REST] .
+    [procs(proc(pid(PID) k(load(LCK == @ PID, do OL od ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
 
   --- rule load(true, BS:BasicStmt ~> K) => SetItem(@[ BS ~> K ])
   --- rule load(false, BS:BasicStmt ~> K) => load(true, BS ~> #rel ~> K)   (lines 543-544)
   crl [load-basic] :
     [procs(proc(pid(PID) k(BS ~> K) INNER-REST) PROC-REST)
-    CFG-REST]
+    lock(LCK) CFG-REST]
     =>
-    [procs(proc(pid(PID) k(load(false, BS ~> K)) INNER-REST) PROC-REST)
-    CFG-REST]
+    [procs(proc(pid(PID) k(load(LCK == @ PID, BS ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]
     if not (BS :: Value) /\ not (BS :: Decl) .
 
   --- rule load(B, S:GotoStmt ~> K) => load(B, true ~> S ~> K)   (line 550)
   rl [load-goto] :
     [procs(proc(pid(PID) k(goto X ~> K) INNER-REST) PROC-REST)
-    CFG-REST]
+    lock(LCK) CFG-REST]
     =>
-    [procs(proc(pid(PID) k(load(false, goto X ~> K)) INNER-REST) PROC-REST)
-    CFG-REST] .
+    [procs(proc(pid(PID) k(load(LCK == @ PID, goto X ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
 
   --- rule load(B, S:GotoStmt ~> K) => load(B, true ~> S ~> K) // break : GotoStmt   (line 550)
   rl [load-break] :
     [procs(proc(pid(PID) k(break ~> K) INNER-REST) PROC-REST)
-    CFG-REST]
+    lock(LCK) CFG-REST]
     =>
-    [procs(proc(pid(PID) k(load(false, break ~> K)) INNER-REST) PROC-REST)
-    CFG-REST] .
+    [procs(proc(pid(PID) k(load(LCK == @ PID, break ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
 
   op #proctype : Id Decls Seq -> KLabel [ctor] .
   op #activeProctype : Id Decls Seq -> KLabel [ctor] .
@@ -642,6 +657,231 @@ mod PROMELA-SEMANTICS is
     [procs(proc(pid(PID) k(#globals(.Decls) ~> K) INNER-REST) PROC-REST) CFG-REST]
     =>
     [procs(proc(pid(PID) k(K) INNER-REST) PROC-REST) CFG-REST] .
+
+  --- BEGIN canStep -- generated by scripts/gen_promela_act.py from the rules above; do not edit by hand
+  --- canStep(GS): some rule other than [loose] can rewrite GS. One equation per rule, with
+  --- the left-hand side and the condition of that rule; false when none of them applies.
+  op canStep : GlobalState -> Bool .
+  --- [fire]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k((@[ BS ~> KLOCAL ] BREST) ~> KGLOBAL) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) lock(LCK) nextPid(NPID) CFG-REST]) = true
+    if (LCK == #none or LCK == @ PID)
+       /\ isExec(BS, ENV, STR, NET, NPID) .
+  --- [hs-fire]
+  ceq canStep(
+    [procs(proc(pid(PID1) INNER-REST k((@[ X[# I] ! EL1 ~> K1 ] BREST1) ~> KGLOBAL1) local(LOCAL) env(ENV1))
+          proc(pid(PID2) name(NAME2) k((@[ X[# J] ? EL2 ~> K2 ] BREST2) ~> KGLOBAL2) local(LOCAL2) env(ENV2))
+          PROC-REST)
+    store(STR) network(NET) lock(LCK) nextPid(NPID) CFG-REST]) = true
+    if (LCK == #none or LCK == @ PID1 or LCK == @ PID2)
+       /\ eval(X[# I], ENV1, STR, NET) ==HChan eval(X[# J], ENV2, STR, NET)
+       /\ matchMsg(EL2, evalList(EL1, ENV1, STR, NET)) .
+  --- [rel]
+  eq canStep(
+    [procs(proc(pid(PID) k(#rel ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [toss1]
+  ceq canStep(
+    [procs(proc(pid(PID) k(#toss(I) ~> KI:KLabel ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true
+    if KI:KLabel =/= #rel .
+  --- [toss2]
+  eq canStep(
+    [procs(proc(pid(PID) k(#toss(I) ~> #rel ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [assign-eval-index]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, E, E2) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]) = true
+    if not(E :: Value) .
+  --- [assign-eval-value]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, V, E) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]) = true
+    if not(E :: Value) .
+  --- [assign-store]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, VIDX, V2) ~> K) local(LOCAL)
+               env(((lval(X, I) |-> loc(L)), ENV))) PROC-REST)
+    store(((L |-> VOLD), STR)) CFG-REST]) = true
+    if # I := VIDX .
+  --- [assign-chan]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, VIDX, # CH) ~> K) local(LOCAL)
+               env(((lval(X, I) |-> CH2), ENV))) PROC-REST)
+    CFG-REST]) = true
+    if # I := VIDX .
+  --- [send-eval-chan]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#send(VR, EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]) = true
+    if not(VR :: Value) .
+  --- [send-push]
+  eq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#send(# ch(C), EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(((C |-> mq(S, ML)), NET)) CFG-REST]) = true .
+  --- [recv-eval-chan]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#recv(VR, EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]) = true
+    if not(VR :: Value) .
+  --- [recv-pop]
+  eq canStep(
+    [procs(proc(pid(PID) k(#recv(# ch(C), EL) ~> K) INNER-REST) PROC-REST)
+    network(((C |-> mq(S, (m(VL), ML))), NET)) CFG-REST]) = true .
+  --- [recvMsg-done]
+  eq canStep(
+    [procs(proc(pid(PID) k(#recvMsg(nil, m(nil)) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [recvMsg-match]
+  eq canStep(
+    [procs(proc(pid(PID) k(#recvMsg((V, EL), m((V, VL))) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [recvMsg-assign]
+  eq canStep(
+    [procs(proc(pid(PID) k(#recvMsg((X[# I], EL), m((V, VL))) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [recvMsg-assign-simple]
+  eq canStep(
+    [procs(proc(pid(PID) k(#recvMsg((X, EL), m((V, VL))) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [goto]
+  eq canStep(
+    [proctypes(proctype(procName(NAME) gotoMap(((X |-> gotoCtx(B, KCONT)), GMAP)) INNER-REST) PT-REST:KConfig)
+    procs(proc(pid(PID) name(NAME) k(goto X ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [break]
+  eq canStep(
+    [procs(proc(pid(PID) k(break ~> do OL od ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [break-prop]
+  ceq canStep(
+    [procs(proc(pid(PID) k(break ~> KI:KLabel ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true
+    if not(isDoLoop(KI:KLabel)) .
+  --- [run-eval]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#run(X, EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]) = true
+    if not(EL :: ValueList) .
+  --- [run]
+  eq canStep(
+    [proctypes(proctype(procName(X) procParams(DECLS) procBody(BODY) INNER-REST) PT-REST:KConfig)
+    procs(proc(pid(PID) name(NAME) k(#run(X, VL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    active(ACT) nextPid(NPID) CFG-REST]) = true .
+  --- [done]
+  eq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#wait ~> K) local(LOCAL) env(ENV))
+          proc(pid(PID2) name(NAME2) k(#done ~> K2) local(LOCAL2) env(ENV2))
+          PROC-REST)
+    CFG-REST]) = true .
+  --- [init1]
+  eq canStep(
+    [procs(proc(pid(PID) k(#init(.Decls, VL) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [init2]
+  eq canStep(
+    [procs(proc(pid(PID) k(#init((PT X ; DECLS), nil) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [init3]
+  eq canStep(
+    [procs(proc(pid(PID) k(#init((PT X ; DECLS), (V, VL)) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [decl-int-arr]
+  eq canStep(
+    [procs(proc(pid(PID) k((int X[# I]) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [decl-int]
+  eq canStep(
+    [procs(proc(pid(PID) k((int X) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [decl-bool-arr]
+  eq canStep(
+    [procs(proc(pid(PID) k((bool X[# I]) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [decl-bool]
+  eq canStep(
+    [procs(proc(pid(PID) k((bool X) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [decl-scalar-val]
+  eq canStep(
+    [procs(proc(pid(PID) k((T X = V) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [decl-prim]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k((PT X[# I] = V) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) nextLoc(J) CFG-REST]) = true
+    if I > 0 .
+  --- [decl-bch]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k((chan X[# I] =[ CAP ]of{ TS }) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    network(NET) nextBCid(NBC) CFG-REST]) = true
+    if I > 0 /\ CAP > 0 .
+  --- [decl-hch]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k((chan X[# I] =[ 0 ]of{ TS }) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    nextHCid(NHC) CFG-REST]) = true
+    if I > 0 .
+  --- [decl-uch]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k((chan X[# I]) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    CFG-REST]) = true
+    if I > 0 .
+  --- [freeze]
+  eq canStep(
+    [procs(proc(pid(PID) k(#freeze ~> K) INNER-REST) PROC-REST)
+    lock(#none) active(ACT) CFG-REST]) = true .
+  --- [load-seq]
+  eq canStep(
+    [procs(proc(pid(PID) k((ST ; SL) ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [load-atomic]
+  eq canStep(
+    [procs(proc(pid(PID) k(atomic{ SL } ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [load-if]
+  eq canStep(
+    [procs(proc(pid(PID) k(if OL fi ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [load-do]
+  eq canStep(
+    [procs(proc(pid(PID) k(do OL od ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [load-basic]
+  ceq canStep(
+    [procs(proc(pid(PID) k(BS ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true
+    if not (BS :: Value) /\ not (BS :: Decl) .
+  --- [load-goto]
+  eq canStep(
+    [procs(proc(pid(PID) k(goto X ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [load-break]
+  eq canStep(
+    [procs(proc(pid(PID) k(break ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [proctype]
+  eq canStep(
+    [proctypes(PTS)
+     procs(proc(pid(PID) k(#proctype(X, DECLS, SL) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [active]
+  eq canStep(
+    [procs(proc(pid(PID) k(#activeProctype(X, DECLS, SL) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [active-n]
+  eq canStep(
+    [procs(proc(pid(PID) k(#activeN(N, X, DECLS, SL) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [repeat]
+  ceq canStep(
+    [procs(proc(pid(PID) k(#repeat(N, K1) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true
+    if N > 0 .
+  --- [repeat-done]
+  ceq canStep(
+    [procs(proc(pid(PID) k(#repeat(N, K1) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true
+    if N <= 0 .
+  --- [globals]
+  eq canStep(
+    [procs(proc(pid(PID) k(#globals(D:Decl ; DECLS) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [globals-done]
+  eq canStep(
+    [procs(proc(pid(PID) k(#globals(.Decls) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  eq canStep(GS:GlobalState) = false [owise] .
+  --- END canStep
 
   op initT : K -> GlobalState .
   eq initT(K) = [ proctypes(none)

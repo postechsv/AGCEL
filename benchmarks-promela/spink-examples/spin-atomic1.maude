@@ -1,7 +1,8 @@
 *** spin-atomic1.pml: atomic swap, 2 procs (hand-built post-INIT [...]).
 *** p1 atomically swaps a,b (a!=b invariant); p2 sets flag if a==b.
-*** BLOCKED on [loose] owise fix: safety flagSet SHOULD be No solution, but [loose]
-*** over-fire breaks the atomic swap (transient a==b) => spurious flag=1. NOT a valid pass.
+*** Safety flagSet: No solution (the swap is atomic). While [loose] could fire at any time and a
+*** statement loaded inside a block lost the atomic context, a transient a==b was visible
+*** and flag=1 had spurious solutions.
 *** Constructs: atomic{} swap, guard.
 
 load ../../semantics/promela-semantics.maude .

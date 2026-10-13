@@ -6,8 +6,6 @@
 mod PROMELA-OBS-GEN is
   inc PROMELA-AGCEL .
 
-  eq obs('loose, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
-  eq obs('load-break, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('active-n, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('active-n, 'X, data(X:Id)) = 'X := data(X:Id) .
   eq obs('active, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
@@ -25,7 +23,6 @@ mod PROMELA-OBS-GEN is
   eq obs('recvMsg-assign-simple, 'X, data(X:Id)) = 'X := data(X:Id) .
   eq obs('recvMsg-assign, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('recvMsg-assign, 'X, data(X:Id)) = 'X := data(X:Id) .
-  eq obs('load-seq, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('decl-bool, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('decl-bool, 'X, data(X:Id)) = 'X := data(X:Id) .
   eq obs('decl-bool-arr, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
@@ -36,19 +33,21 @@ mod PROMELA-OBS-GEN is
   eq obs('decl-int-arr, 'X, data(X:Id)) = 'X := data(X:Id) .
   eq obs('decl-scalar-val, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('decl-scalar-val, 'X, data(X:Id)) = 'X := data(X:Id) .
+  eq obs('break, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
+  eq obs('done, 'PID2, data(PID2:Int)) = 'PID2 := data(tag(PID2:Int)) .
+  eq obs('done, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
+  eq obs('rel, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
+  eq obs('load-break, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
+  eq obs('proctype, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
+  eq obs('proctype, 'X, data(X:Id)) = 'X := data(X:Id) .
+  eq obs('recv-pop, 'C, data(C:Int)) = 'C := data(C:Int) .
+  eq obs('recv-pop, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
+  eq obs('load-seq, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('load-atomic, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('load-do, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('load-goto, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('load-goto, 'X, data(X:Id)) = 'X := data(X:Id) .
   eq obs('load-if, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
-  eq obs('break, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
-  eq obs('done, 'PID2, data(PID2:Int)) = 'PID2 := data(tag(PID2:Int)) .
-  eq obs('done, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
-  eq obs('rel, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
-  eq obs('proctype, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
-  eq obs('proctype, 'X, data(X:Id)) = 'X := data(X:Id) .
-  eq obs('recv-pop, 'C, data(C:Int)) = 'C := data(C:Int) .
-  eq obs('recv-pop, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('toss2, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('freeze, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('send-push, 'C, data(C:Int)) = 'C := data(C:Int) .
@@ -57,7 +56,7 @@ mod PROMELA-OBS-GEN is
   eq obs('goto, 'X, data(X:Id)) = 'X := data(X:Id) .
   eq obs('run, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('run, 'X, data(X:Id)) = 'X := data(X:Id) .
-  eq obs('load-basic, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
+  eq obs('loose, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('repeat-done, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('repeat, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('break-prop, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
@@ -66,6 +65,7 @@ mod PROMELA-OBS-GEN is
   eq obs('assign-chan, 'X, data(X:Id)) = 'X := data(X:Id) .
   eq obs('decl-uch, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('decl-uch, 'X, data(X:Id)) = 'X := data(X:Id) .
+  eq obs('load-basic, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('assign-store, 'L, data(L:Int)) = 'L := data(L:Int) .
   eq obs('assign-store, 'PID, data(PID:Int)) = 'PID := data(tag(PID:Int)) .
   eq obs('assign-store, 'X, data(X:Id)) = 'X := data(X:Id) .

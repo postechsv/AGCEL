@@ -3,8 +3,8 @@
 *** mutex benchmark, and filter-2procs is the Peterson-family algorithm.)
 *** Goal = someInCrit (reachable: a process enters its critical section).
 *** Loc layout (from bakery-2procs): disp=0, serv=1, crit=2, tick=3/4.
-*** NOTE: mutexViolated (crit>=2) is spuriously reachable under the [loose] owise
-*** gap, so the reachability goal here is the clean someInCrit (crit==1).
+*** NOTE: the goal is the reachability control someInCrit (crit==1). mutexViolated (crit>=2)
+*** is not reachable: bakery-2procs.maude searches for it and finds no solution.
 
 load ../semantics/promela-agcel.maude .
 load ../semantics/promela-obs-generated.maude .

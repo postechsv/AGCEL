@@ -1,7 +1,8 @@
 *** Bakery mutual exclusion, 2 processes (hand-built post-INIT [...]; one cycle/proc, bounded).
 *** Property: mutual exclusion -- crit counter never reaches 2.
 *** Expected: mutexViolated => No solution ; someInCrit => solution (reachability control).
-*** BLOCKED on [loose] owise fix: mutexViolated yields spurious solutions (atomicity-dependent).
+*** Both hold. mutexViolated depends on the atomic blocks: it had spurious solutions while
+*** [loose] could fire at any time and a statement loaded inside a block lost the atomic context.
 
 load ../semantics/promela-semantics.maude .
 

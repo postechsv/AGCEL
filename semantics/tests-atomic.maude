@@ -1,0 +1,130 @@
+*** =============================================================================
+*** TESTS-ATOMIC.MAUDE — atomic blocks and the lock
+*** =============================================================================
+*** Each search prints Solution or No solution. Compare to the "Expect" line before it.
+*** Run: maude -no-banner tests-atomic.maude       (13 searches)
+***
+*** K rules under test (promela.k):
+***   [fire] takes the lock for the process that fires                    (lines 570-578)
+***   rule [rel]: <k> #rel => .K ...</k> <lock> _ => #none </lock>        (line 373)
+***   rule [loose]: <lock> _:Int => #none </lock> [owise]                 (line 376)
+***   load(false, BS ~> K) => load(true, BS ~> #rel ~> K)                 (line 544)
+***   load(false, atomic { SL } ~> K) => load(true, SL ~> #rel ~> K)      (line 547)
+***   [spload-true] / [spload-atomic]: a statement is loaded with true exactly when the
+***   loading process holds the lock                                      (lines 680-691, 719-726)
+*** Together: the statements of an atomic block run without another process firing in
+*** between, and the lock leaves its holder only at the end of the block or when the holder
+*** is blocked and nothing else can move.
+*** =============================================================================
+
+load promela-semantics.maude .
+
+mod ATOMIC-TESTS is
+  protecting PROMELA-SEMANTICS .
+
+  --- x, y, z at locations 0, 1, 2
+  op envXYZ : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq envXYZ = ((lval('x, 0) |-> loc(0)), (lval('y, 0) |-> loc(1)), (lval('z, 0) |-> loc(2))) .
+
+  ops count3 copyXY waitY setY copyXZ : -> Seq .
+  eq count3 = ( atomic { ('x = # 1) ; ('x = # 2) ; ('x = # 3) ; .Decls } ) ; .Decls .
+  eq copyXY = ( ('y = 'x) ; .Decls ) .
+  eq waitY  = ( atomic { ('x = # 1) ; ('y == # 1) ; ('x = # 2) ; ('x = # 3) ; .Decls } ) ; .Decls .
+  eq setY   = ( ('y = # 1) ; .Decls ) .
+  eq copyXZ = ( ('z = 'x) ; .Decls ) .
+
+  ops initA1 initA2 initA3 : -> GlobalState .
+
+  --- A1: P0 counts x to 3 in one atomic block of three statements; P1 copies x into y.
+  eq initA1 = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( count3 ~> .K ) local(nil) env(envXYZ))
+          proc(pid(1) name('P1) k( copyXY ~> .K ) local(nil) env(envXYZ)))
+    store(((0 |-> # 0), (1 |-> # 0), (2 |-> # 0)))
+    network(empty) lock(#none) active(0 1)
+    nextLoc(3) nextPid(2) nextBCid(0) nextHCid(0) ] .
+
+  --- A2: the same system after the first statement of the block: P0 holds the lock, x is 1,
+  --- and P1 has not loaded its statement yet.
+  eq initA2 = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( ('x = # 2) ~> ('x = # 3) ~> #rel ~> .K ) local(nil) env(envXYZ))
+          proc(pid(1) name('P1) k( copyXY ~> .K ) local(nil) env(envXYZ)))
+    store(((0 |-> # 1), (1 |-> # 0), (2 |-> # 0)))
+    network(empty) lock(@ 0) active(0 1)
+    nextLoc(3) nextPid(2) nextBCid(0) nextHCid(0) ] .
+
+  --- A3: the second statement of P0's block waits for y == 1, which only P1 sets; P2 copies
+  --- x into z.
+  eq initA3 = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( waitY ~> .K ) local(nil) env(envXYZ))
+          proc(pid(1) name('P1) k( setY ~> .K ) local(nil) env(envXYZ))
+          proc(pid(2) name('P2) k( copyXZ ~> .K ) local(nil) env(envXYZ)))
+    store(((0 |-> # 0), (1 |-> # 0), (2 |-> # 0)))
+    network(empty) lock(#none) active(0 1 2)
+    nextLoc(3) nextPid(3) nextBCid(0) nextHCid(0) ] .
+endm
+
+*** -----------------------------------------------------------------------------
+*** Test A1: an atomic block of three statements is not interleaved
+*** -----------------------------------------------------------------------------
+*** P1 never sees x between the statements of the block.
+*** Expect: No solution   (y = 1)
+search [1] in ATOMIC-TESTS : initA1 =>* [store((1 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig] .
+
+*** Expect: No solution   (y = 2)
+search [1] in ATOMIC-TESTS : initA1 =>* [store((1 |-> # 2, STR:Map{Nat, PROMELA-Value})) CFG:KConfig] .
+
+*** Control: P1 runs after the block.
+*** Expect: Solution   (y = 3)
+search [1] in ATOMIC-TESTS : initA1 =>* [store((1 |-> # 3, STR:Map{Nat, PROMELA-Value})) CFG:KConfig] .
+
+*** -----------------------------------------------------------------------------
+*** Test A2: a second process that loads its statement inside the block does not free the lock
+*** -----------------------------------------------------------------------------
+*** The start configuration of A2 is a configuration of A1: after the first statement P0
+*** holds the lock with the rest of its block ahead, and P1 has not loaded.
+*** Expect: Solution
+search [1] in ATOMIC-TESTS : initA1 =>*
+    [procs(proc(pid(0) k(('x = # 2) ~> ('x = # 3) ~> #rel) IR:KConfig)
+           proc(pid(1) k(('y = 'x) ; .Decls) IR2:KConfig))
+     store((0 |-> # 1, STR:Map{Nat, PROMELA-Value})) lock(@ 0) CFG:KConfig] .
+
+*** P1 does load its statement while P0 holds the lock.
+*** Expect: Solution
+search [1] in ATOMIC-TESTS : initA2 =>*
+    [procs(proc(pid(1) k((@[ BS:BasicStmt ~> KL:K ] BR:BranchSet) ~> KG:K) IR:KConfig) PR:KConfig)
+     lock(@ 0) CFG:KConfig] .
+
+*** The lock is never free while x is still 1 or 2.
+*** Expect: No solution
+search [1] in ATOMIC-TESTS : initA2 =>*
+    [store((0 |-> # V:Int, STR:Map{Nat, PROMELA-Value})) lock(#none) CFG:KConfig] such that V:Int < 3 .
+
+*** Expect: No solution   (y = 1)
+search [1] in ATOMIC-TESTS : initA2 =>* [store((1 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig] .
+
+*** Expect: No solution   (y = 2)
+search [1] in ATOMIC-TESTS : initA2 =>* [store((1 |-> # 2, STR:Map{Nat, PROMELA-Value})) CFG:KConfig] .
+
+*** Control: P1 runs after the block.
+*** Expect: Solution   (y = 3)
+search [1] in ATOMIC-TESTS : initA2 =>* [store((1 |-> # 3, STR:Map{Nat, PROMELA-Value})) CFG:KConfig] .
+
+*** -----------------------------------------------------------------------------
+*** Test A3: a blocked statement inside an atomic block frees the lock, and only that does
+*** -----------------------------------------------------------------------------
+*** P0 can finish only if P1 runs while P0 waits inside its block.
+*** Expect: Solution   (x = 3)
+search [1] in ATOMIC-TESTS : initA3 =>* [store((0 |-> # 3, STR:Map{Nat, PROMELA-Value})) CFG:KConfig] .
+
+*** P2 can run while P0 waits: it sees x = 1.
+*** Expect: Solution   (z = 1)
+search [1] in ATOMIC-TESTS : initA3 =>* [store((2 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig] .
+
+*** Once the wait is over the rest of the block is atomic again: P2 never sees x = 2.
+*** Expect: No solution   (z = 2)
+search [1] in ATOMIC-TESTS : initA3 =>* [store((2 |-> # 2, STR:Map{Nat, PROMELA-Value})) CFG:KConfig] .
+
+*** Expect: No solution   (lock free while x = 2)
+search [1] in ATOMIC-TESTS : initA3 =>* [store((0 |-> # 2, STR:Map{Nat, PROMELA-Value})) lock(#none) CFG:KConfig] .
+
+quit

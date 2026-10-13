@@ -1,7 +1,7 @@
 *** spin-atomic2.pml: atomic + if, 2 procs (hand-built post-INIT [...]).
 *** p1 atomically sets a then b (both nonzero after); p2 sets flag if exactly one is nonzero.
-*** BLOCKED on [loose] owise fix: safety flagSet SHOULD be No solution, but [loose]
-*** over-fire breaks the atomic between a and b => spurious flag=1. NOT a valid pass.
+*** Safety flagSet: No solution (a and b are set in one atomic block). While [loose] could fire
+*** at any time, the block could be interleaved between a and b and flag=1 had spurious solutions.
 *** Constructs: atomic{}, nested if, && / || guard.
 
 load ../../semantics/promela-semantics.maude .
