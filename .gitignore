@@ -7,3 +7,15 @@ trained/
 results/
 out/
 .agcel-context.md
+scripts/summarize_extended_exp.py
+scripts/summarize_promela_exp.py
+scripts/summarize_dining_exp.py
+scripts/plot_summary.py
+scripts/diagnose_extended_exp.py
+scripts/check_criteria.py
+scripts/check_transfer.py
+scripts/ledger.py
+scripts/run_extended_exp.py
+scripts/run_promela_exp.py
+scripts/graph_digest.py
+scripts/check_goal_progress.py
