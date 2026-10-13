@@ -7,6 +7,8 @@
                canStep has one equation per rule other than [loose];
                semantics/promela-obs-generated.maude is what promela-rule-extract.maude prints
   sync --write-hook   the same, after rewriting semantics/promela-obs-generated.maude
+  load         the semantics files load with no message other than the known ones (ambiguous
+               parses of the declaration rules, the preregularity notes of the list sorts)
   prefix       prefix(K, N) on a hand-built computation, N = 0, 1, 2 and larger than K
   tests        tests / tests-extended / tests-all / tests-init give, over PROMELA-SEMANTICS-ACT,
                the results they give over PROMELA-SEMANTICS once last(...) is removed
@@ -134,6 +136,22 @@ def check_sync(write_hook=False):
           f'{", ".join("[" + l + "]" for l in gen.OWISE)}, and the owise equation; the action-binding hook is '
           f'{"what" if hook_ok else "NOT what"} promela-rule-extract.maude prints)')
     return ok
+
+
+def check_load(tmp):
+    """a comment line that starts with ( opens a bracket comment, a stray token is skipped with a
+    warning only: such messages must not go unnoticed"""
+    _, err = maude(os.path.join(SEM, 'promela-agcel.maude'), SEM)
+    err = re.sub(r'\x1b\[[0-9;]*m', '', err)
+    msgs = re.findall(r'^(?:Warning|Error|Advisory):.*$', err, re.M)
+    known = ('multiple distinct parses', 'failed preregularity', 'are non-associative',
+             'all the variables in the left-hand side of assignment condition', 'no common ancestor')
+    # a message is printed over several lines: take the text up to the next message
+    parts = re.split(r'^(?=(?:Warning|Error|Advisory):)', err, flags=re.M)
+    bad = [' '.join(x.split())[:200] for x in parts if x.strip() and not any(k in ' '.join(x.split()) for k in known)]
+    print(f'load: {"ok" if not bad else "FAIL"} ({len(msgs)} messages, all of the known kinds)' if not bad
+          else f'load: FAIL ({len(bad)} unexpected messages, e.g. {bad[0]})')
+    return not bad
 
 
 def check_prefix(tmp):
@@ -422,7 +440,7 @@ red obs(init) .
 def main():
     write_hook = '--write-hook' in sys.argv
     if write_hook: sys.argv.remove('--write-hook')
-    checks = dict(sync=lambda t: check_sync(write_hook), prefix=check_prefix, tests=check_tests, safety=check_safety,
+    checks = dict(sync=lambda t: check_sync(write_hook), load=check_load, prefix=check_prefix, tests=check_tests, safety=check_safety,
                   transitions=check_transitions, atomic=check_atomic, props=check_props)
     names = sys.argv[1:] or list(checks)
     with tempfile.TemporaryDirectory() as tmp:

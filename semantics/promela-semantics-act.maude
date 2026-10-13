@@ -7,8 +7,8 @@
 *** an empty computation). initT starts with last(noAct). The K rule each rule ports is
 *** quoted in promela-semantics.maude; the vocabulary is in promela-action.maude.
 *** canStep, the condition of [loose], is copied as generated there. [loose] passes it the
-*** configuration without the last(...) item, so a recorded computation that has no sort
-*** (#run(X, EL) before [run-eval]) does not keep its equations from matching.
+*** configuration without the last(...) item, so a recorded computation that has no sort,
+*** such as #run(X, EL) before [run-eval], does not keep its equations from matching.
 
 load promela-action.maude .
 
