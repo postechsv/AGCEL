@@ -7,6 +7,8 @@ Families (FAMILY: test module, goal):
   dining        philosopher i takes fork i, then fork (i+1) mod N; goal deadlock (every process blocked)
   filter        filter lock with N-1 levels; goal someInCS
   onethirdrule  one round: send, wait for all N arrivals, adopt the minimum, decide; goal allDecided
+  exfourc       Holzmann's exercise ex.4c, a faulty mutual exclusion algorithm from the literature;
+                goal twoInCS (the assertion of the original fails)
 
 For N = 2, qlock, dining and onethirdrule are the hand-written benchmarks; filter is the same
 algorithm in level/victim form (Peterson's flag/turn form in filter-analysis.maude).
@@ -20,7 +22,8 @@ import os, sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FAMILY = {'qlock': ('QLOCK-PROMELA-TEST', 'someInCS'), 'dining': ('DINING-PROMELA-TEST', 'deadlock'),
-          'filter': ('FILTER-PROMELA-TEST', 'someInCS'), 'onethirdrule': ('OTR-PROMELA-TEST', 'allDecided')}
+          'filter': ('FILTER-PROMELA-TEST', 'someInCS'), 'onethirdrule': ('OTR-PROMELA-TEST', 'allDecided'),
+          'exfourc': ('EXFOURC-PROMELA-TEST', 'twoInCS')}
 # further goals of a family, selected as <family>-<n>.<variant>: (test module, goal)
 VARIANT = {('qlock', 'mutex'): ('QLOCK-PROMELA-MUTEX', 'twoInCS'), ('filter', 'mutex'): ('FILTER-PROMELA-MUTEX', 'twoInCS')}
 
@@ -441,8 +444,155 @@ mod OTR-PROMELA-TEST is
 endm
 '''
 
+# The listing of exercise 4.c as published, with the page's line numbers.
+EX4C_URL = 'http://spinroot.com/spin/Man/Exercises.html'
+EX4C = """\
+  1 byte in;                                    /* file ex.4c */
+  2 byte x, y, z;
+  3 active [2] proctype user()
+  4 {	byte me = _pid+1;			/* me is 1 or 2 */
+  5 L1:	x = me;
+  6 L2:	if
+  7 	:: (y != 0 && y != me) -> goto L1	/* try again */
+  8 	:: (y == 0 || y == me)
+  9 	fi;
+ 10 L3:	z = me;
+ 11 L4:	if
+ 12 	:: (x != me)  -> goto L1		/* try again */
+ 13 	:: (x == me)
+ 14 	fi;
+ 15 L5:	y = me;
+ 16 L6:	if
+ 17 	:: (z != me) -> goto L1			/* try again */
+ 18 	:: (z == me)
+ 19 	fi;
+ 20 L7:						/* success */
+ 21 	in = in+1;
+ 22 	assert(in == 1);
+ 23 	in = in - 1;
+ 24 	goto L1
+ 25 }
+"""
 
-GEN = {'qlock': qlock, 'dining': dining, 'filter': filt, 'onethirdrule': onethirdrule}
+
+def exfourc(n):
+    vs = {'cnt': 0, 'x': 1, 'y': 2, 'z': 3}   # in declaration order; me of process i is local, at 4 + i
+    env = ', '.join(f"(lval('{k}, 0) |-> loc({v}))" for k, v in vs.items())
+    ins = '\n'.join(f'  eq ([ store((0 |-> # {v}, STR)) CFG ]) |= someInCS = true .' for v in range(1, n + 1))
+    two = '\n'.join(f'  eq ([ store((0 |-> # {v}, STR)) CFG ]) |= twoInCS = true .' for v in range(2, n + 1))
+    plain = ' ; '.join([f"varEq('{k}, {v}, {x})" for k, v in vs.items() for x in range(1, n + 1)] + ['allDone', 'twoInCS'])
+    pid = ' ; '.join([f"assignP(NQ, '{k})" for k in vs] + ['locked(NQ)'])
+    envs_ = '\n'.join(f"  op env{i} : -> Map{{PROMELA-LVal, PROMELA-Ref}} .\n  eq env{i} = (env, (lval('me, 0) |-> loc({4 + i}))) ."
+                      for i in range(n))
+    procs_ = '\n'.join(f"      proc(pid({i}) name('user) k( body ~> .K ) local('me) env(env{i}))" for i in range(n))
+    store = ', '.join([f'({v} |-> # 0)' for v in vs.values()] + [f'({4 + i} |-> # {i + 1})' for i in range(n)])
+    listing = '\n'.join('*** ' + l for l in EX4C.splitlines())
+    mutex = progress(2, steps([('GP-S |= twoInCS', 2), ('GP-S |= someInCS', 1)]))
+    text = f'''*** RL analysis layer for the {n}-process PROMELA model ex.4c, a faulty mutual exclusion algorithm.
+*** Source: G. J. Holzmann, "Spin Verification Examples and Exercises", exercise 4.c,
+*** {EX4C_URL},
+*** the listing with the comment "/* file ex.4c */". The page presents it as a mutual exclusion
+*** algorithm a computer manufacturer recommended to a customer, one of the faulty solutions.
+*** The listing as published, with the page's line numbers:
+***
+{listing}
+***
+*** Only the number of processes was generalised (active [2] becomes N = {n} processes); apart from
+*** the adjustments below, which the backend requires, nothing in the algorithm was changed.
+***   A1  _pid is not supported: process i (pid i, 0 .. {n - 1}) has its own local me = i + 1 (line 4,
+***       "byte me = _pid+1"), given through its own env and store entry. active [N] would declare
+***       me with its default value 0 in every process.
+***   A2  in is a keyword since Spin 6 (Examples/Book_1991/README.txt of the Spin distribution): it is cnt.
+***   A3  assert is not a statement of the backend: line 22, "assert(in == 1);", is the goal twoInCS,
+***       cnt >= 2. cnt counts the processes between the increment and the decrement, so the
+***       assertion can fail exactly when a state with cnt >= 2 is reachable.
+***   C2  the backend has no labelled statement and builds no goto map: the retry loop is a do loop
+***       with the same guards. A failed guard ends the option and the loop starts again at x = me,
+***       which is "goto L1" of lines 7, 12, 17; the end of the success branch is "goto L1" of line 24.
+***   byte is not a type of the backend: the values stay within 0 .. {n}, far below 256, and the
+***       store holds them as integers.
+*** The decrement of line 23 is written with the prefix form of _-_, the same term: the mixfix form
+*** 'cnt - # 1 also parses as 'cnt juxtaposed with - # 1.
+*** Goal = twoInCS. Loc layout: cnt = 0, x = 1, y = 2, z = 3, me of process i = 4 + i.
+
+{HEAD}
+mod MODEL is
+  protecting PROMELA-AGCEL .
+  subsort GlobalState < State .
+
+  var S : State .
+  var CFG : KConfig .
+  var STR : Map{{Nat, PROMELA-Value}} .
+  vars FV FV' : FeatVec .
+
+  --- processes in the critical section, between the increment and the decrement of cnt
+  op someInCS : -> Prop [ctor] .
+{ins}
+  eq S |= someInCS = false [owise] .
+
+  --- the goal: two processes in their critical sections at once (the assertion of line 22 fails)
+  op twoInCS : -> Prop [ctor] .
+{two}
+  eq S |= twoInCS = false [owise] .
+
+  op plainProps : -> PropList .
+  eq plainProps = {plain} .
+
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    {pid} .
+
+  eq reward(< FV , (twoInCS : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+{OBS}
+mod EXFOURC-PROMELA-TEST is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = twoInCS .
+{mutex}
+  op env : -> Map{{PROMELA-LVal, PROMELA-Ref}} .
+  eq env = ({env}) .
+{envs_}
+
+  --- the body of proctype user, lines 5-24, with the retry loop as a do loop (C2 above)
+  op body : -> Seq .
+  eq body = (
+    (do (:: ('x = 'me) ;                                       --- line 5   L1: x = me
+          (if (:: (('y != # 0) && ('y != 'me)) ; .Decls)      --- line 7   then goto L1
+              (:: (('y == # 0) || ('y == 'me)) ;              --- line 8
+                  ('z = 'me) ;                                 --- line 10  L3: z = me
+                  (if (:: ('x != 'me) ; .Decls)                --- line 12  then goto L1
+                      (:: ('x == 'me) ;                        --- line 13
+                          ('y = 'me) ;                         --- line 15  L5: y = me
+                          (if (:: ('z != 'me) ; .Decls)        --- line 17  then goto L1
+                              (:: ('z == 'me) ;                --- line 18
+                                  ('cnt = 'cnt + # 1) ;        --- line 21  L7: in = in+1
+                                  ('cnt = _-_('cnt, # 1)) ;    --- line 23  in = in - 1, then goto L1
+                                  .Decls)
+                           fi) ; .Decls)
+                   fi) ; .Decls)
+           fi) ; .Decls)
+     od) ; .Decls ) .
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+{procs_} )
+    store(({store}))
+    network(empty) lock(#none) active({ids(n)})
+    nextLoc({4 + n}) nextPid({n}) nextBCid(0) nextHCid(0) ] .
+endm
+'''
+    for line in text.splitlines():   # a comment line whose text starts with "(" opens a bracket comment
+        for mark in ('***', '---'):
+            if mark in line:
+                assert not line.split(mark, 1)[1].lstrip().startswith('('), line
+    return text
+
+
+GEN = {'qlock': qlock, 'dining': dining, 'filter': filt, 'onethirdrule': onethirdrule, 'exfourc': exfourc}
 
 
 def generate(family, n):
