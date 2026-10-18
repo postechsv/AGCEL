@@ -49,11 +49,21 @@ equations, one per item, and the lists.
         reference: collect_props() of the driver; for role arms an enumeration that keeps the
         pid). The enumeration is never used to produce a list. For role arms also whether the
         vocabulary of a family is the same for every size given. Exit 1 on a failure.
+
+gen and sizes need only this script, gen_promela_bench.py and gen_promela_act.py: the module a
+job runs over a benchmark and an arm (wrapper(), parse_arm(), graph_of(), props_file()) is built
+here and used by the experiment driver too. check needs scripts/run_extended_exp.py, whose
+collect_props() and explore() are the reference enumeration; that operations script is kept in
+local working trees only, and check says so when it is missing.
 """
-import argparse, hashlib, json, os, re, sys, tempfile
+import argparse, hashlib, json, os, re, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import gen_promela_bench as bench_gen
+
+REPO = bench_gen.REPO
+OUT = os.environ.get('AGCEL_EXT_OUT') or os.path.join(REPO, 'out', 'ext')
 
 LOAD_RULE = {'_;_': 'load-seq', 'atomic`{_`}': 'load-atomic', 'if_fi': 'load-if', 'do_od': 'load-do',
              'goto_': 'load-goto', 'break': 'load-break'}
@@ -77,6 +87,100 @@ mod PROPS-GEN-AUX is
   eq isBasic(K:K) = false [owise] .
 endm
 '''
+
+
+def parse_arm(arm):
+    """-> dict(obs, focus, hook, act, ksize, lists, goal_only): the observation module (None when
+    the arm writes its own obs over `lists`), the focus ids (None: plain), whether the
+    action-binding hook is on, whether the action-recording semantics is used, propKsize (None:
+    not set), the generated proposition lists, and whether the observation is the goal and those
+    lists alone (otherwise they are added to pidObs ; plainProps)"""
+    hook = not arm.endswith('-nohook')
+    a = arm[:-len('-nohook')] if not hook else arm
+    std = dict(obs='MODEL-FOCUS', focus=[], hook=False, act=False, ksize=None, lists=[], goal_only=False)
+    if a == 'plain':
+        return dict(std, obs='MODEL-PLAIN', focus=None)
+    if a == 'mt':
+        return dict(std, hook=hook)
+    if a[:1] == 'f' and a[1:].isdigit():
+        return dict(std, focus=[int(c) for c in a[1:]], hook=hook)
+    m = re.fullmatch(r'(execK|act|kpre|kitem|kroleq|krole|khead|klabel)(\d+)', a)
+    if hook and a == 'execL':
+        return dict(std, obs=None, act=True, ksize=0, lists=['execLProps'])
+    if hook and m and m.group(1) == 'execK':
+        return dict(std, obs=None, act=True, ksize=int(m.group(2)), lists=['execLProps', 'execKProps'])
+    if hook and m and m.group(1) == 'act':
+        return dict(std, act=True, ksize=int(m.group(2)))
+    if hook and m and m.group(1) == 'kpre':
+        return dict(std, obs=None, ksize=int(m.group(2)), lists=['kPreProps'])
+    if hook and m:   # the goal and generated lists only
+        lists = {'kitem': ['kPreProps'], 'kroleq': ['kRoleProps', 'kRole2Props', 'kRoleAllProps']}.get(m.group(1), ['kRoleProps'])
+        return dict(std, obs=None, ksize=int(m.group(2)), lists=lists, goal_only=True)
+    raise ValueError(f'unknown arm {arm!r}')
+
+
+def graph_of(arm):
+    """the transition system of an arm: "base" (PROMELA-SEMANTICS) or "act-k<propKsize>" """
+    p = parse_arm(arm)
+    return f"act-k{p['ksize']}" if p['act'] else 'base'
+
+
+def props_file(out, bench, arm):
+    return os.path.join(out, 'models', f'{bench}_{arm}.props.maude')
+
+
+def wrapper(out, bench, arm, collect=False):
+    """the module a job runs. With collect, the module from which the propositions of the arm
+    are enumerated: the same transition system, observed without them."""
+    p = parse_arm(arm)
+    path, test, goal = bench_gen.bench_info(out, bench, p['act'])
+    focus, lists = p['focus'], [] if collect else p['lists']
+    L = [f'load {path} .']
+    incs = [test] + ([p['obs'] or 'MODEL-FOCUS'] if not lists else [])
+    if p['act']:
+        L.append(f"mod FOCUS-ACT is\n  inc PROMELA-FOCUS .\n  eq focusIds = {', '.join(map(str, focus)) or 'mt'} .\nendm")
+        incs.append('FOCUS-ACT')
+    elif focus:
+        ids = ''.join(map(str, focus))
+        L.append(f"mod FOCUS-{ids} is\n  inc PROMELA-AGCEL .\n  eq focusIds = {', '.join(map(str, focus))} .\nendm")
+        incs.append(f'FOCUS-{ids}')
+    elif focus is not None:
+        incs.append('FOCUS-MT')
+    if p['ksize'] is not None:
+        L.append(f"mod KSIZE-{p['ksize']} is\n  inc PROMELA-ACTION .\n  eq propKsize = {p['ksize']} .\nendm")
+        incs.append(f"KSIZE-{p['ksize']}")
+    if p['hook']:
+        incs.append('PROMELA-OBS-GEN')
+    obs = ''
+    if lists:
+        props = props_file(out, bench, arm)
+        if not os.path.exists(props):   # generated from the program text, in a process of its own
+            r = subprocess.run([sys.executable, os.path.abspath(__file__), 'gen', os.path.basename(out), bench, arm],
+                               capture_output=True, text=True, env=dict(os.environ, AGCEL_EXT_OUT=os.path.dirname(out)))
+            if r.returncode:
+                raise RuntimeError(f'props {bench} {arm}: ' + r.stderr[-2000:])
+        L.append(f'load {props} .')
+        incs.append('ARM-PROPS')
+        hand = [goal] if p['goal_only'] else ['pidObs', 'plainProps']
+        obs = f"  var S : State .\n  eq obs(S) = < obsUpto(S, {' ; '.join(hand + lists)}) > .\n"
+    kind = 'COLLECT' if collect else 'RUN'
+    L.append(f'mod {kind}-{bench.upper()}-{arm.upper()} is\n' + ''.join(f'  inc {i} .\n' for i in incs) + obs + 'endm')
+    w = os.path.join(out, 'wrappers', f'{bench}_{arm}' + ('.collect' if collect else '') + '.maude')
+    bench_gen.write_if_changed(w, '\n'.join(L) + '\n')
+    return w
+
+
+def need_driver():
+    """the experiment driver: check takes its reference enumeration from there"""
+    try:
+        import run_extended_exp
+    except ModuleNotFoundError as e:
+        if e.name != 'run_extended_exp':
+            raise
+        sys.exit('gen_promela_props.py check needs scripts/run_extended_exp.py: the reference enumeration of the coverage '
+                 'check is collect_props() and explore() of that experiment driver, an operations script that is kept in '
+                 'local working trees only and is missing here. The gen and sizes commands do not need it.')
+    return run_extended_exp
 
 
 class Unsupported(Exception):
@@ -422,18 +526,17 @@ def arm_kind(arm):
 def write(out, bench, arm):
     """generate the lists of an arm into out/models/<bench>_<arm>.props.maude (+ .json)"""
     import maude
-    import run_extended_exp as drv
     maude.init(advise=False)
-    maude.load(drv.wrapper(out, bench, arm, collect=True))
+    maude.load(wrapper(out, bench, arm, collect=True))
     m = maude.getCurrentModule()
     kind, ksize = arm_kind(arm)
     body, info = generate(m, kind, ksize)
-    info.update(bench=bench, arm=arm, graph=drv.graph_of(arm))
+    info.update(bench=bench, arm=arm, graph=graph_of(arm))
     head = ['*** GENERATED by scripts/gen_promela_props.py from the program text -- do not edit by hand.',
             f'*** {bench}, arm {arm}: {info["graph"]}, propKsize {ksize}; sizes {info["sizes"]}', '']
-    path = drv.props_file(out, bench, arm)
-    drv.write_if_changed(path, '\n'.join(head) + body)
-    drv.write_if_changed(path + '.json', json.dumps(info))
+    path = props_file(out, bench, arm)
+    bench_gen.write_if_changed(path, '\n'.join(head) + body)
+    bench_gen.write_if_changed(path + '.json', json.dumps(info))
     return info
 
 
@@ -456,7 +559,7 @@ endm
 
 def check(benches, arms, cap):
     "coverage of the generated lists by the reference enumeration; role vocabularies across sizes"
-    import subprocess
+    need_driver()
     ok, vocab = True, {}
     for b in benches:
         for arm in arms:
@@ -486,16 +589,15 @@ def check(benches, arms, cap):
 
 def check1(bench, arm, cap):
     "one model and arm: the generated lists against what an enumeration of the model finds"
-    import subprocess
     import maude
-    import run_extended_exp as drv
+    drv = need_driver()
     kind, ksize = arm_kind(arm)
     maude.init(advise=False)
     with tempfile.TemporaryDirectory() as work:
         for d in ('models', 'wrappers'): os.makedirs(os.path.join(work, 'gen', d))
         out = os.path.join(work, 'gen')
         info = write(out, bench, arm)
-        maude.load(drv.wrapper(out, bench, arm))       # the module a job runs, with the generated lists
+        maude.load(wrapper(out, bench, arm))       # the module a job runs, with the generated lists
         run = maude.getCurrentModule()
         size, used, miss, want = info['sizes'], set(), [], 0
         red = lambda m, s: (lambda t: (t.reduce(), t.prettyPrint(0))[1])(m.parseTerm(s))
@@ -563,7 +665,6 @@ def check1(bench, arm, cap):
 
 def sizes(benches, arms):
     "the inputs and the list sizes of the generator, per model (no enumeration)"
-    import subprocess
     for b in benches:
         row = []
         for arm in arms:
@@ -595,8 +696,7 @@ def main():
     o = sp.add_parser('check1'); o.add_argument('bench'); o.add_argument('arm'); o.add_argument('--cap', type=int, default=300000)
     a = ap.parse_args()
     if a.cmd == 'gen':
-        import run_extended_exp as drv
-        out = os.path.join(drv.OUT, a.tag)
+        out = os.path.join(OUT, a.tag)
         for d in ('models', 'wrappers'): os.makedirs(os.path.join(out, d), exist_ok=True)
         print(json.dumps(write(out, a.bench, a.arm)))
     elif a.cmd == 'check1':

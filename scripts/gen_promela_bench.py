@@ -17,6 +17,9 @@ variable, the per-process predicates of the family, allDone and the goal; pidPro
 assignP for every variable, sendP/recvP for every channel, and locked.
 
   gen_promela_bench.py <family> <n> <out.maude>
+
+Also the table of the hand-written two-process benchmarks (BENCH) and bench_info(): the analysis
+file, TEST module and goal of any benchmark name, a generated model written under <out>/models.
 """
 import os, sys
 
@@ -26,6 +29,16 @@ FAMILY = {'qlock': ('QLOCK-PROMELA-TEST', 'someInCS'), 'dining': ('DINING-PROMEL
           'exfourc': ('EXFOURC-PROMELA-TEST', 'twoInCS')}
 # further goals of a family, selected as <family>-<n>.<variant>: (test module, goal)
 VARIANT = {('qlock', 'mutex'): ('QLOCK-PROMELA-MUTEX', 'twoInCS'), ('filter', 'mutex'): ('FILTER-PROMELA-MUTEX', 'twoInCS')}
+
+BP = os.path.join(REPO, 'benchmarks-promela')
+BENCH = {  # the hand-written two-process benchmarks: name -> (analysis file stem, TEST module, goal prop)
+    'dining':       ('dining-philosophers', 'DINING-PROMELA-TEST',  'deadlock'),
+    'filter':       ('filter',              'FILTER-PROMELA-TEST',  'someInCS'),
+    'qlock':        ('qlock',               'QLOCK-PROMELA-TEST',   'someInCS'),
+    'onethirdrule': ('onethirdrule',        'OTR-PROMELA-TEST',     'bothDecided'),
+    'chan':         ('chan-buffered',       'CHANBUF-PROMELA-TEST', 'qDequeued'),
+    'bakery':       ('bakery',              'BAKERY-PROMELA-TEST',  'someInCrit'),
+}
 
 HEAD = f'''load {REPO}/semantics/promela-agcel.maude .
 load {REPO}/semantics/promela-obs-generated.maude .
@@ -601,6 +614,39 @@ def generate(family, n):
     if n < 2:
         raise ValueError('n must be at least 2')
     return GEN[family](n)
+
+
+def write_if_changed(path, text):
+    """atomic write, so that a job never loads a half-written file"""
+    if os.path.exists(path) and open(path).read() == text:
+        return
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = f'{path}.{os.getpid()}.tmp'
+    with open(tmp, 'w') as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def bench_info(out, bench, act=False):
+    """(analysis file, TEST module, goal prop); a generated model, and the variant of a model
+    over the action-recording semantics, are written under out/models"""
+    if bench in BENCH:
+        stem, test, goal = BENCH[bench]
+        path = os.path.join(BP, f'{stem}-analysis.maude')
+    else:   # <family>-<n>, or <family>-<n>.<variant> for another goal of the same model
+        model, _, var = bench.partition('.')
+        fam, _, n = model.rpartition('-')
+        if fam not in FAMILY or not n.isdigit() or (var and (fam, var) not in VARIANT):
+            raise ValueError(f'unknown benchmark {bench!r}')
+        path = os.path.join(out, 'models', f'{model}-analysis.maude')
+        write_if_changed(path, generate(fam, int(n)))
+        test, goal = VARIANT[fam, var] if var else FAMILY[fam]
+    if act:
+        import gen_promela_act as actgen
+        apath = os.path.join(out, 'models', f'{bench}-act-analysis.maude')
+        write_if_changed(apath, actgen.act_file(open(path).read(), os.path.dirname(path)))
+        path = apath
+    return path, test, goal
 
 
 if __name__ == '__main__':
