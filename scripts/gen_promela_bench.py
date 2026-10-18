@@ -8,7 +8,8 @@ Families (FAMILY: test module, goal):
   filter        filter lock with N-1 levels; goal someInCS
   onethirdrule  one round: send, wait for all N arrivals, adopt the minimum, decide; goal allDecided
   exfourc       Holzmann's exercise ex.4c, a faulty mutual exclusion algorithm from the literature;
-                goal twoInCS (the assertion of the original fails)
+                goal twoInCS (the assertion of the original fails); exfourc-<n>.shaped adds a second
+                reward for learning from goalProgress, in a file of its own
 
 For N = 2, qlock, dining and onethirdrule are the hand-written benchmarks; filter is the same
 algorithm in level/victim form (Peterson's flag/turn form in filter-analysis.maude).
@@ -28,7 +29,8 @@ FAMILY = {'qlock': ('QLOCK-PROMELA-TEST', 'someInCS'), 'dining': ('DINING-PROMEL
           'filter': ('FILTER-PROMELA-TEST', 'someInCS'), 'onethirdrule': ('OTR-PROMELA-TEST', 'allDecided'),
           'exfourc': ('EXFOURC-PROMELA-TEST', 'twoInCS')}
 # further goals of a family, selected as <family>-<n>.<variant>: (test module, goal)
-VARIANT = {('qlock', 'mutex'): ('QLOCK-PROMELA-MUTEX', 'twoInCS'), ('filter', 'mutex'): ('FILTER-PROMELA-MUTEX', 'twoInCS')}
+VARIANT = {('qlock', 'mutex'): ('QLOCK-PROMELA-MUTEX', 'twoInCS'), ('filter', 'mutex'): ('FILTER-PROMELA-MUTEX', 'twoInCS'),
+           ('exfourc', 'shaped'): ('EXFOURC-PROMELA-SHAPED', 'twoInCS')}
 
 BP = os.path.join(REPO, 'benchmarks-promela')
 BENCH = {  # the hand-written two-process benchmarks: name -> (analysis file stem, TEST module, goal prop)
@@ -488,6 +490,37 @@ EX4C = """\
 """
 
 
+# exfourc-<n>.shaped: the same model and goal, and a second reward for learning, shapedReward(S), a
+# function of goalProgress only: 1.0 at the goal (the reward of the model there), SHAPED_FRACTION when
+# goalProgress = 1 (one process in its critical section), 0.0 otherwise. reward(...) of the model is not
+# changed; the driver hands shapedReward of the state reached to the learner when the module defines it.
+SHAPED_FRACTION = '0.01'   # with discount 0.95, collecting it at every step forever is worth at most 0.01 / 0.05 = 0.2 < 1.0
+SHAPED = f'''
+  --- the reward the learner receives in this variant: a function of goalProgress only, monotone,
+  --- 1.0 at the goal as reward(...) of the model, {SHAPED_FRACTION} with one process in its critical section
+  op shapedReward : State -> Float .
+  op shapeOf : Nat -> Float .
+  eq shapeOf(2) = 1.0 .
+  eq shapeOf(1) = {SHAPED_FRACTION} .
+  eq shapeOf(0) = 0.0 .
+  eq shapedReward(GP-S) = shapeOf(goalProgress(GP-S)) .
+'''
+
+
+def exfourc_shaped(n):
+    """the text of exfourc-<n>.shaped: the model of exfourc(n) unchanged, and the module
+    EXFOURC-PROMELA-SHAPED, a copy of EXFOURC-PROMELA-TEST with shapedReward"""
+    head = (f'*** exfourc-{n}.shaped: the model below is exfourc-{n} unchanged; the module EXFOURC-PROMELA-SHAPED at the end\n'
+            f'*** adds the reward the learner receives, shapedReward(S) = 1.0 when goalProgress(S) = 2 (the goal twoInCS,\n'
+            f'*** where reward(...) of the model is 1.0 too), {SHAPED_FRACTION} when goalProgress(S) = 1, 0.0 otherwise.\n')
+    mutex = progress(2, steps([('GP-S |= twoInCS', 2), ('GP-S |= someInCS', 1)]))
+    return head + variant(exfourc(n), 'EXFOURC-PROMELA-TEST', 'EXFOURC-PROMELA-SHAPED', 'twoInCS', mutex + SHAPED)
+
+
+# variants written to a file of their own (bench_info), so that the file of the model is unchanged
+SEPARATE = {('exfourc', 'shaped'): exfourc_shaped}
+
+
 def exfourc(n):
     vs = {'cnt': 0, 'x': 1, 'y': 2, 'z': 3}   # in declaration order; me of process i is local, at 4 + i
     env = ', '.join(f"(lval('{k}, 0) |-> loc({v}))" for k, v in vs.items())
@@ -638,8 +671,12 @@ def bench_info(out, bench, act=False):
         fam, _, n = model.rpartition('-')
         if fam not in FAMILY or not n.isdigit() or (var and (fam, var) not in VARIANT):
             raise ValueError(f'unknown benchmark {bench!r}')
-        path = os.path.join(out, 'models', f'{model}-analysis.maude')
-        write_if_changed(path, generate(fam, int(n)))
+        if var and (fam, var) in SEPARATE:   # a variant in a file of its own; the file of the model is unchanged
+            path = os.path.join(out, 'models', f'{bench}-analysis.maude')
+            write_if_changed(path, SEPARATE[fam, var](int(n)))
+        else:
+            path = os.path.join(out, 'models', f'{model}-analysis.maude')
+            write_if_changed(path, generate(fam, int(n)))
         test, goal = VARIANT[fam, var] if var else FAMILY[fam]
     if act:
         import gen_promela_act as actgen
