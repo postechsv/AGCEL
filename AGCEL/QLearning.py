@@ -182,7 +182,7 @@ class QLearner():
                 r = reward_term.toFloat()
 
                 if i < len(trace) - 1:
-                    _, _, next_ns_str = trace[i + 1]
+                    _, _, next_ns_str = trace[i]
                     next_s_term = env.m.parseTerm(next_ns_str)
                     next_s_term.reduce()
                     next_ns = env.obs(next_s_term)
