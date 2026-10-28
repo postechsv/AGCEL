@@ -193,6 +193,29 @@ mod PROMELA-AGCEL-VOCAB is
   eq ([ procs(PS) CFG ]) |= rTwo(J) = nAt(J, PS) >= 2 .
   eq ([ procs(PS) CFG ]) |= rAll(J) = nAt(J, PS) == nProc(PS) .
 
+  --- Focus processes (arms focus<k>): the pids in focusIds are observed one by one, the other
+  --- processes together. rFoc(N, J): the process with pid N is at position J of its own instance
+  --- of the template. nAtNF and nProcNF count only processes whose pid is not in focusIds, and
+  --- rSomeNF(J), rTwoNF(J), rAllNF(J) are rSome, rTwo and rAll over those processes; they
+  --- mention no process.
+  op rFoc : Nat Nat -> Prop [ctor] .
+  ceq ([ procs(proc(pid(N) INNER-REST k(K)) PR) CFG ]) |= rFoc(N, J) = true
+      if rItem(J, N, prefix(K, propKsize)) .
+  eq GS |= rFoc(N, J) = false [owise] .
+  op nAtNF : Nat KConfig -> Nat .
+  ceq nAtNF(J, proc(pid(I) INNER-REST k(K)) PR) = s(nAtNF(J, PR))
+      if not (I in focusIds) /\ rItem(J, I, prefix(K, propKsize)) .
+  eq nAtNF(J, proc(INNER-REST) PR) = nAtNF(J, PR) [owise] .
+  eq nAtNF(J, none) = 0 .
+  op nProcNF : KConfig -> Nat .
+  ceq nProcNF(proc(pid(I) INNER-REST) PR) = s(nProcNF(PR)) if not (I in focusIds) .
+  eq nProcNF(proc(INNER-REST) PR) = nProcNF(PR) [owise] .
+  eq nProcNF(none) = 0 .
+  ops rSomeNF rTwoNF rAllNF : Nat -> Prop [ctor] .
+  eq ([ procs(PS) CFG ]) |= rSomeNF(J) = nAtNF(J, PS) >= 1 .
+  eq ([ procs(PS) CFG ]) |= rTwoNF(J) = nAtNF(J, PS) >= 2 .
+  eq ([ procs(PS) CFG ]) |= rAllNF(J) = nAtNF(J, PS) == nProcNF(PS) .
+
   --- For the reference enumeration of proposition lists (not the production path): the
   --- action propositions and the kPre propositions that hold in a state, and the state
   --- without its action.

@@ -38,9 +38,16 @@ rAll(j), all of them. khead<n>: positions that differ only in what follows the h
 of a loaded branch are one position. klabel<n>: a position is a rule label, and a process is at
 it when that rule acts on its computation.
 
-The propositions (kAt, execAt, rSome, rTwo, rAll) are defined in semantics/promela-agcel.maude
-over kItem, xItem and rItem; the module ARM-PROPS written here gives those three their
-equations, one per item, and the lists.
+Focus lists (arm focus<k>). The processes with pids 0 .. k-1 are focus processes (focusIds):
+rFoc(p, j) says that focus process p is at position j of its own instance of the template, for
+each focus pid and each position; rSomeNF(j), rTwoNF(j) and rAllNF(j) are rSome, rTwo and rAll
+over the other processes only. The positions are those of krole1 (propKsize 1). The list names
+the focus pids and no other process, so it is the same for every number of processes greater
+than k as long as the template is.
+
+The propositions (kAt, execAt, rSome, rTwo, rAll, rFoc, rSomeNF, rTwoNF, rAllNF) are defined in
+semantics/promela-agcel.maude over kItem, xItem and rItem; the module ARM-PROPS written here gives
+those three their equations, one per item, and the lists.
 
   gen_promela_props.py gen <tag> <bench> <arm>      write models/<bench>_<arm>.props.maude (+ .json)
   gen_promela_props.py sizes [BENCH ...] [--arms ARM ...]     inputs and list sizes per model
@@ -104,6 +111,10 @@ def parse_arm(arm):
         return dict(std, hook=hook)
     if a[:1] == 'f' and a[1:].isdigit():
         return dict(std, focus=[int(c) for c in a[1:]], hook=hook)
+    f = re.fullmatch(r'focus(\d+)', a)
+    if hook and f:   # the goal, the positions of the focus processes and the role lists of the others
+        return dict(std, obs=None, focus=list(range(int(f.group(1)))), ksize=1, goal_only=True,
+                    lists=['kFocProps', 'kRoleNFProps', 'kRoleNF2Props', 'kRoleNFAllProps'])
     m = re.fullmatch(r'(execK|act|kpre|kitem|kroleq|krole|khead|klabel)(\d+)', a)
     if hook and a == 'execL':
         return dict(std, obs=None, act=True, ksize=0, lists=['execLProps'])
@@ -431,11 +442,13 @@ def plist(name, prop, n):
             f'  eq {name} = ' + (' ; '.join(f'{prop}({i})' for i in range(1, n + 1)) or 'nil') + ' .']
 
 
-def generate(m, kind, ksize):
+def generate(m, kind, ksize, focus=()):
     """the lists of an arm. kind: execL | execK | kpre | kitem (the items of each process as it
-    is written) or krole | kroleq | khead | klabel (positions of the template). Returns (text of
-    the module ARM-PROPS, info). The propositions kAt, execAt, rSome, rTwo, rAll and the
-    functions kItem, xItem, rItem they read are declared in semantics/promela-agcel.maude."""
+    is written), krole | kroleq | khead | klabel (positions of the template) or focus (positions
+    of the template, per focus pid and over the other processes; focus: the focus pids). Returns
+    (text of the module ARM-PROPS, info). The propositions kAt, execAt, rSome, rTwo, rAll, rFoc,
+    rSomeNF, rTwoNF, rAllNF and the functions kItem, xItem, rItem they read are declared in
+    semantics/promela-agcel.maude."""
     import maude
     with tempfile.NamedTemporaryFile('w', suffix='.maude', delete=False) as f:
         f.write(AUX.format(module=str(m)))
@@ -503,8 +516,18 @@ def generate(m, kind, ksize):
             L.append(f'  --- {vocab[j - 1]}')
             for pid, insts in sorted(pos[it].items()):
                 L += [f'  eq rItem({j}, {pid}, {inst}) = true .' for inst in sorted(insts)]
-        L += plist('kRoleProps', 'rSome', len(order))
-        info['sizes'] = dict(kRoleProps=len(order))
+        if kind == 'focus':
+            foc = [f'rFoc({p}, {j})' for p in focus for j in range(1, len(order) + 1)]
+            L += ['', '  --- rFoc(p, j): focus process p (pid p, in focusIds) is at position j',
+                  '  op kFocProps : -> PropList .', '  eq kFocProps = ' + ' ; '.join(foc) + ' .']
+            L += plist('kRoleNFProps', 'rSomeNF', len(order)) + plist('kRoleNF2Props', 'rTwoNF', len(order)) \
+                + plist('kRoleNFAllProps', 'rAllNF', len(order))
+            info['sizes'] = dict(kFocProps=len(foc), kRoleNFProps=len(order), kRoleNF2Props=len(order), kRoleNFAllProps=len(order))
+            info.update(positions=len(order), focus=list(focus))
+            vocab = [f'focus pids {", ".join(map(str, focus))}'] + vocab
+        else:
+            L += plist('kRoleProps', 'rSome', len(order))
+            info['sizes'] = dict(kRoleProps=len(order))
         if kind == 'kroleq':
             L += plist('kRole2Props', 'rTwo', len(order)) + plist('kRoleAllProps', 'rAll', len(order))
             info['sizes'].update(kRole2Props=len(order), kRoleAllProps=len(order))
@@ -518,6 +541,8 @@ KIND = re.compile(r'(execL)|(execK|kpre|kitem|kroleq|krole|khead|klabel)(\d+)')
 
 def arm_kind(arm):
     """(kind, propKsize) of an arm with generated lists"""
+    if re.fullmatch(r'focus\d+', arm):
+        return 'focus', 1
     mt = KIND.fullmatch(arm)
     if not mt: raise ValueError(f'no generated lists for arm {arm!r}')
     return ('execL', 0) if mt.group(1) else (mt.group(2), int(mt.group(3)))
@@ -530,7 +555,7 @@ def write(out, bench, arm):
     maude.load(wrapper(out, bench, arm, collect=True))
     m = maude.getCurrentModule()
     kind, ksize = arm_kind(arm)
-    body, info = generate(m, kind, ksize)
+    body, info = generate(m, kind, ksize, parse_arm(arm)['focus'] if kind == 'focus' else ())
     info.update(bench=bench, arm=arm, graph=graph_of(arm))
     head = ['*** GENERATED by scripts/gen_promela_props.py from the program text -- do not edit by hand.',
             f'*** {bench}, arm {arm}: {info["graph"]}, propKsize {ksize}; sizes {info["sizes"]}', '']
@@ -578,7 +603,7 @@ def check(benches, arms, cap):
                   + f"; generated but never found: {x['unused']}", flush=True)
             if 'vocabulary_sha256' in x:
                 fam = b.partition('.')[0].rpartition('-')[0] or b
-                vocab.setdefault((fam, arm), []).append((b, x['vocabulary_sha256'], x['sizes']['kRoleProps']))
+                vocab.setdefault((fam, arm), []).append((b, x['vocabulary_sha256'], x['sizes'].get('kRoleProps', x.get('positions'))))
     for (fam, arm), vs in sorted(vocab.items()):
         if len(vs) > 1:
             same = len({h for _, h, _ in vs}) == 1
@@ -649,17 +674,20 @@ def check1(bench, arm, cap):
                     found.update(x.prettyPrint(0) for x in r.arguments())
             st = drv.explore(m, cap=cap, on_state=note)
             reference, states, complete = 'enumeration with pids', st['states'], st['complete']
+            npos = size['kRoleProps'] if 'kRoleProps' in size else info['positions']
             for x in sorted(found):
                 t = m.parseTerm(x)
                 pid, item = [a.prettyPrint(0) for a in t.arguments()]
-                judge([i for i in range(1, size['kRoleProps'] + 1) if red(m, f'rItem({i}, {pid}, {item})') == 'true'],
+                judge([i for i in range(1, npos + 1) if red(m, f'rItem({i}, {pid}, {item})') == 'true'],
                       f'process {pid}: ' + str(list(t.arguments())[1]))
-            unused = size['kRoleProps'] - len(used)
+            unused = npos - len(used)
         out_ = dict(bench=bench, arm=arm, sizes=size, enumerated=want, covered=want - len(miss),
                     coverage=(want - len(miss)) / want if want else 1.0, missing=miss, unused=unused,
                     reference=reference, states=states, complete=complete)
         if 'vocabulary_sha256' in info:
             out_['vocabulary_sha256'] = info['vocabulary_sha256']
+        if 'positions' in info:
+            out_['positions'] = info['positions']
         print(json.dumps(out_))
 
 
