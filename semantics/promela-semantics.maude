@@ -1,0 +1,891 @@
+*** rule [r] -> rl/crl [r]
+*** Configuration = procs(... PROC-REST) store(...) lock(...) ... CFG-REST
+*** Process = proc(pid(...) name(...) k(...) local(...) env(...))
+*** Action recording, a last(exec(label, pid, k)) cell, is not wired into this
+*** module: it distinguishes states by the rule that fired, which changes the
+*** safety state counts -- filter 336, qlock 255, chan 58, OTR 299. It lives in
+*** the separate module PROMELA-SEMANTICS-ACT (promela-semantics-act.maude),
+*** generated from this file by scripts/gen_promela_act.py. The same script writes
+*** the canStep block at the end of this module (the condition of [loose]). After
+*** editing a rule here, run it and then scripts/check_promela_act.py.
+
+load promela-functions.maude .
+
+
+mod PROMELA-SEMANTICS is
+  protecting PROMELA-HCHAN .
+
+  --- helper for [hs-fire]: the receiver's <k> is set to
+  --- #if LCK ==K PID1 #then #toss(PID1) #else .K #fi ~> #recvMsg(EL2, m(evalList(EL1, ENV1, STR, NET))) ~> K2   (line 595)
+  op tossIf : Lock Int -> K .
+  eq tossIf(@ I:Int, I:Int) = #toss(I:Int) .
+  eq tossIf(LCK:Lock, I:Int) = .K [owise] .
+
+  --- helper for [goto]: <lock> LCK => #if B #then LCK #else #none #fi </lock>   (line 386)
+  op lockIf : Bool Lock -> Lock .
+  eq lockIf(true, LCK:Lock) = LCK:Lock .
+  eq lockIf(false, LCK:Lock) = #none .
+
+  --- helper for [break] prop: break ~> (KI:KItem => .K) requires do _ od :/=K KI   (line 397)
+  op isDoLoop : K -> Bool .
+  eq isDoLoop(do OL:Optns od ~> K':K) = true .
+  eq isDoLoop(KI:K) = false [owise] .
+
+  vars PTS PS : KConfig .
+  var STR : Map{Nat, PROMELA-Value} .
+  var NET : Map{Nat, PROMELA-Queue} .
+  var LCK : Lock .
+  var ACT : List{Int} .
+  vars NLOC NPID NBC NHC : Int .
+  vars PID PID1 PID2 I J L C S : Int .
+  vars NAME NAME2 X : Id .
+  vars K K2 KLOCAL KGLOBAL KGLOBAL1 KGLOBAL2 K1 : K .
+  vars LOCAL LOCAL2 : SetId .
+  vars ENV ENV1 ENV2 : Map{PROMELA-LVal, PROMELA-Ref} .
+  var BS : BasicStmt .
+  vars E E2 : Expr .
+  vars EL EL1 EL2 : Exprs .
+  var V V2 VIDX VOLD : Value .
+  var VR : Vref .
+  vars VL VL2 : ValueList .
+  vars BREST BREST1 BREST2 : BranchSet .
+  var GMAP : Map{PROMELA-Id, PROMELA-GotoCtx} .
+  var B : Bool .
+  var DECLS : Decls .
+  var BODY KCONT : K .
+  var OL : Optns .
+  var CH CH2 : Chan .
+  var ML ML2 : MsgList .
+  var SL : Seq .
+  var ST : Stmt .
+  vars PROC-REST CFG-REST INNER-REST : KConfig .
+  var PT : PType .
+  var T : Type .
+  var TS : Types .
+  vars N M CAP : Int .
+
+  --- store-range aux for [decl-prim] (fills <store> J...J+I-1 |-> V):
+  --- rule N...M |-> _ => .Map requires N >Int M
+  --- rule N...M |-> K => N |-> K (N +Int 1)...M |-> K requires N <=Int M   (lines 212-213)
+  op storeR : Int Int Value -> Map{Nat, PROMELA-Value} .
+ ceq storeR(N, M, V) = (N |-> V), storeR(N + 1, M, V) if N <= M .
+  eq storeR(N, M, V) = empty [owise] .
+
+  --- network-range aux for [decl-bch] (fills <network> J...J+I-1 |-> mq(N,.List)):
+  --- <network> _:Map (.Map => J...(J +Int I -Int 1) |-> mq(N,.List)) </network>   (line 250)
+  op netR : Int Int Int -> Map{Nat, PROMELA-Queue} .
+ ceq netR(N, M, CAP) = (N |-> mq(CAP, nil)), netR(N + 1, M, CAP) if N <= M .
+  eq netR(N, M, CAP) = empty [owise] .
+
+  --- loc-range aux for [decl-prim] (builds lval->loc env fragment):
+  --- rule lval _ :: N...M |-> loc I...J => .Map requires N >Int M orBool I >Int J
+  --- rule lval X :: N...M |-> loc I...J => (lval(X,N) |-> loc(I)) (lval X :: (N +Int 1)...M |-> loc (I +Int 1)...J) requires N <=Int M andBool I <=Int J   (lines 228-229)
+  op envLoc : Id Int Int Int Int -> Map{PROMELA-LVal, PROMELA-Ref} .
+ ceq envLoc(X, N, M, I, J) = (lval(X, N) |-> loc(I)), envLoc(X, N + 1, M, I + 1, J) if N <= M /\ I <= J .
+  eq envLoc(X, N, M, I, J) = empty [owise] .
+
+  --- bch-range aux for [decl-bch] (builds lval->ch env fragment):
+  --- rule lval _ :: N...M |-> bch I...J => .Map requires N >Int M orBool I >Int J
+  --- rule lval X :: N...M |-> bch I...J => (lval(X,N) |-> ch(I)) (lval X :: (N +Int 1)...M |-> bch (I +Int 1)...J) requires N <=Int M andBool I <=Int J   (lines 242-243)
+  op envBch : Id Int Int Int Int -> Map{PROMELA-LVal, PROMELA-Ref} .
+ ceq envBch(X, N, M, I, J) = (lval(X, N) |-> ch(I)), envBch(X, N + 1, M, I + 1, J) if N <= M /\ I <= J .
+  eq envBch(X, N, M, I, J) = empty [owise] .
+
+  --- hch-range aux for [decl-hch] (builds lval->hs env fragment):
+  --- rule lval _ :: N...M |-> hch I...J => .Map requires N >Int M orBool I >Int J
+  --- rule lval X :: N...M |-> hch I...J => (lval(X,N) |-> hs(I)) (lval X :: (N +Int 1)...M |-> hch (I +Int 1)...J) requires N <=Int M andBool I <=Int J   (lines 256-257)
+  op envHch : Id Int Int Int Int -> Map{PROMELA-LVal, PROMELA-Ref} .
+ ceq envHch(X, N, M, I, J) = (lval(X, N) |-> hs(I)), envHch(X, N + 1, M, I + 1, J) if N <= M /\ I <= J .
+  eq envHch(X, N, M, I, J) = empty [owise] .
+
+  --- uch-range aux for [decl-uch] (builds lval->uch env fragment):
+  --- rule lval _ :: N...M |-> uch => .Map requires N >Int M
+  --- rule lval X :: N...M |-> uch => (lval(X,N) |-> uch) (lval X :: (N +Int 1)...M |-> uch) requires N <=Int M   (lines 269-270)
+  op envUch : Id Int Int -> Map{PROMELA-LVal, PROMELA-Ref} .
+ ceq envUch(X, N, M) = (lval(X, N) |-> uch), envUch(X, N + 1, M) if N <= M .
+  eq envUch(X, N, M) = empty [owise] .
+
+  --- <local> registration in [decl-*]: #if PID ==K -1 #then .Set #else SetItem(X) #fi   (line 235)
+  op declLocal : Int Id -> SetId .
+  eq declLocal(-1, X) = nil .
+  eq declLocal(PID, X) = X [owise] .
+
+  --- rule [fire]:
+  --- <pid> PID </pid> <lock> LCK => PID </lock>
+  --- <k> ((SetItem(@[BS ~> K]) _:Set) ~> K')
+  --- => (effect(BS, PID') ~> K ~> K')
+  --- </k>
+  --- <env> ENV </env> <store> STR </store> <network> NET </network>
+  --- <nextPid> PID' </nextPid>
+  --- requires (LCK ==K #none orBool LCK ==K PID) // check lock
+  --- andBool isExec(BS, ENV, STR, NET, PID') ==K true   (lines 570-578)
+  crl [fire] :
+    [procs(proc(pid(PID) INNER-REST k((@[ BS ~> KLOCAL ] BREST) ~> KGLOBAL) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) lock(LCK) nextPid(NPID) CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(effect(BS, NPID) ~> KLOCAL ~> KGLOBAL) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) lock(@ PID) nextPid(NPID) CFG-REST]
+    if (LCK == #none or LCK == @ PID)
+       /\ isExec(BS, ENV, STR, NET, NPID) .
+
+  --- rule [hs-fire] :
+  --- <proc>...
+  --- <pid> PID1 </pid>
+  --- <k> (SetItem(@[ X1 [ E1 ] ! EL1 ~> K1 ]) _) => SetItem(@[ true ~> K1 ]) ...</k>
+  --- <env> ENV1 </env>
+  --- ...</proc>
+  --- <proc>...
+  --- <pid> PID2 </pid>
+  --- <k> (SetItem(@[ X2 [ E2 ] ? EL2 ~> K2 ]) _) => (#if LCK ==K PID1 #then #toss(PID1) #else .K #fi ~> #recvMsg(EL2, m(evalList(EL1, ENV1, STR, NET))) ~> K2) ...</k>
+  --- <env> ENV2 </env>
+  --- ...</proc>
+  --- <lock> LCK => PID2 </lock>
+  --- <store> STR </store>
+  --- <network> NET </network>
+  --- requires (LCK ==K #none orBool LCK ==K PID1 orBool LCK ==K PID2) // check lock
+  --- andBool eval(X1 [ E1 ], ENV1, STR, NET) ==HChan eval(X2 [ E2 ], ENV2, STR, NET) // check HChan eq
+  --- andBool matchMsg(EL2, evalList(EL1, ENV1, STR, NET)) // match(EL,AL)   (lines 583-604)
+  crl [hs-fire] :
+    [procs(proc(pid(PID1) INNER-REST k((@[ X[# I] ! EL1 ~> K1 ] BREST1) ~> KGLOBAL1) local(LOCAL) env(ENV1))
+          proc(pid(PID2) name(NAME2) k((@[ X[# J] ? EL2 ~> K2 ] BREST2) ~> KGLOBAL2) local(LOCAL2) env(ENV2))
+          PROC-REST)
+    store(STR) network(NET) lock(LCK) nextPid(NPID) CFG-REST]
+    =>
+    [procs(proc(pid(PID1) INNER-REST k(@[ # true ~> K1 ] ~> KGLOBAL1) local(LOCAL) env(ENV1))
+          proc(pid(PID2) name(NAME2)
+               k(tossIf(LCK, PID1) ~> #recvMsg(EL2, m(evalList(EL1, ENV1, STR, NET))) ~> K2)
+               local(LOCAL2) env(ENV2))
+          PROC-REST)
+    store(STR) network(NET) lock(@ PID2) nextPid(NPID) CFG-REST]
+    if (LCK == #none or LCK == @ PID1 or LCK == @ PID2)
+       /\ eval(X[# I], ENV1, STR, NET) ==HChan eval(X[# J], ENV2, STR, NET)
+       /\ matchMsg(EL2, evalList(EL1, ENV1, STR, NET)) .
+
+  --- rule [rel]: <k> #rel => .K ...</k> <lock> _ => #none </lock>   (line 373)
+  rl [rel] :
+    [procs(proc(pid(PID) k(#rel ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(K) INNER-REST) PROC-REST)
+    lock(#none) CFG-REST] .
+
+  --- rule [loose]: <lock> _:Int => #none </lock> [owise]   (line 376)
+  --- [owise]: K tries this rule only when no other rule applies to the configuration, so the
+  --- lock is taken from its holder only when nothing else can move (the holder is blocked
+  --- inside its atomic block). A Maude rule cannot carry owise; the condition states it.
+  --- canStep(GS) holds when some rule of this module other than [loose] can rewrite GS; its
+  --- equations are generated from the rules, one per rule (the block at the end of this
+  --- module, written by scripts/gen_promela_act.py).
+  crl [loose] :
+    [lock(@ PID) CFG-REST]
+    =>
+    [lock(#none) CFG-REST]
+    if not canStep([lock(@ PID) CFG-REST]) .
+
+  --- rule [toss1]: <k> (.K => KI) ~> #toss(_) ~> (KI:KItem => .K) ...</k> requires KI =/=K #rel   (line 611)
+  crl [toss1] :
+    [procs(proc(pid(PID) k(#toss(I) ~> KI:KLabel ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(KI:KLabel ~> #toss(I) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    if KI:KLabel =/= #rel .
+
+  --- rule [toss2]: <k> (#toss(I) ~> #rel) => .K ...</k> <lock> _ => I </lock>   (line 612)
+  rl [toss2] :
+    [procs(proc(pid(PID) k(#toss(I) ~> #rel ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(K) INNER-REST) PROC-REST)
+    lock(@ I) CFG-REST] .
+
+  --- module ASSIGN
+  --- Evaluate Index
+  --- rule <k> #assign(_, E => {eval(E, ENV, STR, NET)}:>Int, _) ...</k>
+  --- <env> ENV </env> <store> STR </store> <network> NET </network>
+  --- requires _:Int :/=K E   (lines 407-409)
+  crl [assign-eval-index] :
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, E, E2) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, eval(E, ENV, STR, NET), E2) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]
+    if not(E :: Value) .
+
+  --- Evaluate Expr
+  --- rule <k> #assign(_, _:Int, E => eval(E, ENV, STR, NET)) ...</k>
+  --- <env> ENV </env> <store> STR </store> <network> NET </network>
+  --- requires _:Value :/=K E   (lines 412-414)
+  crl [assign-eval-value] :
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, V, E) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, V, eval(E, ENV, STR, NET)) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]
+    if not(E :: Value) .
+
+  --- Ordinary Assignment
+  --- rule <k> #assign(X, I:Int, V:Value) => .K ...</k>
+  --- <env>... lval(X, I) |-> loc(L) ...</env>
+  --- <store>... L |-> (_ => V) ...</store>   (lines 417-419)
+  crl [assign-store] :
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, VIDX, V2) ~> K) local(LOCAL)
+               env(((lval(X, I) |-> loc(L)), ENV))) PROC-REST)
+    store(((L |-> VOLD), STR)) CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(K) local(LOCAL) env(((lval(X, I) |-> loc(L)), ENV))) PROC-REST)
+    store(((L |-> V2), STR)) CFG-REST]
+    if # I := VIDX .
+
+  --- Channel Assignment
+  --- rule <k> #assign(X, I:Int, V:Chan) => .K ...</k>
+  --- <env>... lval(X, I) |-> (_ => V) ...</env>   (lines 422-423)
+  crl [assign-chan] :
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, VIDX, # CH) ~> K) local(LOCAL)
+               env(((lval(X, I) |-> CH2), ENV))) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(K) local(LOCAL) env(((lval(X, I) |-> CH), ENV))) PROC-REST)
+    CFG-REST]
+    if # I := VIDX .
+
+  --- module CHANNEL
+  --- Identify Chan
+  --- rule <k> #send(X [ E ] => {eval(X [ E ], ENV, STR, NET)}:>Chan, _) ...</k>
+  --- <env> ENV </env> <store> STR </store> <network> NET </network>   (lines 440-441)
+  crl [send-eval-chan] :
+    [procs(proc(pid(PID) INNER-REST k(#send(VR, EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(#send(eval(VR, ENV, STR, NET), EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]
+    if not(VR :: Value) .
+
+  --- Make Msg + Push Msg (fused here; K uses a #sendMsg intermediate)
+  --- rule <k> #send(ch(I), EL) => #sendMsg(ch(I), m(evalList(EL, ENV, STR, NET)))...</k>
+  --- rule <k> #sendMsg(ch(I), MSG) => .K ...</k>
+  --- <network>... I |-> mq(_, _LIST(.List => ListItem(MSG))) ...</network>   (lines 444-449)
+  rl [send-push] :
+    [procs(proc(pid(PID) INNER-REST k(#send(# ch(C), EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(((C |-> mq(S, ML)), NET)) CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(((C |-> mq(S, (ML, m(evalList(EL, ENV, STR, NET))))), NET)) CFG-REST] .
+
+  --- Identify Chan
+  --- rule <k> #recv(X [ E ] => {eval(X [ E ], ENV, STR, NET)}:>Chan, _) ...</k>
+  --- <env> ENV </env> <store> STR </store> <network> NET </network>   (lines 453-454)
+  crl [recv-eval-chan] :
+    [procs(proc(pid(PID) INNER-REST k(#recv(VR, EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(#recv(eval(VR, ENV, STR, NET), EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]
+    if not(VR :: Value) .
+
+  --- Pop Msg
+  --- rule <k> #recv(ch(I), EL) => #recvMsg(EL, MSG) ...</k>
+  --- <network>... I |-> mq(_, (ListItem(MSG) => .List) _LIST) ...</network>   (lines 457-458)
+  rl [recv-pop] :
+    [procs(proc(pid(PID) k(#recv(# ch(C), EL) ~> K) INNER-REST) PROC-REST)
+    network(((C |-> mq(S, (m(VL), ML))), NET)) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(#recvMsg(EL, m(VL)) ~> K) INNER-REST) PROC-REST)
+    network(((C |-> mq(S, ML)), NET)) CFG-REST] .
+
+  --- rule #recvMsg(.Exprs, _) => .K   (line 461)
+  rl [recvMsg-done] :
+    [procs(proc(pid(PID) k(#recvMsg(nil, m(nil)) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(K) INNER-REST) PROC-REST)
+    CFG-REST] .
+
+  --- rule #recvMsg((V:Value , EL), m(ListItem(V) VL)) => #recvMsg(EL, m(VL))   (line 462)
+  rl [recvMsg-match] :
+    [procs(proc(pid(PID) k(#recvMsg((V, EL), m((V, VL))) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(#recvMsg(EL, m(VL)) ~> K) INNER-REST) PROC-REST)
+    CFG-REST] .
+
+  --- rule #recvMsg((X [ E ] , EL), m(ListItem(V) VL)) => #assign(X, E, V) ~> #recvMsg(EL, m(VL))   (line 463)
+  rl [recvMsg-assign] :
+    [procs(proc(pid(PID) k(#recvMsg((X[# I], EL), m((V, VL))) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(#assign(X, # I, V) ~> #recvMsg(EL, m(VL)) ~> K) INNER-REST) PROC-REST)
+    CFG-REST] .
+
+  --- rule #recvMsg((X:Id , EL), m(ListItem(V) VL)) => #assign(X, 0, V) ~> #recvMsg(EL, m(VL))   (line 464)
+  rl [recvMsg-assign-simple] :
+    [procs(proc(pid(PID) k(#recvMsg((X, EL), m((V, VL))) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(#assign(X, # 0, V) ~> #recvMsg(EL, m(VL)) ~> K) INNER-REST) PROC-REST)
+    CFG-REST] .
+
+  --- rule <lock> LCK => #if B #then LCK #else #none #fi </lock>
+  --- //<pid> PID </pid> // acquire
+  --- <name> P </name>
+  --- <k> (goto L ~> _) => K </k>
+  --- <proctype>...
+  --- <procName> P </procName>
+  --- <gotoMap>... L |-> gotoCtx(B, K) ...</gotoMap>
+  --- ...</proctype> [priority(0)]   (lines 386-393)
+  rl [goto] :
+    [proctypes(proctype(procName(NAME) gotoMap(((X |-> gotoCtx(B, KCONT)), GMAP)) INNER-REST) PT-REST:KConfig)
+    procs(proc(pid(PID) name(NAME) k(goto X ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    lock(LCK) CFG-REST]
+    =>
+    [proctypes(proctype(procName(NAME) gotoMap(((X |-> gotoCtx(B, KCONT)), GMAP)) INNER-REST) PT-REST:KConfig)
+    procs(proc(pid(PID) name(NAME) k(KCONT) local(LOCAL) env(ENV)) PROC-REST)
+    lock(lockIf(B, LCK)) CFG-REST] .
+
+  --- rule (break ~> do _ od) => .K [priority(0)]   (line 396)
+  rl [break] :
+    [procs(proc(pid(PID) k(break ~> do OL od ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(K) INNER-REST) PROC-REST)
+    CFG-REST] .
+
+  --- rule break ~> (KI:KItem => .K) requires do _ od :/=K KI [priority(0)]   (line 397)
+  crl [break-prop] :
+    [procs(proc(pid(PID) k(break ~> KI:KLabel ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(break ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    if not(isDoLoop(KI:KLabel)) .
+
+  --- rule <k> #run(X, EL:Exprs) => #run(X, evalList(EL, ENV, STR, NET)) ...</k>
+  --- <env> ENV </env> <store> STR </store> <network> NET </network>   (lines 491-492)
+  crl [run-eval] :
+    [procs(proc(pid(PID) INNER-REST k(#run(X, EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(#run(X, evalList(EL, ENV, STR, NET)) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]
+    if not(EL :: ValueList) .
+
+  --- rule [run]:
+  --- <procs>...
+  --- <proc>...
+  --- <k> #run(X, VL:List) => #wait ...</k>
+  --- <local> XS </local>
+  --- <env> ENV </env>
+  --- ...</proc> (.Bag =>
+  --- <proc>
+  --- <pid> I </pid>
+  --- <name> X </name>
+  --- <k> #init(DL,VL) ~> #done ~> SL </k>
+  --- <local> .Set </local>
+  --- <env> gEnv(ENV, XS) </env>
+  --- </proc>)
+  --- ...</procs>
+  --- <proctype>...
+  --- <procName> X </procName>
+  --- <procParams> DL </procParams>
+  --- <procBody> SL </procBody>
+  --- ...</proctype>
+  --- <nextPid> I => I +Int 1 </nextPid>
+  --- <active> _:List (.List => ListItem(I)) </active>   (lines 146-170)
+  rl [run] :
+    [proctypes(proctype(procName(X) procParams(DECLS) procBody(BODY) INNER-REST) PT-REST:KConfig)
+    procs(proc(pid(PID) name(NAME) k(#run(X, VL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    active(ACT) nextPid(NPID) CFG-REST]
+    =>
+    [proctypes(proctype(procName(X) procParams(DECLS) procBody(BODY) INNER-REST) PT-REST:KConfig)
+    procs(proc(pid(PID) name(NAME) k(#wait ~> K) local(LOCAL) env(ENV))
+          proc(pid(NPID) name(X) k(#init(DECLS, VL) ~> #done ~> BODY) local(nil) env(gEnv(ENV, LOCAL)))
+          PROC-REST)
+    active(ACT NPID) nextPid(NPID + 1) CFG-REST] .
+
+  --- rule [done]: <k> #wait => .K ...</k> <k> #done => .K ...</k>   (line 172)
+  rl [done] :
+    [procs(proc(pid(PID) INNER-REST k(#wait ~> K) local(LOCAL) env(ENV))
+          proc(pid(PID2) name(NAME2) k(#done ~> K2) local(LOCAL2) env(ENV2))
+          PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(K) local(LOCAL) env(ENV))
+          proc(pid(PID2) name(NAME2) k(K2) local(LOCAL2) env(ENV2))
+          PROC-REST)
+    CFG-REST] .
+
+  --- rule [init1]: #init(.Decls, _) => .K   (line 174)
+  rl [init1] :
+    [procs(proc(pid(PID) k(#init(.Decls, VL) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(K) INNER-REST) PROC-REST)
+    CFG-REST] .
+
+  --- rule [init2]: #init((PT:PType X:Id ; _:Decls), .List) => PT X   (line 175)
+  rl [init2] :
+    [procs(proc(pid(PID) k(#init((PT X ; DECLS), nil) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) k((PT X) ~> K) INNER-REST) PROC-REST)
+    CFG-REST] .
+
+  --- rule [init3]: #init((PT:PType X:Id ; _:Decls), (ListItem(V:Value) _:List)) => PT X = V   (line 176)
+  rl [init3] :
+    [procs(proc(pid(PID) k(#init((PT X ; DECLS), (V, VL)) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) k((PT X = V) ~> K) INNER-REST) PROC-REST)
+    CFG-REST] .
+
+  --- rule int X[I] => int X[I] = 0   (line 217)
+  rl [decl-int-arr] :
+    [procs(proc(pid(PID) k((int X[# I]) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k((int X[# I] = # 0) ~> K) INNER-REST) PROC-REST) CFG-REST] .
+
+  --- rule int X => int X[1] = 0   (line 217)
+  rl [decl-int] :
+    [procs(proc(pid(PID) k((int X) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k((int X[# 1] = # 0) ~> K) INNER-REST) PROC-REST) CFG-REST] .
+
+  --- rule bool X[I] => bool X[I] = false   (line 218)
+  rl [decl-bool-arr] :
+    [procs(proc(pid(PID) k((bool X[# I]) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k((bool X[# I] = # false) ~> K) INNER-REST) PROC-REST) CFG-REST] .
+
+  --- rule bool X => bool X[1] = false   (line 218)
+  rl [decl-bool] :
+    [procs(proc(pid(PID) k((bool X) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k((bool X[# 1] = # false) ~> K) INNER-REST) PROC-REST) CFG-REST] .
+    
+  --- rule T:Type X = V:Value => T X[1] = V   (line 219)
+  rl [decl-scalar-val] :
+    [procs(proc(pid(PID) k((T X = V) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k((T X[# 1] = V) ~> K) INNER-REST) PROC-REST) CFG-REST] .
+
+  --- rule [decl-prim]:
+  --- <pid> PID </pid>
+  --- <k> (_:PType X:Id[I:Int] = V:Value) => .K ...</k>
+  --- <env> _:Map (.Map => lval X :: 0 ...(I -Int 1) |-> loc J...(J +Int I -Int 1)) </env>
+  --- <local> _:Set (.Set => #if PID ==K -1 #then .Set #else SetItem(X) #fi) </local>
+  --- <store> _:Map (.Map => J...(J +Int I -Int 1) |-> V) </store>
+  --- <nextLoc> J => J +Int I </nextLoc>
+  --- requires I >Int 0   (lines 231-238)
+  crl [decl-prim] :
+    [procs(proc(pid(PID) INNER-REST k((PT X[# I] = V) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) nextLoc(J) CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(K) local((LOCAL, declLocal(PID, X)))
+               env((ENV, envLoc(X, 0, I - 1, J, J + I - 1)))) PROC-REST)
+    store((STR, storeR(J, J + I - 1, V))) nextLoc(J + I) CFG-REST]
+    if I > 0 .
+
+  --- rule [decl-bch]:
+  --- <pid> PID </pid>
+  --- <k> (chan X:Id[I:Int] = [ N:Int ] of { _ }) => .K ...</k>
+  --- <env> _:Map (.Map => lval X :: 0 ...(I -Int 1) |-> bch J...(J +Int I -Int 1)) </env>
+  --- <local> _:Set (.Set => #if PID ==K -1 #then .Set #else SetItem(X) #fi) </local>
+  --- <network> _:Map (.Map => J...(J +Int I -Int 1) |-> mq(N,.List)) </network>
+  --- <nextBCid> J => J +Int I </nextBCid>
+  --- requires I >Int 0 andBool N >Int 0   (lines 245-252)
+  crl [decl-bch] :
+    [procs(proc(pid(PID) INNER-REST k((chan X[# I] =[ CAP ]of{ TS }) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    network(NET) nextBCid(NBC) CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(K) local((LOCAL, declLocal(PID, X)))
+               env((ENV, envBch(X, 0, I - 1, NBC, NBC + I - 1)))) PROC-REST)
+    network((NET, netR(NBC, NBC + I - 1, CAP))) nextBCid(NBC + I) CFG-REST]
+    if I > 0 /\ CAP > 0 .
+
+  --- rule [decl-hch]:
+  --- <pid> PID </pid>
+  --- <k> (chan X:Id[I:Int] = [ 0 ] of { _ }) => .K ...</k>
+  --- <env> _:Map (.Map => lval X :: 0 ...(I -Int 1) |-> hch J...(J +Int I -Int 1)) </env>
+  --- <local> _:Set (.Set => #if PID ==K -1 #then .Set #else SetItem(X) #fi) </local>
+  --- <nextHCid> J => J +Int I </nextHCid>
+  --- requires I >Int 0   (lines 259-265)
+  crl [decl-hch] :
+    [procs(proc(pid(PID) INNER-REST k((chan X[# I] =[ 0 ]of{ TS }) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    nextHCid(NHC) CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(K) local((LOCAL, declLocal(PID, X)))
+               env((ENV, envHch(X, 0, I - 1, NHC, NHC + I - 1)))) PROC-REST)
+    nextHCid(NHC + I) CFG-REST]
+    if I > 0 .
+
+  --- rule [decl-uch]:
+  --- <pid> PID </pid>
+  --- <k> chan X:Id[I:Int] => .K ...</k>
+  --- <env> _:Map (.Map => lval X :: 0 ...(I -Int 1) |-> uch) </env>
+  --- <local> _:Set (.Set => #if PID ==K -1 #then .Set #else SetItem(X) #fi) </local>
+  --- requires I >Int 0   (lines 272-277)
+  crl [decl-uch] :
+    [procs(proc(pid(PID) INNER-REST k((chan X[# I]) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    CFG-REST]
+    =>
+    [procs(proc(pid(PID) INNER-REST k(K) local((LOCAL, declLocal(PID, X)))
+               env((ENV, envUch(X, 0, I - 1)))) PROC-REST)
+    CFG-REST]
+    if I > 0 .
+
+  --- rule [freeze]:
+  --- <active> _PL => .List </active>
+  --- <lock> #none => #frozen </lock>
+  --- <k> #freeze => .K </k>   (lines 625-628)
+  rl [freeze] :
+    [procs(proc(pid(PID) k(#freeze ~> K) INNER-REST) PROC-REST)
+    lock(#none) active(ACT) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(.K) INNER-REST) PROC-REST)
+    lock(#frozen) active(nil) CFG-REST] .
+
+  --- module LOAD: the load function is promela.k:542-551 (ported in promela-functions.maude).
+  --- K dispatches per statement shape via spload (promela.k:566-567):
+  --- rule spload(B, S:Stmt ~> K) => load(B, S) ~> K requires (_:DeclStmt :/=K S)
+  --- and takes B, whether the statement is loaded inside an atomic block, from the lock:
+  --- rule [spload-true]: <lock> #none </lock> <pid> PID </pid> <k> KI:KItem => spload(false, KI) ...</k>   (lines 680-691)
+  --- rule [spload-atomic]: <lock> PID:Int </lock> <pid> PID </pid> <k> KI:KItem => spload(true, KI) ...</k>   (lines 719-726)
+  --- Only that choice is ported: every [load-*] rule passes LCK == @ PID, which is true exactly
+  --- when the loading process holds the lock. The scheduling around spload (#normalize, the
+  --- controller process with pid -1, the rule priorities) is not ported; a process that does
+  --- not hold the lock loads with false, as [spload-true] does once the lock is free.
+  --- Each [load-*] rule below cites the load equation it invokes.
+  --- rule load(B, SL:Seq ~> K) => load(B, split(SL) ~> K)   (line 545)
+  rl [load-seq] :
+    [procs(proc(pid(PID) k((ST ; SL) ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(load(LCK == @ PID, split(ST ; SL) ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
+
+  --- rule load(true, atomic { SL } ~> K) => load(true, SL ~> K) // inner atomic
+  --- rule load(false, atomic { SL } ~> K) => load(true, SL ~> #rel ~> K) // outermost atomic   (lines 546-547)
+  rl [load-atomic] :
+    [procs(proc(pid(PID) k(atomic{ SL } ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(load(LCK == @ PID, atomic{ SL } ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
+
+  --- rule load(B, if (:: SL) OL fi ~> K) => load(B, SL ~> K) load(B, if OL fi ~> K)
+  --- rule load(_, if .Optns fi ~> _) => .Set   (lines 548-549)
+  rl [load-if] :
+    [procs(proc(pid(PID) k(if OL fi ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(load(LCK == @ PID, if OL fi ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
+
+  --- rule load(B, do OL od ~> K) => load(B, if OL fi ~> do OL od ~> K)   (line 551)
+  rl [load-do] :
+    [procs(proc(pid(PID) k(do OL od ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(load(LCK == @ PID, do OL od ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
+
+  --- rule load(true, BS:BasicStmt ~> K) => SetItem(@[ BS ~> K ])
+  --- rule load(false, BS:BasicStmt ~> K) => load(true, BS ~> #rel ~> K)   (lines 543-544)
+  crl [load-basic] :
+    [procs(proc(pid(PID) k(BS ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(load(LCK == @ PID, BS ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]
+    if not (BS :: Value) /\ not (BS :: Decl) .
+
+  --- rule load(B, S:GotoStmt ~> K) => load(B, true ~> S ~> K)   (line 550)
+  rl [load-goto] :
+    [procs(proc(pid(PID) k(goto X ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(load(LCK == @ PID, goto X ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
+
+  --- rule load(B, S:GotoStmt ~> K) => load(B, true ~> S ~> K) // break : GotoStmt   (line 550)
+  rl [load-break] :
+    [procs(proc(pid(PID) k(break ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(load(LCK == @ PID, break ~> K)) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST] .
+
+  op #proctype : Id Decls Seq -> KLabel [ctor] .
+  op #activeProctype : Id Decls Seq -> KLabel [ctor] .
+  op #activeN : Int Id Decls Seq -> KLabel [ctor] .
+  op #repeat : Int K -> KLabel [ctor] .
+
+  rl [proctype] :
+    [proctypes(PTS)
+     procs(proc(pid(PID) k(#proctype(X, DECLS, SL) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [proctypes(proctype(procName(X) procParams(DECLS) procBody(SL) gotoMap(empty)) PTS)
+     procs(proc(pid(PID) k(K) INNER-REST) PROC-REST) CFG-REST] .
+
+  rl [active] :
+    [procs(proc(pid(PID) k(#activeProctype(X, DECLS, SL) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(#proctype(X, DECLS, SL) ~> #run(X, nil) ~> K) INNER-REST) PROC-REST) CFG-REST] .
+
+  rl [active-n] :
+    [procs(proc(pid(PID) k(#activeN(N, X, DECLS, SL) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(#proctype(X, DECLS, SL) ~> #repeat(N, #run(X, nil)) ~> K) INNER-REST) PROC-REST) CFG-REST] .
+
+  crl [repeat] :
+    [procs(proc(pid(PID) k(#repeat(N, K1) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(K1 ~> #repeat(N - 1, K1) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    if N > 0 .
+  crl [repeat-done] :
+    [procs(proc(pid(PID) k(#repeat(N, K1) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(K) INNER-REST) PROC-REST) CFG-REST]
+    if N <= 0 .
+
+  op #globals : Decls -> KLabel [ctor] .
+  rl [globals] :
+    [procs(proc(pid(PID) k(#globals(D:Decl ; DECLS) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(D:Decl ~> #globals(DECLS) ~> K) INNER-REST) PROC-REST) CFG-REST] .
+  rl [globals-done] :
+    [procs(proc(pid(PID) k(#globals(.Decls) ~> K) INNER-REST) PROC-REST) CFG-REST]
+    =>
+    [procs(proc(pid(PID) k(K) INNER-REST) PROC-REST) CFG-REST] .
+
+  --- BEGIN canStep -- generated by scripts/gen_promela_act.py from the rules above; do not edit by hand
+  --- canStep(GS): some rule other than [loose] can rewrite GS. One equation per rule, with
+  --- the left-hand side and the condition of that rule; false when none of them applies.
+  op canStep : GlobalState -> Bool .
+  --- [fire]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k((@[ BS ~> KLOCAL ] BREST) ~> KGLOBAL) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) lock(LCK) nextPid(NPID) CFG-REST]) = true
+    if (LCK == #none or LCK == @ PID)
+       /\ isExec(BS, ENV, STR, NET, NPID) .
+  --- [hs-fire]
+  ceq canStep(
+    [procs(proc(pid(PID1) INNER-REST k((@[ X[# I] ! EL1 ~> K1 ] BREST1) ~> KGLOBAL1) local(LOCAL) env(ENV1))
+          proc(pid(PID2) name(NAME2) k((@[ X[# J] ? EL2 ~> K2 ] BREST2) ~> KGLOBAL2) local(LOCAL2) env(ENV2))
+          PROC-REST)
+    store(STR) network(NET) lock(LCK) nextPid(NPID) CFG-REST]) = true
+    if (LCK == #none or LCK == @ PID1 or LCK == @ PID2)
+       /\ eval(X[# I], ENV1, STR, NET) ==HChan eval(X[# J], ENV2, STR, NET)
+       /\ matchMsg(EL2, evalList(EL1, ENV1, STR, NET)) .
+  --- [rel]
+  eq canStep(
+    [procs(proc(pid(PID) k(#rel ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [toss1]
+  ceq canStep(
+    [procs(proc(pid(PID) k(#toss(I) ~> KI:KLabel ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true
+    if KI:KLabel =/= #rel .
+  --- [toss2]
+  eq canStep(
+    [procs(proc(pid(PID) k(#toss(I) ~> #rel ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [assign-eval-index]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, E, E2) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]) = true
+    if not(E :: Value) .
+  --- [assign-eval-value]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, V, E) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]) = true
+    if not(E :: Value) .
+  --- [assign-store]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, VIDX, V2) ~> K) local(LOCAL)
+               env(((lval(X, I) |-> loc(L)), ENV))) PROC-REST)
+    store(((L |-> VOLD), STR)) CFG-REST]) = true
+    if # I := VIDX .
+  --- [assign-chan]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#assign(X, VIDX, # CH) ~> K) local(LOCAL)
+               env(((lval(X, I) |-> CH2), ENV))) PROC-REST)
+    CFG-REST]) = true
+    if # I := VIDX .
+  --- [send-eval-chan]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#send(VR, EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]) = true
+    if not(VR :: Value) .
+  --- [send-push]
+  eq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#send(# ch(C), EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(((C |-> mq(S, ML)), NET)) CFG-REST]) = true .
+  --- [recv-eval-chan]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#recv(VR, EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]) = true
+    if not(VR :: Value) .
+  --- [recv-pop]
+  eq canStep(
+    [procs(proc(pid(PID) k(#recv(# ch(C), EL) ~> K) INNER-REST) PROC-REST)
+    network(((C |-> mq(S, (m(VL), ML))), NET)) CFG-REST]) = true .
+  --- [recvMsg-done]
+  eq canStep(
+    [procs(proc(pid(PID) k(#recvMsg(nil, m(nil)) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [recvMsg-match]
+  eq canStep(
+    [procs(proc(pid(PID) k(#recvMsg((V, EL), m((V, VL))) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [recvMsg-assign]
+  eq canStep(
+    [procs(proc(pid(PID) k(#recvMsg((X[# I], EL), m((V, VL))) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [recvMsg-assign-simple]
+  eq canStep(
+    [procs(proc(pid(PID) k(#recvMsg((X, EL), m((V, VL))) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [goto]
+  eq canStep(
+    [proctypes(proctype(procName(NAME) gotoMap(((X |-> gotoCtx(B, KCONT)), GMAP)) INNER-REST) PT-REST:KConfig)
+    procs(proc(pid(PID) name(NAME) k(goto X ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [break]
+  eq canStep(
+    [procs(proc(pid(PID) k(break ~> do OL od ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [break-prop]
+  ceq canStep(
+    [procs(proc(pid(PID) k(break ~> KI:KLabel ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true
+    if not(isDoLoop(KI:KLabel)) .
+  --- [run-eval]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#run(X, EL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) network(NET) CFG-REST]) = true
+    if not(EL :: ValueList) .
+  --- [run]
+  eq canStep(
+    [proctypes(proctype(procName(X) procParams(DECLS) procBody(BODY) INNER-REST) PT-REST:KConfig)
+    procs(proc(pid(PID) name(NAME) k(#run(X, VL) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    active(ACT) nextPid(NPID) CFG-REST]) = true .
+  --- [done]
+  eq canStep(
+    [procs(proc(pid(PID) INNER-REST k(#wait ~> K) local(LOCAL) env(ENV))
+          proc(pid(PID2) name(NAME2) k(#done ~> K2) local(LOCAL2) env(ENV2))
+          PROC-REST)
+    CFG-REST]) = true .
+  --- [init1]
+  eq canStep(
+    [procs(proc(pid(PID) k(#init(.Decls, VL) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [init2]
+  eq canStep(
+    [procs(proc(pid(PID) k(#init((PT X ; DECLS), nil) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [init3]
+  eq canStep(
+    [procs(proc(pid(PID) k(#init((PT X ; DECLS), (V, VL)) ~> K) INNER-REST) PROC-REST)
+    CFG-REST]) = true .
+  --- [decl-int-arr]
+  eq canStep(
+    [procs(proc(pid(PID) k((int X[# I]) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [decl-int]
+  eq canStep(
+    [procs(proc(pid(PID) k((int X) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [decl-bool-arr]
+  eq canStep(
+    [procs(proc(pid(PID) k((bool X[# I]) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [decl-bool]
+  eq canStep(
+    [procs(proc(pid(PID) k((bool X) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [decl-scalar-val]
+  eq canStep(
+    [procs(proc(pid(PID) k((T X = V) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [decl-prim]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k((PT X[# I] = V) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    store(STR) nextLoc(J) CFG-REST]) = true
+    if I > 0 .
+  --- [decl-bch]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k((chan X[# I] =[ CAP ]of{ TS }) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    network(NET) nextBCid(NBC) CFG-REST]) = true
+    if I > 0 /\ CAP > 0 .
+  --- [decl-hch]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k((chan X[# I] =[ 0 ]of{ TS }) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    nextHCid(NHC) CFG-REST]) = true
+    if I > 0 .
+  --- [decl-uch]
+  ceq canStep(
+    [procs(proc(pid(PID) INNER-REST k((chan X[# I]) ~> K) local(LOCAL) env(ENV)) PROC-REST)
+    CFG-REST]) = true
+    if I > 0 .
+  --- [freeze]
+  eq canStep(
+    [procs(proc(pid(PID) k(#freeze ~> K) INNER-REST) PROC-REST)
+    lock(#none) active(ACT) CFG-REST]) = true .
+  --- [load-seq]
+  eq canStep(
+    [procs(proc(pid(PID) k((ST ; SL) ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [load-atomic]
+  eq canStep(
+    [procs(proc(pid(PID) k(atomic{ SL } ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [load-if]
+  eq canStep(
+    [procs(proc(pid(PID) k(if OL fi ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [load-do]
+  eq canStep(
+    [procs(proc(pid(PID) k(do OL od ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [load-basic]
+  ceq canStep(
+    [procs(proc(pid(PID) k(BS ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true
+    if not (BS :: Value) /\ not (BS :: Decl) .
+  --- [load-goto]
+  eq canStep(
+    [procs(proc(pid(PID) k(goto X ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [load-break]
+  eq canStep(
+    [procs(proc(pid(PID) k(break ~> K) INNER-REST) PROC-REST)
+    lock(LCK) CFG-REST]) = true .
+  --- [proctype]
+  eq canStep(
+    [proctypes(PTS)
+     procs(proc(pid(PID) k(#proctype(X, DECLS, SL) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [active]
+  eq canStep(
+    [procs(proc(pid(PID) k(#activeProctype(X, DECLS, SL) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [active-n]
+  eq canStep(
+    [procs(proc(pid(PID) k(#activeN(N, X, DECLS, SL) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [repeat]
+  ceq canStep(
+    [procs(proc(pid(PID) k(#repeat(N, K1) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true
+    if N > 0 .
+  --- [repeat-done]
+  ceq canStep(
+    [procs(proc(pid(PID) k(#repeat(N, K1) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true
+    if N <= 0 .
+  --- [globals]
+  eq canStep(
+    [procs(proc(pid(PID) k(#globals(D:Decl ; DECLS) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  --- [globals-done]
+  eq canStep(
+    [procs(proc(pid(PID) k(#globals(.Decls) ~> K) INNER-REST) PROC-REST) CFG-REST]) = true .
+  eq canStep(GS:GlobalState) = false [owise] .
+  --- END canStep
+
+  op initT : K -> GlobalState .
+  eq initT(K) = [ proctypes(none)
+    procs(proc(pid(-1) name('Main) k(K) local(nil) env(empty)))
+    store(empty) network(empty) lock(#none) active(nil)
+    nextLoc(0) nextPid(0) nextBCid(0) nextHCid(0) ] .
+endm

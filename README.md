@@ -1,4 +1,4 @@
-# AGCEL: RL-based Heuristics Learning for Model Checking
+# AGCEL: RL-based Heuristic Learning for Model Checking
 
 Learn search heuristics using reinforcement learning (Q-Table and DQN) to guide state-space exploration in Maude-based model checking.
 
@@ -102,8 +102,8 @@ python3 test.py \
 
 ## Key Metrics
 
-- **n_states**: States explored before reaching goal
-- **hit ratio**: Ratio of states encountered during search with known heuristic values
+- Hits: Hit count of states encountered during search with known heuristic values
+- States: States explored before reaching goal
 
 ## Requirements
 

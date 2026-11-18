@@ -1,0 +1,5 @@
+--- no-focus: every pid collapses to *. Requires PROMELA-AGCEL loaded.
+mod FOCUS-MT is
+  inc PROMELA-AGCEL .
+  eq focusIds = mt .
+endm

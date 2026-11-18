@@ -1,0 +1,36 @@
+*** paper-spin-atomic-handshake.pml: atomic + rendezvous + toss, 3 procs (hand-built post-INIT [...]).
+*** X atomically does x++ ; q!0 (rendezvous, toss back) ; x++, so x goes 0->2; Z reads y := x.
+*** Safety yIs1: No solution (x is never observed as 1). While [loose] could fire at any time the
+*** transient x=1 was visible and y=1 had spurious solutions. Also the atomic+rendezvous toss test.
+*** Constructs: atomic{}, handshake rendezvous inside atomic, [toss1].
+
+load ../../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-PSAH is
+  protecting PROMELA-CONFIG . protecting BOOL .
+  op yIs1 : GlobalState -> Bool .
+  eq yIs1([store((1 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq yIs1(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-PSAH is
+  protecting PROMELA-SEMANTICS . protecting BENCH-PROPS-PSAH .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env2 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('q, 0) |-> hs(0)), (lval('x, 0) |-> loc(0)), (lval('y, 0) |-> loc(1))) .
+  eq env1 = env0 .  eq env2 = env0 .
+  op body0 : -> Seq .  op body1 : -> Seq .  op body2 : -> Seq .
+  eq body0 = ( atomic { ('x = 'x + # 1) ; ('q[# 0] ! # 0) ; ('x = 'x + # 1) ; .Decls } ) ; .Decls .
+  eq body1 = ( atomic { ('q[# 0] ? # 0) ; .Decls } ) ; .Decls .
+  eq body2 = ( ('y = 'x) ; .Decls ) .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('X) k( body0 ~> .K ) local(nil) env(env0))
+          proc(pid(1) name('Y) k( body1 ~> .K ) local(nil) env(env1))
+          proc(pid(2) name('Z) k( body2 ~> .K ) local(nil) env(env2)))
+    store(((0 |-> # 0), (1 |-> # 0)))
+    network(empty) lock(#none) active(0 1 2)
+    nextLoc(2) nextPid(3) nextBCid(0) nextHCid(1) ] .
+endm
+
+search init =>* C:GlobalState such that yIs1(C:GlobalState) .

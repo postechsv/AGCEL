@@ -9,15 +9,21 @@ import datetime
 from typing import Dict, Optional, Callable
 from AGCEL.MaudeEnv import *
 
-Experience = namedtuple('Experience', 
-                        ['state', 'action', 'reward', 'next_state', 'done'])
+# next_mask: legal-action mask of next_state (None = all actions), used to restrict the
+# bootstrap max to rules applicable there
+Experience = namedtuple('Experience',
+                        ['state', 'action', 'reward', 'next_state', 'done', 'next_mask'],
+                        defaults=(None,))
+
+# how the search value is read from the network outputs (get_value_function)
+READOUTS = ('per-obs', 'all')
 
 class ReplayBuffer:
     def __init__(self, capacity: int = 10000):
         self.buffer = deque(maxlen=capacity)
 
-    def push(self, state, action, reward, next_state, done):
-        self.buffer.append(Experience(state, action, reward, next_state, done))
+    def push(self, state, action, reward, next_state, done, next_mask=None):
+        self.buffer.append(Experience(state, action, reward, next_state, done, next_mask))
 
     def sample(self, batch_size: int):
         return random.sample(self.buffer, batch_size)
@@ -36,10 +42,10 @@ class PrioritizedReplayBuffer:
         self.goal_buffer = deque(maxlen=capacity)
         self.non_goal_buffer = deque(maxlen=capacity)
     
-    def push(self, state, action, reward, next_state, done):
-        exp = Experience(state, action, reward, next_state, done)
+    def push(self, state, action, reward, next_state, done, next_mask=None):
+        exp = Experience(state, action, reward, next_state, done, next_mask)
         self.buffer.append(exp)
-        if reward == 1.0:
+        if reward > 0:
             self.goal_buffer.append(exp)
         else:
             self.non_goal_buffer.append(exp)
@@ -100,7 +106,7 @@ class DQNLearner:
         self.state_encoder = state_encoder
         self.input_dim = input_dim
         self.num_actions = num_actions
-        
+
         # detect device
         if device is None:
             if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
@@ -145,7 +151,22 @@ class DQNLearner:
         
         # cache for value function lookup during search
         self.value_cache = {}
+
+        # rules seen applicable per observation while training (legal_any: in any state);
+        # the search value takes its max over these, so it depends on the observation only
+        self.legal_by_obs = {}
+        self.legal_any = set()
    
+    def _encode(self, state):
+        """encode state via the state encoder."""
+        return self.state_encoder(state)
+
+    def _note_legal(self, obs, env):
+        """record the rules applicable in the current env state under its observation"""
+        legal = {i for i, on in enumerate(env.action_mask()) if on}
+        self.legal_by_obs.setdefault(obs['state'].prettyPrint(0), set()).update(legal)
+        self.legal_any |= legal
+
     def diagnose_buffer(self):
         """
         print buffer statistics
@@ -160,7 +181,11 @@ class DQNLearner:
 
         unique_states = len(set(tuple(exp.state.numpy()) for exp in self.replay_buffer.buffer))
 
-        print(f'  Buffer: total={n_total}, goal={n_goal} ({n_goal/n_total*100:.1f}%), non_goal={n_non_goal}, unique_states={unique_states}')
+        print(f'  Buffer')
+        print(f'    total         : {n_total}')
+        print(f'    goal          : {n_goal} ({n_goal/n_total*100:.1f}%)')
+        print(f'    non_goal      : {n_non_goal}')
+        print(f'    unique_states : {unique_states}')
 
     def select_action(self, env, obs: Dict, epsilon: Optional[float] = None) -> Optional[int]:
         """
@@ -183,7 +208,7 @@ class DQNLearner:
             return random.choice(legal_actions)
         else:
             with torch.no_grad():
-                state_tensor = self.state_encoder(obs['state']).unsqueeze(0).to(self.device)
+                state_tensor = self._encode(obs['state']).unsqueeze(0).to(self.device)
                 q_values = self.q_network(state_tensor).squeeze(0)
                 
                 # mask illegal actions
@@ -194,17 +219,18 @@ class DQNLearner:
                 
                 return masked_q_values.argmax().item()
     
-    def store_experience(self, state, action, reward, next_state, done):
+    def store_experience(self, state, action, reward, next_state, done, next_mask=None):
         """store observed trainsition while in replay buffer while training"""
-        state_tensor = self.state_encoder(state)
-        next_state_tensor = self.state_encoder(next_state) if next_state is not None else torch.zeros_like(state_tensor)
+        state_tensor = self._encode(state)
+        next_state_tensor = self._encode(next_state) if next_state is not None else torch.zeros_like(state_tensor)
         
         self.replay_buffer.push(
             state_tensor,
             action,
             reward,
             next_state_tensor,
-            done
+            done,
+            next_mask
         )
 
     def optimize_model(self, env=None):
@@ -219,13 +245,14 @@ class DQNLearner:
         reward_batch = torch.tensor([e.reward for e in batch], dtype=torch.float32, device=self.device)
         next_state_batch = torch.stack([e.next_state for e in batch]).to(self.device)
         done_batch = torch.tensor([e.done for e in batch], dtype=torch.float32, device=self.device)
+        next_mask_batch = torch.tensor([e.next_mask if e.next_mask is not None else [1] * self.num_actions
+                                        for e in batch], dtype=torch.bool, device=self.device)
         
         current_q_values = self.q_network(state_batch).gather(1, action_batch).squeeze(1)
         
         # use online network to select best action, and use target network to evaluate that action
         with torch.no_grad():
-            next_q_values_online = self.q_network(next_state_batch)
-            next_actions = next_q_values_online.argmax(dim=1, keepdim=True)
+            next_actions = self._target_actions(next_state_batch, next_mask_batch)
 
             next_q_values_target = self.target_network(next_state_batch)
             next_q_values = next_q_values_target.gather(1, next_actions).squeeze(1)
@@ -243,16 +270,32 @@ class DQNLearner:
         
         self.loss_history.append(loss.item())
         
+    def _target_actions(self, next_state_batch, next_mask_batch):
+        """double-DQN action choice at s', restricted to the rules applicable in s'"""
+        q = self.q_network(next_state_batch).masked_fill(~next_mask_batch, -float('inf'))
+        return q.argmax(dim=1, keepdim=True)
+
     def update_target_network(self):
         # soft update: target = tau * online + (1 - tau) * target
         for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
             target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
     
     def train(self, env, n_episodes: int, max_steps: int = 10000):
-        print(f'Hyperparameters: lr={self.learning_rate}, gamma={self.gamma}, tau={self.tau}, eps_end={self.epsilon_end}')
-        print(f'                 eps_decay={self.epsilon_decay}, target_freq={self.target_update_frequency}, goal_ratio={self.goal_ratio}')
-        print(f'                 batch_size={self.batch_size}, buffer_size={self.replay_buffer.buffer.maxlen}')
-        print(f"DQN: input_dim={self.input_dim}, num_actions={self.num_actions}, device={self.device}")
+        print('  Hyperparameters')
+        print(f'    lr            : {self.learning_rate}')
+        print(f'    gamma         : {self.gamma}')
+        print(f'    tau           : {self.tau}')
+        print(f'    epsilon_end   : {self.epsilon_end}')
+        print(f'    epsilon_decay : {self.epsilon_decay}')
+        print(f'    target_freq   : {self.target_update_frequency}')
+        print(f'    goal_ratio    : {self.goal_ratio}')
+        print(f'    batch_size    : {self.batch_size}')
+        print(f'    buffer_size   : {self.replay_buffer.buffer.maxlen}')
+        print(f'  Network')
+        print(f'    input_dim     : {self.input_dim}')
+        print(f'    num_actions   : {self.num_actions}')
+        print(f'    device        : {self.device}')
+        print('  Progress')
 
         episode_rewards = []
         episode_lengths = []
@@ -264,13 +307,14 @@ class DQNLearner:
                 eps = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode)
                 n_goals = len(self.replay_buffer.goal_buffer)
                 recent_loss = np.mean(self.loss_history[-50:]) if len(self.loss_history) > 50 else 0
-                print(f'  Ep {episode}: epsilon={eps:.3f}, '
-                    f'Buf={len(self.replay_buffer)}, GoalBuf={n_goals}, '
-                    f'AvgSteps={np.mean(episode_lengths[-50:]) if episode_lengths else 0:.0f}, AvgLoss={recent_loss:.4f}')
+                avg_steps = np.mean(episode_lengths[-50:]) if episode_lengths else 0
+                print(f'    Ep {episode:5d} | eps={eps:.3f} | buf={len(self.replay_buffer):5d} | goal={n_goals:4d} | steps={avg_steps:6.1f} | loss={recent_loss:.4f}')
 
             self.episode_count = episode
             obs = env.reset()
+            self._note_legal(obs, env)
             episode_reward = 0.0
+            steps = 0  # environment steps actually taken this episode
 
             for step in range(max_steps):
                 action_idx = self.select_action(env, obs)
@@ -279,6 +323,7 @@ class DQNLearner:
                     break
                 
                 next_obs, reward, done = env.step_indexed(action_idx)
+                self._note_legal(next_obs, env)
                 episode_reward += reward
                 
                 self.store_experience(
@@ -286,7 +331,8 @@ class DQNLearner:
                     action_idx,
                     reward,
                     next_obs['state'] if not done else None,
-                    done
+                    done,
+                    list(env.action_mask()) if not done else None
                 )
                 
                 if self.training_step % self.update_frequency == 0:
@@ -296,6 +342,7 @@ class DQNLearner:
                     self.update_target_network()
                 
                 self.training_step += 1
+                steps += 1
                 obs = next_obs
                 
                 if done:
@@ -304,43 +351,62 @@ class DQNLearner:
                     break
             
             episode_rewards.append(episode_reward)
-            episode_lengths.append(step + 1)
+            episode_lengths.append(steps)
 
             if len(self.loss_history) >= 100 and episode % 50 == 0:
                 recent_avg_loss = np.mean(self.loss_history[-100:])
                 self.scheduler.step(recent_avg_loss)
         
         self.diagnose_buffer()
-        print("training completed!")
+        print('  Training completed')
         
         return episode_rewards, episode_lengths
     
-    def get_value_function(self, mode: str = "dqn") -> Callable:
+    def get_value_function(self, mode: str = "dqn", readout: str = "per-obs") -> Callable:
+        """
+        V(obs_term): a function of the observation only; g_state is accepted for the search
+        interface and ignored.
+        readout "per-obs": max Q over the rules that were applicable, during training, in some
+        state with this observation (unseen observation: rules applicable in any training state).
+        readout "all": max Q over every output.
+        Each returned V has its own cache, kept in self.value_cache.
+        """
+        if readout not in READOUTS:
+            raise ValueError(f'readout must be one of {READOUTS}, got {readout!r}')
         self.q_network.eval()
-        
+        cache = self.value_cache = {}
+
         @torch.no_grad()
         def V(obs_term, g_state=None) -> float:
             if obs_term is not None:
-                obs_str = obs_term.prettyPrint(0)
-                if obs_str in self.value_cache:
-                    return self.value_cache[obs_str]
-            
-            state_tensor = self.state_encoder(obs_term).unsqueeze(0).to(self.device)
+                ck = obs_term.prettyPrint(0)
+                if ck in cache:
+                    return cache[ck]
+            seen = self.legal_by_obs.get(ck) if obs_term is not None else None
+            legal = seen if seen is not None else self.legal_any
+
+            state_tensor = self._encode(obs_term).unsqueeze(0).to(self.device)
             q_values = self.q_network(state_tensor).squeeze(0)
 
             if mode == "zero":
                 result = 0.0
             elif mode == "random":
                 result = random.random()
-            else:  # original dqn
+            elif readout == "all":
+                result = q_values.max().item()
+            elif legal:
+                result = q_values[sorted(legal)].max().item()
+            elif seen is not None:  # only ever observed in states with no applicable rule
+                result = 0.0
+            else:  # no applicability recorded (untrained learner): all outputs
                 result = q_values.max().item()
 
             # cache result if state is seen
             if obs_term is not None:
-                self.value_cache[obs_str] = result
-                
+                cache[ck] = result
+
             return result
-        
+
         V.needs_obs = True
         return V
     
@@ -352,6 +418,8 @@ class DQNLearner:
             'training_step': self.training_step,
             'episode_count': self.episode_count,
             'loss_history': self.loss_history,
+            'legal_by_obs': {k: sorted(v) for k, v in self.legal_by_obs.items()},
+            'legal_any': sorted(self.legal_any),
             'hyperparameters': {
                 'input_dim': self.input_dim,
                 'num_actions': self.num_actions,
@@ -374,14 +442,14 @@ class DQNLearner:
         self.training_step = checkpoint['training_step']
         self.episode_count = checkpoint['episode_count']
         self.loss_history = checkpoint['loss_history']
+        self.legal_by_obs = {k: set(v) for k, v in checkpoint.get('legal_by_obs', {}).items()}
+        self.legal_any = set(checkpoint.get('legal_any', []))
         
         if 'hyperparameters' in checkpoint:
             hp = checkpoint['hyperparameters']
             self.gamma = hp.get('gamma', self.gamma)
             self.tau = hp.get('tau', self.tau)
             self.batch_size = hp.get('batch_size', self.batch_size)
-        
-        print(f"Model loaded from {path}")
     
     def dump_value_function(self, filename: str, module_name: str, goal: str):
         with open(filename, 'w') as f:

@@ -1,0 +1,543 @@
+*** =============================================================================
+*** PROMELA-SKELETON.MAUDE  (TODO-annotated, reordered)
+***
+*** Reordering applied in this revision (logic unchanged, moves only):
+***   1. Moved K-COMPUTATION / K-CONFIG OUT of the top syntax region and DOWN
+***      into the semantic region. Reason: syntax must not depend on K
+***      infrastructure; placing K infra at the top invited the wrong import
+***      direction.
+***   2. Grouped all pure-syntax modules together as PART 1 (PROMELA-ID,
+***      -VALUE, -CHAN, -LOC, -MSG, -QUEUE, -LOCK, -LVAL, -REF, -EXP,
+***      -STMT-DECL). Reason: IMP keeps syntax in one self-contained block.
+***   3. Moved the `view` declarations to sit AFTER the syntax modules they
+***      reference and BEFORE the semantic modules that consume them. Reason:
+***      a view must follow its target module; views feed the parameterized
+***      maps used only in the configuration (semantic) part.
+***   4. Moved PROMELA-EFFECT and K-BRANCH (BranchSet) into the semantic
+***      region. Reason: effect markers and BranchSet are K-continuation
+***      markers, not syntax.
+***
+*** Three-part structure (IMP convention):
+***   PART 1 — pure syntax        (no K infra loaded anywhere)
+***   PART 2 — strictness         (may be unnecessary; see TODO)
+***   PART 3 — K infra + config + effect markers + branch + rules
+*** =============================================================================
+
+---------------------------------------------------------------------------------
+*** #############################################################################
+*** PART 1 — PURE SYNTAX
+*** No module in this part may load K-COMPUTATION or K-CONFIG.
+*** (precedent: imp-syntax.maude loads no K)
+*** #############################################################################
+
+fmod PROMELA-ID is
+  protecting QID .
+  protecting INT .
+
+  sort Id .
+  subsort Qid < Id .
+endfm
+
+
+fmod PROMELA-VALUE is
+  protecting INT .
+  protecting BOOL .
+
+  sort Value .
+  --- TODO: add the #_ prefix-wrapper convention for Value.
+  ---       Bool and Int cannot be direct subsorts of Value in Maude, so wrap:
+  ---         op #_ : Int  -> Value [ctor] .
+  ---         op #_ : Bool -> Value [ctor] .
+  ---         op #_ : Chan -> Value [ctor] .   (needs Chan in scope — see below)
+  ---       Source: imp-syntax.maude lines 1-9 (IMP-VALUE module)
+  ---       Priority: implement
+  --- TODO: the Chan overload forces a dependency on PROMELA-CHAN. Decide
+  ---       whether Value imports Chan, or the #_ : Chan overload lives in a
+  ---       small module that protects both. Keep Value itself K-free.
+  ---       Source: convention (PART 1 must stay K-free)
+  ---       Priority: implement
+endfm
+
+
+fmod PROMELA-CHAN is
+  protecting INT .
+
+  sort Chan .
+  op ch : Int -> Chan [ctor] .
+  op hs : Int -> Chan [ctor] .
+endfm
+
+
+fmod PROMELA-LOC is
+  protecting PROMELA-VALUE .
+
+  sort Loc .
+  op loc : Int -> Loc [ctor] .
+endfm
+
+
+*** -----------------------------------------------------------------------------
+*** List/sequence infrastructure.
+*** TODO: introduce a single shared EmptyList / nil base so that MsgList,
+***       ValueList, and Exprs share one identity and one renamed `_,_`,
+***       instead of three different identities (.MsgList / .ValueList /
+***       .Decls). This is what prevents cross-sort `_,_` attribute clashes.
+***       Source: imp#-syntax.maude lines 3-21 (EXP-LIST: EmptyList, ValueList
+***               via `subsorts Value EmptyList < ValueList` + `[ctor ditto]`)
+***       Priority: fix (ValueList is referenced but never defined — see EXP)
+*** -----------------------------------------------------------------------------
+fmod PROMELA-MSG is
+  protecting INT .
+  sort Msg MsgList .
+  subsort Msg < MsgList .
+  op .MsgList : -> MsgList [ctor] .
+  op _,_ : MsgList MsgList -> MsgList [ctor assoc id: .MsgList prec 50] .
+  --- TODO: reconcile this `_,_` (id: .MsgList) with the Exprs `_,_` (id:
+  ---       .ValueList) and any ValueList `_,_`. Either unify them through a
+  ---       common EmptyList/nil with [ctor ditto], or confirm the distinct
+  ---       identities do not clash when both are in scope.
+  ---       Source: imp#-syntax.maude lines 18-20 (ditto pattern)
+  ---       Priority: fix
+endfm
+
+
+fmod PROMELA-QUEUE is
+  protecting PROMELA-MSG .
+  sort Queue .
+  op mq : Int MsgList -> Queue [ctor] .
+endfm
+
+
+fmod PROMELA-LOCK is
+  protecting INT .
+
+  sort Lock .
+  subsort Int < Lock .
+  op #none : -> Lock [ctor] .
+  op #frozen : -> Lock [ctor] .
+endfm
+
+
+fmod PROMELA-LVAL is
+  protecting PROMELA-ID .
+  protecting INT .
+
+  sort LVal .
+  op lval : Id Int -> LVal [ctor] .
+  --- TODO: original skeleton did not protect PROMELA-ID here, but `lval`
+  ---       takes an Id. Added `protecting PROMELA-ID .` above. Confirm Id is
+  ---       in scope (load would otherwise fail on undefined sort Id).
+  ---       Source: convention (operator argument sorts must be imported)
+  ---       Priority: fix
+endfm
+
+
+fmod PROMELA-REF is
+  protecting PROMELA-CHAN .
+  protecting PROMELA-LOC .
+
+  sort Ref .
+  subsorts Chan Loc < Ref .
+  --- TODO: original skeleton protected PROMELA-VALUE but referenced Chan and
+  ---       Loc, which live in PROMELA-CHAN / PROMELA-LOC. Replaced the import
+  ---       with PROMELA-CHAN + PROMELA-LOC so both subsort targets are in
+  ---       scope.
+  ---       Source: convention (subsort targets must be imported)
+  ---       Priority: fix
+endfm
+
+
+fmod PROMELA-EXP is
+  protecting PROMELA-ID .
+  protecting PROMELA-VALUE .
+  protecting PROMELA-CHAN .
+  protecting PROMELA-LOC .
+  protecting PROMELA-MSG .
+  protecting PROMELA-QUEUE .
+  protecting PROMELA-LVAL .
+  protecting PROMELA-REF .
+  --- TODO: remove the dependency on K-CONFIG (it was `protecting K-CONFIG .`
+  ---       in the original). Syntax must not load K infrastructure. Already
+  ---       removed here; verify nothing in this module actually needs K.
+  ---       Source: imp-syntax.maude loads no K
+  ---       Priority: fix
+
+  sorts PType CType Type .  *** Type declaration (PType: primitive (int, bool), CType: chan)
+  subsorts PType CType < Type .
+  op int : -> PType [ctor] .
+  op bool : -> PType [ctor] .
+  op chan : -> CType [ctor] .
+
+  sort Vref .   *** Variable reference
+  subsort Id < Vref .
+  op _[_] : Id Int -> Vref [ctor prec 1] .   *** evaluated index; Int
+  op _[_] : Id Expr -> Vref [ctor prec 1] .  *** unevaluated idx; Expr
+  --- TODO: assign a coherent precedence scheme to all Expr/Vref operators.
+  ---       The two _[_] overloads share prec 1; confirm that is intended and
+  ---       does not create parse ambiguity against the arithmetic ops below.
+  ---       Source: self-flagged (original CHECK note); Maude manual §3.9
+  ---               (operator precedence / gather)
+  ---       Priority: defer (resolve when parse ambiguity actually appears)
+
+  sort Expr .   *** Expression
+  sort Exprs .
+  subsorts Value Vref < Expr .
+  subsort Expr < Exprs .
+  subsort ValueList < Exprs .
+  op _,_ : Exprs Exprs -> Exprs [ctor assoc id: .ValueList prec 50] .
+  --- TODO: `.ValueList` and sort `ValueList` are referenced here but never
+  ---       defined anywhere in the skeleton. Define ValueList (and its
+  ---       EmptyList/nil base) before this line, or this module will not load.
+  ---       Source: imp#-syntax.maude lines 18-20 (ValueList definition)
+  ---       Priority: fix
+  --- TODO: consider splitting a `Const` sort: `sort Const . subsort Value <
+  ---       Const . subsorts Const Vref < Expr .` if constants need to be
+  ---       distinguished from general values downstream.
+  ---       Source: self-flagged (original TODO note)
+  ---       Priority: defer
+
+  op -_ : Expr -> Expr [ctor prec 15] .   *** Arithmetic operators
+  op _+_ : Expr Expr -> Expr [ctor prec 33] .
+  op _-_ : Expr Expr -> Expr [ctor prec 33] .
+  op _*_ : Expr Expr -> Expr [ctor prec 31] .
+  op _/_ : Expr Expr -> Expr [ctor prec 31] .
+  --- TODO: match `prec` and add `gather` to mirror Maude prelude arithmetic,
+  ---       so `eval` equations that mix these ops with builtin INT ops do not
+  ---       hit parse ambiguity.
+  ---       Source: self-flagged (original TODO); Maude manual §3.9 (gather)
+  ---       Priority: defer
+
+  op _<_ : Expr Expr -> Expr [ctor prec 37] .   *** Comparison operators
+  op _<=_ : Expr Expr -> Expr [ctor prec 37] .
+  op _>_ : Expr Expr -> Expr [ctor prec 37] .
+  op _>=_ : Expr Expr -> Expr [ctor prec 37] .
+  op _==_ : Expr Expr -> Expr [ctor prec 51] .
+  op _!=_ : Expr Expr -> Expr [ctor prec 51] .
+
+  op !_ : Expr -> Expr [ctor prec 53] .   *** Logical operators
+  op _&&_ : Expr Expr -> Expr [ctor prec 55] .
+  op _||_ : Expr Expr -> Expr [ctor prec 59] .
+
+  op full : Vref -> Expr [ctor] .   *** Channel poll
+  op empty : Vref -> Expr [ctor] .
+  op nfull : Vref -> Expr [ctor] .
+  op nempty : Vref -> Expr [ctor] .
+  op _?[_] : Vref Exprs -> Expr [ctor] .  *** Msg receive poll; e.g., c?[1, 2]
+
+  op run_(_) : Id Exprs -> Expr [ctor] .    *** Process spawn
+endfm
+
+
+fmod PROMELA-STMT-DECL is
+  protecting PROMELA-EXP .
+
+  sort Decl .   *** Declaration
+  sort Decls .
+  subsort Decl < Decls .
+  op .Decls : -> Decls [ctor] .
+  op _;_ : Decls Decls -> Decls [ctor assoc id: .Decls prec 60] .
+  op __ : Type Vref -> Decl [ctor] .                    *** e.g., int 'x
+  op __=_ : Type Vref Expr -> Decl [ctor] .             *** e.g., int 'x = 5
+  op __=[_]of{_} : Type Vref Int Type -> Decl [ctor] .  *** e.g., char 'c = [10] of {int}
+
+  sorts BasicStmt GotoStmt DeclStmt Stmt .    *** Statement
+  subsort Decl < DeclStmt < BasicStmt < Stmt .
+  subsort GotoStmt < Stmt .
+  --- TODO: decide whether bare Expr is a BasicStmt (PROMELA expr-as-guard).
+  ---       If yes, add `subsort Expr < BasicStmt .` — but note this lets bare
+  ---       Values match statement positions; guard against over-permissive
+  ---       matching when rules are written.
+  ---       Source: promela.k (expr-as-guard)
+  ---       Priority: implement
+
+  op skip : -> BasicStmt [ctor] .
+  op _=_ : Vref Expr -> BasicStmt [ctor prec 45] .
+  op _!_ : Vref Exprs -> BasicStmt [ctor prec 45] .
+  op _?_ : Vref Exprs -> BasicStmt [ctor prec 45] .
+  --- TODO: confirm whether `_=_` assignment needs a [prefer] or disambiguation
+  ---       attribute against the comparison `_==_` / declaration `__=_` forms.
+  ---       Source: self-flagged (original CHECK); Maude manual §3.9
+  ---       Priority: defer
+
+  op goto_ : Id -> GotoStmt [ctor] .
+  op break : -> GotoStmt [ctor] .
+  op atomic{_} : Seq -> Stmt [ctor] .
+  op if_fi : Optns -> Stmt [ctor] .
+  op do_od : Optns -> Stmt [ctor] .
+
+  sort Seq .    *** Statements sequence
+  subsort Stmt < Seq .
+  subsort Decls < Seq .
+  op _;_ : Seq Seq -> Seq [ctor assoc id: .Decls prec 60] .
+
+  sort Optn .   *** Option (for if/do)
+  sort Optns .
+  subsort Optn < Optns .
+  op .Optns : -> Optns [ctor] .
+  op __ : Optns Optns -> Optns [ctor assoc id: .Optns] .
+  op ::_ : Seq -> Optn [ctor prec 61] .
+  --- TODO: confirm prec 61 for `::_` against the Seq `_;_` (prec 60) so that
+  ---       `:: s1 ; s2` parses as `:: (s1 ; s2)` and not `(:: s1) ; s2`.
+  ---       Source: self-flagged (original CHECK); Maude manual §3.9
+  ---       Priority: defer
+
+  --- TODO: lift source-language sorts into the K computation. In the semantic
+  ---       part add `subsorts Stmt Seq < KLabel .` (NOT KItem). This cannot
+  ---       live here because PART 1 must stay K-free; it belongs in a module
+  ---       that loads K-COMPUTATION.
+  ---       Source: imp-basic-semantics.maude line 29 (`subsort Exp Block <
+  ---               KLabel`)
+  ---       Priority: implement
+endfm
+
+
+*** #############################################################################
+*** PART 2 — STRICTNESS / DECOMPOSITION
+*** #############################################################################
+
+*** TODO: determine whether a strictness / heating-cooling layer is needed at
+***       all. Statement-level semantics may not require it, but this must
+***       be confirmed against the K source — the
+***       program must still be transformed into a form the rules can match
+***       (not necessarily via heating/cooling; e.g., IMP just chains `s1 ; s2`
+***       with `~>`). If a load/decomposition step is needed (Load-and-Fire),
+***       it lives here or at the top of PART 3.
+***       Priority: implement
+
+
+*** #############################################################################
+*** PART 3 — K INFRASTRUCTURE + CONFIGURATION + EFFECT MARKERS + BRANCH + RULES
+*** This is the ONLY part that may load K-COMPUTATION / K-CONFIG.
+*** #############################################################################
+
+fmod K-COMPUTATION is
+  sort K .
+  op .K  : -> K [ctor] .
+  op _~>_ : K K -> K [ctor assoc id: .K prec 70] .
+
+  sort KLabel .
+  subsort KLabel < K .
+endfm
+
+
+fmod K-CONFIG is
+  protecting K-COMPUTATION .
+
+  sort KConfig .
+  op none : -> KConfig [ctor] .
+  op __ : KConfig KConfig -> KConfig [ctor assoc comm id: none] .
+
+  sort KConfigItem .
+  subsort KConfigItem < KConfig .
+  op k : K -> KConfigItem [ctor] .
+  --- TODO: original had `op k : K -> KConfig` (return type KConfig). Changed
+  ---       to KConfigItem for uniformity with every other cell. KConfigItem <
+  ---       KConfig so both load, but KConfigItem is the convention.
+  ---       Source: problem2-sol.maude lines 47-54 (all cells return
+  ---               KConfigItem); imp/k-prelude.maude line 19 is the known
+  ---               inconsistency being corrected
+  ---       Priority: fix
+endfm
+
+
+*** -----------------------------------------------------------------------------
+*** Views — bind TRIV's `Elt` to each user sort used as a parameterized-map
+*** key or value. Placed after the syntax modules they target and before the
+*** configuration modules that instantiate the maps.
+*** -----------------------------------------------------------------------------
+view PROMELA-Id from TRIV to PROMELA-ID is
+  sort Elt to Id .
+endv
+
+view PROMELA-Value from TRIV to PROMELA-VALUE is
+  sort Elt to Value .
+endv
+
+view PROMELA-Chan from TRIV to PROMELA-CHAN is
+  sort Elt to Chan .
+endv
+
+view PROMELA-Loc from TRIV to PROMELA-LOC is
+  sort Elt to Loc .
+endv
+
+view PROMELA-Msg from TRIV to PROMELA-MSG is
+  sort Elt to Msg .
+endv
+
+view PROMELA-Queue from TRIV to PROMELA-QUEUE is
+  sort Elt to Queue .
+endv
+
+view PROMELA-LVal from TRIV to PROMELA-LVAL is
+  sort Elt to LVal .
+endv
+
+view PROMELA-Ref from TRIV to PROMELA-REF is
+  sort Elt to Ref .
+endv
+--- TODO: consider dropping the `PROMELA-` prefix on view names (e.g. `LVal`,
+---       `Ref`) so map instantiations read `Map{LVal, Ref}` / `Set{Id}`
+---       cleanly on import. Keep names clear of Maude prelude views (Nat, Int,
+---       Qid, Bool already exist).
+---       Priority: defer
+--- TODO: a GotoCtx view is still missing. Once GotoCtx is defined (goto-map
+---       value), add `view PROMELA-GotoCtx from TRIV to <module> is sort Elt
+---       to GotoCtx . endv` so `Map{Id, GotoCtx}` can be instantiated.
+---       Source: promela.k (gotoMap cell is Map{Id, K})
+---       Priority: implement
+
+
+*** -----------------------------------------------------------------------------
+*** GotoCtx — value sort for the per-proctype goto map.
+*** -----------------------------------------------------------------------------
+*** TODO: add a module defining GotoCtx (the jump-target context for a label).
+***       It pairs an atomic-context flag with a K continuation, e.g.
+***         op gotoCtx : Bool K -> GotoCtx [ctor] .
+***       Must load K-COMPUTATION (it carries a K). Place before the views that
+***       reference it, or define the view immediately after.
+***       Source: promela.k (gotoMap : Map from label Id to gotoCtx(Bool, K))
+***       Priority: implement
+
+
+fmod PROMELA-EFFECT is
+  protecting PROMELA-STMT-DECL .
+  protecting K-COMPUTATION .
+  --- TODO: original had only `protecting PROMELA-STMT-DECL .` but the markers
+  ---       below need KLabel (from K-COMPUTATION). Added K-COMPUTATION import.
+  ---       This is why PROMELA-EFFECT belongs in PART 3, not PART 1.
+  ---       Reason: effects are K markers
+  ---       Priority: fix
+
+  *** Effect markers — all host sort is KLabel (NOT KItem).
+  --- TODO: original declared every marker as `-> KItem`, but no KItem sort
+  ---       exists in the skeleton (only KLabel). Changed all to KLabel.
+  ---       Source: imp/k-prelude.maude (KLabel only, no KItem)
+  ---       Priority: fix
+  op #rel : -> KLabel [ctor] .                  *** Release atomic block's lock
+  op #run : Id ValueList -> KLabel [ctor] .     *** Process spawn
+  op #wait : -> KLabel [ctor] .                 *** for parent
+  op #done : -> KLabel [ctor] .                 *** for child
+  op #init : Decls ValueList -> KLabel [ctor] . *** Init parameters
+  op #assign : Id Expr Expr -> KLabel [ctor] .
+  op #send : Expr Exprs -> KLabel [ctor] .      *** Channel ref (Expr, not Ref:
+                                                *** Vref widens to Expr)
+  op #sendMsg : Chan Msg -> KLabel [ctor] .
+  op #recv : Expr Exprs -> KLabel [ctor] .
+  op #recvMsg : Exprs Msg -> KLabel [ctor] .
+  op #freeze : -> KLabel [ctor] .
+  op #toss : Int -> KLabel [ctor] .
+  --- TODO: `#run`'s ValueList and `#init`'s ValueList / `#recvMsg`'s Exprs
+  ---       depend on ValueList being defined (see PART 1 fix). Blocked until
+  ---       ValueList exists.
+  ---       Source: imp#-syntax.maude lines 18-20
+  ---       Priority: fix
+  --- TODO: decide whether the #assign first argument should be Id, or a
+  ---       null | lval(Id, Int) form, to carry an index. Self-flagged in the
+  ---       original ("need to define null | lval(Id, Int)?"). Resolve when the
+  ---       assign rule family is written.
+  ---       Source: self-flagged; promela.k (#assign reduction)
+  ---       Priority: implement
+endfm
+
+
+fmod K-BRANCH is
+  protecting K-COMPUTATION .
+  --- TODO: original module imported nothing but uses sort K in `@[_]` and in
+  ---       `subsort BranchSet < K`. Added K-COMPUTATION import.
+  ---       Source: convention (sorts used must be imported)
+  ---       Priority: fix
+
+  sort BranchItem .
+  op @[_] : K -> BranchItem [ctor] .
+
+  sort BranchSet .
+  subsort BranchItem < BranchSet .
+  op .BranchSet : -> BranchSet [ctor] .
+  op __ : BranchSet BranchSet -> BranchSet [ctor assoc comm id: .BranchSet] .
+
+  subsort BranchSet < K .
+  --- NOTE: BranchSet subsorts directly into K (not KLabel) on purpose — it is
+  ---       an AC multiset and cannot sit inside a single-arg KLabel. This is
+  ---       the one deliberate exception to the KLabel-only lifting convention.
+endfm
+
+
+*** -----------------------------------------------------------------------------
+*** CONFIGURATION — top-level cells and the two nested cell groups.
+*** TODO: this entire configuration layer is missing and must be added. Define
+***       each cell as a constructor returning KConfigItem, with parameterized
+***       prelude maps/lists/sets as payloads (NO named payload sorts like Env
+***       / Store / Network). Nested groups proctypes/procs use a per-element
+***       wrapper holding an inner sub-configuration multiset.
+***
+***       Top-level cells (initial state shape):
+***         proctypes( <bag of proctype(...)> )   -> KConfigItem
+***         procs(     <bag of proc(...)> )        -> KConfigItem
+***         store    : Map{Nat, Value}            -> KConfigItem
+***         network  : Map{Nat, Queue}            -> KConfigItem
+***         lock     : Lock                       -> KConfigItem
+***         active   : List{Int}                  -> KConfigItem
+***         nextLoc / nextPid / nextBCid / nextHCid : Int -> KConfigItem
+***
+***       Per-proctype sub-cells:
+***         procName : Id, procParams : Decls, procBody : K,
+***         gotoMap : Map{Id, GotoCtx}
+***       Per-process sub-cells:
+***         pid : Int, name : Id, k : K, local : Set{Id},
+***         env : Map{LVal, Ref}
+***
+***       Nested-cell discipline: wrap each element (proc/proctype) in a
+***       constructor over an inner AC multiset so process boundaries are
+***       preserved; do NOT flatten sub-cells into the outer bag (AC matching
+***       would dissolve the boundary).
+***       Source: IMP nested-cell
+***               precedent (problem2-sol.maude CALL-STACK / IMP#-CONFIG)
+***       Priority: implement
+***
+*** TODO: instantiate the parameterized maps/lists/sets the cells need:
+***         Map{LVal, Ref}, Map{Id, GotoCtx}, Map{Nat, Value}, Map{Nat, Queue},
+***         Set{Id}, List{Int}
+***       Watch for `_,_` separator clashes with the syntax-side list ops;
+***       rename on import where needed (`* (op _,_ to _;_)`), and confirm the
+***       Set instantiation does not clash with MsgList's `_,_`.
+***       Source: imp/problem2-sol.maude line 24 (`protecting MAP{...} * (op
+***               _,_ to _;_)`)
+***       Priority: implement
+*** -----------------------------------------------------------------------------
+
+
+*** -----------------------------------------------------------------------------
+*** SEMANTIC FUNCTIONS (fmod, equations only).
+*** TODO: add the pure helper functions the rules depend on — eval, evalList,
+***       matchMsg, msgSize, purify, isExec, effect, load/split, ==HChan.
+***       All are deterministic, so they go in fmod modules, not the system
+***       module. They take cell payloads (maps) as value arguments; they do
+***       NOT pattern-match cells.
+***       Source: promela.k (eval, split, load, isExec, effect, purify,
+***               matchMsg, _==HChan_); IMP fmod-vs-mod split (NOTES §6)
+***       Priority: implement
+*** -----------------------------------------------------------------------------
+
+
+*** -----------------------------------------------------------------------------
+*** SYSTEM MODULE (mod) — the rewrite rules.
+*** TODO: add a `mod` module holding the transition rules. Each rule must
+***       follow CONTEXT COMPLETION when porting a K rule:
+***         (1) fill K's elided cells (`_`, `...`) with fresh variables;
+***         (2) fill the elided nested-cell context — to touch a process's k
+***             and env, write `proc(... k(...) env(...) ...)` plus a remainder
+***             variable, because AC matching does NOT reach through the
+***             proc/proctype wrapper automatically.
+***       Apart from these two fills, each rule must be otherwise IDENTICAL to
+***       the K source rule. Mention only the cells a rule actually needs
+***       (modularity); do not enumerate the whole configuration.
+***       Priority: implement
+***
+*** TODO: this module must also carry whatever load/decomposition rules the
+***       Load-and-Fire pattern needs (load-*, fire, hs-fire, rel, toss, assign
+***       family, send/recv family, goto/break, run/done/init, freeze) once the
+***       configuration and helpers exist.
+***       Source: promela.k rule set
+***       Priority: implement
+*** -----------------------------------------------------------------------------

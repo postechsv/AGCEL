@@ -1,0 +1,109 @@
+*** RL analysis layer for the 2-proc PROMELA bakery mutex model.
+*** (No peterson-*.maude exists in benchmarks-promela/; bakery is the remaining
+*** mutex benchmark, and filter-2procs is the Peterson-family algorithm.)
+*** Goal = someInCrit (reachable: a process enters its critical section).
+*** Loc layout (from bakery-2procs): disp=0, serv=1, crit=2, tick=3/4.
+*** NOTE: the goal is the reachability control someInCrit (crit==1). mutexViolated (crit>=2)
+*** is not reachable: bakery-2procs.maude searches for it and finds no solution.
+
+load ../semantics/promela-agcel.maude .
+load ../semantics/promela-obs-generated.maude .
+load focus-mt.maude .
+
+mod MODEL is
+  protecting PROMELA-AGCEL .
+  subsort GlobalState < State .
+
+  var S : State .
+  var CFG : KConfig .
+  var STR : Map{Nat, PROMELA-Value} .
+  vars FV FV' : FeatVec .
+
+  --- goal: a process is in its critical section (crit counter == 1)
+  op someInCrit : -> Prop [ctor] .
+  eq ([ store((2 |-> # 1, STR)) CFG ]) |= someInCrit = true .
+  eq S |= someInCrit = false [owise] .
+
+  --- mutex-violation observable (crit counter == 2)
+  op critTwo : -> Prop [ctor] .
+  eq ([ store((2 |-> # 2, STR)) CFG ]) |= critTwo = true .
+  eq S |= critTwo = false [owise] .
+
+  --- benchmark-global vocabulary (pre-focus observation)
+  op plainProps : -> PropList .
+  eq plainProps = varEq('disp, 0, 1) ; varEq('serv, 1, 1) ; someInCrit ; critTwo ; allDone .
+
+  --- pid-scoped vocabulary, expanded over focusIds then * by pidObs
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    assignP(NQ, 'tick) ; assignP(NQ, 'disp) ; assignP(NQ, 'crit) ;
+    assignP(NQ, 'serv) ; locked(NQ) .
+
+  eq reward(< FV , (someInCrit : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+
+--- obs variants: plain = pre-focus vocabulary; focus = pidObs + plain
+mod MODEL-PLAIN is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, plainProps) > .
+endm
+
+mod MODEL-FOCUS is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, pidObs ; plainProps) > .
+endm
+
+
+mod BAKERY-PROMELA-TEST is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = someInCrit .
+
+  --- progress toward the goal: 0 .. goalMax, goalMax exactly in the goal states
+  op goalProgress : State -> Nat .
+  op goalMax : -> Nat .
+  op cnt : Bool Nat -> Nat .
+  var GP-S : State .  var GP-N : Nat .
+  eq cnt(true, GP-N) = s GP-N .
+  eq cnt(false, GP-N) = GP-N .
+  op dispensed : State -> Bool .   --- a ticket has been taken (disp > 0)
+  eq dispensed([ store((0 |-> #(s GP-D:Nat), GP-STR:Map{Nat, PROMELA-Value})) GP-CFG:KConfig ]) = true .
+  eq dispensed(GP-S) = false [owise] .
+  eq goalMax = 2 .
+  eq goalProgress(GP-S) = if GP-S |= someInCrit then 2 else if dispensed(GP-S) then 1 else 0 fi fi .
+
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('disp, 0) |-> loc(0)), (lval('serv, 0) |-> loc(1)),
+             (lval('crit, 0) |-> loc(2)), (lval('tick, 0) |-> loc(3))) .
+  eq env1 = ((lval('disp, 0) |-> loc(0)), (lval('serv, 0) |-> loc(1)),
+             (lval('crit, 0) |-> loc(2)), (lval('tick, 0) |-> loc(4))) .
+
+  ops CYCLE0 CYCLE1 : -> Seq .
+  eq CYCLE0 = ( atomic{ ('tick = 'disp) ; ('disp = 'disp + # 1) ; .Decls } ;
+                atomic{ ('tick == 'serv) ; ('crit = 'crit + # 1) ; .Decls } ;
+                atomic{ ('serv = 'serv + # 1) ; ('crit = 'crit - # 1) ; .Decls } ;
+                .Decls ) .
+  eq CYCLE1 = CYCLE0 .
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+      proc(pid(0) name('P0) k( CYCLE0 ~> .K ) local(nil) env(env0))
+      proc(pid(1) name('P1) k( CYCLE1 ~> .K ) local(nil) env(env1)) )
+    store(((0 |-> # 0), (1 |-> # 0), (2 |-> # 0), (3 |-> # 0), (4 |-> # 0)))
+    network(empty) lock(#none) active(0 1)
+    nextLoc(5) nextPid(2) nextBCid(0) nextHCid(0) ] .
+endm
+
+--- default run: parameterized obs, focusIds = mt, action-binding hook on
+mod BAKERY-PROMELA-RUN is
+  inc BAKERY-PROMELA-TEST .
+  inc MODEL-FOCUS .
+  inc FOCUS-MT .
+  inc PROMELA-OBS-GEN .
+endm

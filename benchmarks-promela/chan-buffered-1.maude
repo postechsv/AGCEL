@@ -1,0 +1,46 @@
+*** Buffered-channel verification harness, 2 processes (hand-built post-INIT [...] state).
+*** Property: FIFO order and blocking poll/recv on a buffered channel (cap 2).
+*** Expected: qOutOfOrder => No solution (send appends to tail) ; qDequeued => solution (poll+recv pops head).
+*** Backend: pins the network/mq(cap,list)/ch(bcid) layout and [send-push]/[recv-pop]/[recvMsg-match].
+
+load ../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-CHANBUF is
+  protecting PROMELA-CONFIG .
+  protecting BOOL .
+  op qOutOfOrder : GlobalState -> Bool .
+  op qDequeued : GlobalState -> Bool .
+  eq qOutOfOrder([network(0 |-> mq(2, (m(# 1), m(# 0)))) CFG:KConfig]) = true .
+  eq qOutOfOrder(C:GlobalState) = false [owise] .
+  eq qDequeued([network(0 |-> mq(2, m(# 1))) CFG:KConfig]) = true .
+  eq qDequeued(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-CHANBUF is
+  protecting PROMELA-SEMANTICS .
+  protecting BENCH-PROPS-CHANBUF .
+
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = (lval('q, 0) |-> ch(0)) .
+  eq env1 = env0 .
+
+  op body0 : -> Seq .
+  op body1 : -> Seq .
+  eq body0 = ( ('q ! # 0) ; ('q ! # 1) ; .Decls ) .
+  eq body1 = ( ('q ?[ # 0 ]) ; ('q ? # 0) ; .Decls ) .
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+      proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+      proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)) )
+    store(empty)
+    network((0 |-> mq(2, nil)))
+    lock(#none) active(0 1)
+    nextLoc(0) nextPid(2) nextBCid(1) nextHCid(0) ] .
+endm
+
+search init =>* C:GlobalState such that qOutOfOrder(C:GlobalState) .
+search init =>* C:GlobalState such that qDequeued(C:GlobalState) .

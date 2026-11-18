@@ -75,7 +75,7 @@ class MaudeEnv():
             if not any(t.equal(u) for u in out):
                 out.append(t)
         return {'G_state': self.G_state, 'state': self.state, 'actions': out}
-    
+
 
     def is_done(self):
         """check if current state satisfies goal or is terminal"""
@@ -124,8 +124,8 @@ class MaudeEnv():
 
 
     def _extract_label(self, act_term):
-        act_str = str(act_term)
-        return act_str.split()[0].strip("'")
+        # act_term = 'label { bindings }; the label is the Qid first argument of _{_}
+        return str(list(act_term.arguments())[0]).lstrip("'")
 
 
     def obs(self, term):

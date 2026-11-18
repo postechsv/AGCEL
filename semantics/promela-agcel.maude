@@ -1,0 +1,243 @@
+*** Shared PROMELA-AGCEL predicate vocabulary + meta-free observation infra.
+*** Benchmarks: `protecting PROMELA-AGCEL`, add `subsort GlobalState < State`
+*** locally, and define their own obs / goal / reward.
+*** Focus is a proposition parameter: focusIds (declared in PROMELA-FOCUS,
+*** promela-action.maude; defined in the thin benchmarks-promela/focus-*.maude
+*** modules) selects which pids are observed individually; every other pid
+*** collapses to *. mt = no-focus.
+*** The vocabulary itself (PROMELA-AGCEL-VOCAB) has no rules, so that it serves both
+***   PROMELA-AGCEL      over PROMELA-SEMANTICS
+***   PROMELA-AGCEL-ACT  over PROMELA-SEMANTICS-ACT, which records the last executed
+***                      action in the state (promela-action.maude); execP / execKP
+***                      read it.
+*** Action bindings on the action term (PROMELA-AGCEL only) come from
+*** PROMELA-OBS-GEN (promela-obs-generated.maude).
+
+load promela-semantics-act.maude .
+load ../tool2.maude .
+
+mod PROMELA-AGCEL-VOCAB is
+  pr PROMELA-HCHAN .
+  pr PROMELA-ACTION .
+  inc SATISFACTION .
+
+  vars CFG PR INNER-REST PS : KConfig .
+  var STR : Map{Nat, PROMELA-Value} .
+  var NET : Map{Nat, PROMELA-Queue} .
+  vars L V I C SZ : Int .
+  vars N J : Nat .
+  var NQ : Nat? .
+  var NS : NatSet .
+  var X : Id .
+  vars VA VB : Value .
+  vars K KP : K .
+  var EL : Exprs .
+  var VL : ValueList .
+  var ML : MsgList .
+  var GS : GlobalState .
+  vars FV FV' : FeatVec .
+  var P : Prop .
+  var PL : PropList .
+  var B : Bool .
+  vars Q Q' : Qid .
+  var U : Univ .
+  var S : State .
+  var RL : RuleLabel .
+
+  --- meta-free observation infra: OBSERVATION does `pr META-LEVEL`, whose
+  --- META-TERM/LIST/SET reuse PROMELA object symbols with incompatible
+  --- attributes (unpatchable), so its meta-free ops are re-declared here.
+  op obs : State -> MDPState .
+  op obsUpto : State PropList -> FeatVec .
+  eq obsUpto(S, P ; PL) = (P : (S |= P)) , obsUpto(S, PL) .
+  eq obsUpto(S, nil) = nil .
+  --- action-binding hook: PROMELA-OBS-GEN supplies the per-rule equations;
+  --- this [owise] stays as the fallback for every unselected binding.
+  op obs : Qid Qid Univ -> MDPActBinding? .
+  eq obs(Q, Q', U) = none [owise] .
+  eq < FV , (P : B) , FV' > |= P = B .
+
+  --- Common predicate vocabulary. The state side is GlobalState-typed; each
+  --- benchmark's local `subsort GlobalState < State` lets obsUpto's State-level
+  --- _|=_ dispatch to these equations. [frozen] matches tool2's _|=_ so the two
+  --- overloads merge cleanly once the subsort is added.
+  op _|=_ : GlobalState Prop -> Bool [frozen] .
+
+  --- varEq(name, storeIndex, value): store[storeIndex] = # value (name is a
+  --- vocabulary label; the index/value do the matching). Global store, so not
+  --- pid-parameterized: every benchmark variable is shared by all processes.
+  op varEq : Id Int Int -> Prop [ctor] .
+  eq ([ store((L |-> # V, STR)) CFG ]) |= varEq(X, L, V) = true .
+  eq GS |= varEq(X, L, V) = false [owise] .
+
+  --- pid-parameterized predicates: two conditional equations each (focused pid
+  --- / *) plus [owise] false; fixed, never edited when the focus changes.
+
+  --- locked(P): the atomic lock is held by pid P.
+  op locked : Nat? -> Prop [ctor] .
+  ceq ([ lock(@ N) CFG ]) |= locked(N) = true if N in focusIds .
+  ceq ([ lock(@ I) CFG ]) |= locked(*) = true if not (I in focusIds) .
+  eq GS |= locked(NQ) = false [owise] .
+
+  --- assignP(P, X): pid P is about to store into X ([assign-store] LHS).
+  op assignP : Nat? Id -> Prop [ctor] .
+  ceq ([ procs(proc(pid(N) INNER-REST k(#assign(X, VA, VB) ~> K)) PR) CFG ])
+      |= assignP(N, X) = true if N in focusIds .
+  ceq ([ procs(proc(pid(I) INNER-REST k(#assign(X, VA, VB) ~> K)) PR) CFG ])
+      |= assignP(*, X) = true if not (I in focusIds) .
+  eq GS |= assignP(NQ, X) = false [owise] .
+
+  --- sendP(P, C): pid P is about to push onto channel C ([send-push] LHS).
+  op sendP : Nat? Int -> Prop [ctor] .
+  ceq ([ procs(proc(pid(N) INNER-REST k(#send(# ch(C), EL) ~> K)) PR) CFG ])
+      |= sendP(N, C) = true if N in focusIds .
+  ceq ([ procs(proc(pid(I) INNER-REST k(#send(# ch(C), EL) ~> K)) PR) CFG ])
+      |= sendP(*, C) = true if not (I in focusIds) .
+  eq GS |= sendP(NQ, C) = false [owise] .
+
+  --- recvP(P, C): pid P can pop a message from channel C ([recv-pop] LHS).
+  op recvP : Nat? Int -> Prop [ctor] .
+  ceq ([ procs(proc(pid(N) INNER-REST k(#recv(# ch(C), EL) ~> K)) PR)
+         network(((C |-> mq(SZ, (m(VL), ML))), NET)) CFG ])
+      |= recvP(N, C) = true if N in focusIds .
+  ceq ([ procs(proc(pid(I) INNER-REST k(#recv(# ch(C), EL) ~> K)) PR)
+         network(((C |-> mq(SZ, (m(VL), ML))), NET)) CFG ])
+      |= recvP(*, C) = true if not (I in focusIds) .
+  eq GS |= recvP(NQ, C) = false [owise] .
+
+  --- per-pid PropList: each benchmark defines pidProps; pidObs expands it over
+  --- the focused pids, then *.
+  op pidProps : Nat? -> PropList .
+  op focusProps : NatSet -> PropList .
+  eq focusProps(mt) = nil .
+  eq focusProps((N , NS)) = pidProps(N) ; focusProps(NS) .
+  op pidObs : -> PropList .
+  eq pidObs = focusProps(focusIds) ; pidProps(*) .
+
+  --- allDone: every process has an empty <k>.
+  op allDone : -> Prop [ctor] .
+  op allDoneAux : KConfig -> Bool .
+  eq allDoneAux(proc(INNER-REST k(.K)) PR) = allDoneAux(PR) .
+  eq allDoneAux(none) = true .
+  eq allDoneAux(PS) = false [owise] .
+  ceq ([ procs(PS) CFG ]) |= allDone = true if allDoneAux(PS) .
+  eq GS |= allDone = false [owise] .
+
+  --- Action propositions: they read last(exec(L, P, KP)), the last executed action
+  --- as PROMELA-SEMANTICS-ACT records it. P is already tag(pid): a focused pid or *.
+  --- Over PROMELA-SEMANTICS there is no last(...) and they are false.
+
+  --- execP(L, P): the last step applied rule L and was taken by pid P.
+  op execP : RuleLabel Nat? -> Prop [ctor] .
+  ceq ([ last(exec(RL, N, KP)) CFG ]) |= execP(RL, N) = true if N in focusIds .
+  eq ([ last(exec(RL, *, KP)) CFG ]) |= execP(RL, *) = true .
+  eq GS |= execP(RL, NQ) = false [owise] .
+
+  --- execKP(P, KP): the last step was taken by pid P, whose computation began with
+  --- KP before the step (its first propKsize items).
+  op execKP : Nat? K -> Prop [ctor] .
+  ceq ([ last(exec(RL, N, KP)) CFG ]) |= execKP(N, KP) = true if N in focusIds .
+  eq ([ last(exec(RL, *, KP)) CFG ]) |= execKP(*, KP) = true .
+  eq GS |= execKP(NQ, KP) = false [owise] .
+
+  --- kPre(P, KP): the computation of pid P now begins with KP (its first propKsize
+  --- items): what the process will do next. A separate idea, compared on its own;
+  --- it does not use the recorded action.
+  op kPre : Nat? K -> Prop [ctor] .
+  ceq ([ procs(proc(pid(N) INNER-REST k(K)) PR) CFG ]) |= kPre(N, KP) = true
+      if N in focusIds /\ prefix(K, propKsize) = KP .
+  ceq ([ procs(proc(pid(I) INNER-REST k(K)) PR) CFG ]) |= kPre(*, KP) = true
+      if not (I in focusIds) /\ prefix(K, propKsize) = KP .
+  eq GS |= kPre(NQ, KP) = false [owise] .
+
+  --- Item propositions. scripts/gen_promela_props.py derives from the text of a model the
+  --- items a computation of that model can begin with, and writes them into the module
+  --- ARM-PROPS of an arm as equations
+  ---   kItem(J, <item J>) = true    xItem(J, <item J>) = true    rItem(J, <pid>, <item>) = true .
+  --- An item may contain variables where a value is known only at run time (the value an
+  --- assignment stores, the message received, ...): an item proposition holds when the
+  --- computation matches the item, not when it equals it. They name no pid.
+  op kItem : Nat K -> Bool .
+  op xItem : Nat K -> Bool .
+  op rItem : Nat Int K -> Bool .
+  eq kItem(J, K) = false [owise] .
+  eq xItem(J, K) = false [owise] .
+  eq rItem(J, I, K) = false [owise] .
+
+  --- kAt(J): the computation of some process begins with item J (its first propKsize items).
+  op kAt : Nat -> Prop [ctor] .
+  ceq ([ procs(proc(pid(I) INNER-REST k(K)) PR) CFG ]) |= kAt(J) = true
+      if kItem(J, prefix(K, propKsize)) .
+  eq GS |= kAt(J) = false [owise] .
+
+  --- execAt(J): the process that acted last had a computation beginning with item J before
+  --- the step (what last(exec(L, P, KP)) recorded as KP).
+  op execAt : Nat -> Prop [ctor] .
+  ceq ([ last(exec(RL, NQ, KP)) CFG ]) |= execAt(J) = true if xItem(J, KP) .
+  eq GS |= execAt(J) = false [owise] .
+
+  --- Role positions. Processes whose texts differ only in names and numbers are instances of
+  --- one template; rItem(J, P, K) says that K is position J of the template as process P has
+  --- it. nAt(J, PS) counts the processes of PS that are at position J.
+  --- rSome(J): at least one process is at position J; rTwo(J): at least two; rAll(J): every
+  --- process. None of them mentions a process or a name of one process.
+  op nAt : Nat KConfig -> Nat .
+  ceq nAt(J, proc(pid(I) INNER-REST k(K)) PR) = s(nAt(J, PR)) if rItem(J, I, prefix(K, propKsize)) .
+  eq nAt(J, proc(INNER-REST) PR) = nAt(J, PR) [owise] .
+  eq nAt(J, none) = 0 .
+  op nProc : KConfig -> Nat .
+  eq nProc(proc(INNER-REST) PR) = s(nProc(PR)) .
+  eq nProc(none) = 0 .
+  ops rSome rTwo rAll : Nat -> Prop [ctor] .
+  eq ([ procs(PS) CFG ]) |= rSome(J) = nAt(J, PS) >= 1 .
+  eq ([ procs(PS) CFG ]) |= rTwo(J) = nAt(J, PS) >= 2 .
+  eq ([ procs(PS) CFG ]) |= rAll(J) = nAt(J, PS) == nProc(PS) .
+
+  --- Focus processes (arms focus<k>): the pids in focusIds are observed one by one, the other
+  --- processes together. rFoc(N, J): the process with pid N is at position J of its own instance
+  --- of the template. nAtNF and nProcNF count only processes whose pid is not in focusIds, and
+  --- rSomeNF(J), rTwoNF(J), rAllNF(J) are rSome, rTwo and rAll over those processes; they
+  --- mention no process.
+  op rFoc : Nat Nat -> Prop [ctor] .
+  ceq ([ procs(proc(pid(N) INNER-REST k(K)) PR) CFG ]) |= rFoc(N, J) = true
+      if rItem(J, N, prefix(K, propKsize)) .
+  eq GS |= rFoc(N, J) = false [owise] .
+  op nAtNF : Nat KConfig -> Nat .
+  ceq nAtNF(J, proc(pid(I) INNER-REST k(K)) PR) = s(nAtNF(J, PR))
+      if not (I in focusIds) /\ rItem(J, I, prefix(K, propKsize)) .
+  eq nAtNF(J, proc(INNER-REST) PR) = nAtNF(J, PR) [owise] .
+  eq nAtNF(J, none) = 0 .
+  op nProcNF : KConfig -> Nat .
+  ceq nProcNF(proc(pid(I) INNER-REST) PR) = s(nProcNF(PR)) if not (I in focusIds) .
+  eq nProcNF(proc(INNER-REST) PR) = nProcNF(PR) [owise] .
+  eq nProcNF(none) = 0 .
+  ops rSomeNF rTwoNF rAllNF : Nat -> Prop [ctor] .
+  eq ([ procs(PS) CFG ]) |= rSomeNF(J) = nAtNF(J, PS) >= 1 .
+  eq ([ procs(PS) CFG ]) |= rTwoNF(J) = nAtNF(J, PS) >= 2 .
+  eq ([ procs(PS) CFG ]) |= rAllNF(J) = nAtNF(J, PS) == nProcNF(PS) .
+
+  --- For the reference enumeration of proposition lists (not the production path): the
+  --- action propositions and the kPre propositions that hold in a state, and the state
+  --- without its action.
+  op lastProps : GlobalState -> PropList .
+  eq lastProps([ last(exec(RL, NQ, KP)) CFG ]) = execP(RL, NQ) ; execKP(NQ, KP) .
+  eq lastProps(GS) = nil [owise] .
+  op kPreProps : GlobalState -> PropList .
+  op kPreAux : KConfig -> PropList .
+  eq kPreProps([ procs(PS) CFG ]) = kPreAux(PS) .
+  eq kPreAux(proc(pid(I) INNER-REST k(K)) PR) = kPre(tag(I), prefix(K, propKsize)) ; kPreAux(PR) .
+  eq kPreAux(none) = nil .
+  op noLast : GlobalState -> GlobalState .
+  eq noLast([ last(LA:[Action]) CFG ]) = [ CFG ] .
+  eq noLast(GS) = GS [owise] .
+endm
+
+mod PROMELA-AGCEL is
+  pr PROMELA-SEMANTICS .
+  pr PROMELA-AGCEL-VOCAB .
+endm
+
+mod PROMELA-AGCEL-ACT is
+  pr PROMELA-SEMANTICS-ACT .
+  pr PROMELA-AGCEL-VOCAB .
+endm

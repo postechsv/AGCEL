@@ -1,0 +1,13 @@
+load dining-philosophers-action-analysis .
+
+--- E2 arm A: action-augmented system, enabled-only observation
+mod DINING-PHILOSOPHERS-ACTION-ENABLED is
+  including ACTION-ENABLED .
+  eq focusIds = 1, 2 .
+  op goal : -> Prop .
+  eq goal = deadlock .
+  ops init3 init : -> Top .
+  eq init3 = {p(0, think) || p(1, think) || p(2, think) || c(0) || c(1) || c(2) | noAct} .
+  eq init = init3 .
+  eq #N = 3 .
+endm

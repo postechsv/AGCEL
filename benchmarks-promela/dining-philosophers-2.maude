@@ -1,0 +1,54 @@
+*** Dining philosophers, 2 processes (hand-built post-INIT [...] state).
+*** Property: mutual exclusion -- never both philosophers eating simultaneously.
+*** Expected: bothEating => No solution ; someEating => solution (reachability control).
+*** Backend: fork grabs use atomic{}; safety result valid (not lost-update-sensitive).
+
+load ../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-DINING2 is
+  protecting PROMELA-CONFIG .
+  protecting BOOL .
+  op bothEating : GlobalState -> Bool .
+  op someEating : GlobalState -> Bool .
+  eq bothEating([store((2 |-> # 1, 3 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq bothEating(C:GlobalState) = false [owise] .
+  eq someEating([store((2 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq someEating([store((3 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq someEating(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-DINING2 is
+  protecting PROMELA-SEMANTICS .
+  protecting BENCH-PROPS-DINING2 .
+
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('fork0, 0) |-> loc(0)), (lval('fork1, 0) |-> loc(1)),
+             (lval('eat0, 0) |-> loc(2)), (lval('eat1, 0) |-> loc(3))) .
+  eq env1 = ((lval('fork0, 0) |-> loc(0)), (lval('fork1, 0) |-> loc(1)),
+             (lval('eat0, 0) |-> loc(2)), (lval('eat1, 0) |-> loc(3))) .
+
+  op body0 : -> Seq .
+  op body1 : -> Seq .
+  eq body0 = ( atomic{ ('fork0 == # 0) ; ('fork0 = # 1) ; .Decls } ;
+               atomic{ ('fork1 == # 0) ; ('fork1 = # 1) ; .Decls } ;
+               ('eat0 = # 1) ; ('eat0 = # 0) ;
+               ('fork0 = # 0) ; ('fork1 = # 0) ; .Decls ) .
+  eq body1 = ( atomic{ ('fork1 == # 0) ; ('fork1 = # 1) ; .Decls } ;
+               atomic{ ('fork0 == # 0) ; ('fork0 = # 1) ; .Decls } ;
+               ('eat1 = # 1) ; ('eat1 = # 0) ;
+               ('fork1 = # 0) ; ('fork0 = # 0) ; .Decls ) .
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+      proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+      proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)) )
+    store(((0 |-> # 0), (1 |-> # 0), (2 |-> # 0), (3 |-> # 0)))
+    network(empty) lock(#none) active(0 1)
+    nextLoc(4) nextPid(2) nextBCid(0) nextHCid(0) ] .
+endm
+
+search init =>* C:GlobalState such that bothEating(C:GlobalState) .
+search init =>* C:GlobalState such that someEating(C:GlobalState) .

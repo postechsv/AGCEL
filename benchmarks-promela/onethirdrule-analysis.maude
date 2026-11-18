@@ -1,0 +1,106 @@
+*** RL analysis layer for the 2-proc PROMELA One-Third-Rule consensus model.
+*** Goal = bothDecided (reachable: both processes decide).
+*** Loc layout (from onethirdrule-2procs): arr0=4, arr1=5, decided0=6, decided1=7.
+
+load ../semantics/promela-agcel.maude .
+load ../semantics/promela-obs-generated.maude .
+load focus-mt.maude .
+
+mod MODEL is
+  protecting PROMELA-AGCEL .
+  subsort GlobalState < State .
+
+  var S : State .
+  var CFG : KConfig .
+  var STR : Map{Nat, PROMELA-Value} .
+  vars FV FV' : FeatVec .
+
+  --- goal: both processes have decided (decided0 and decided1 set)
+  op bothDecided : -> Prop [ctor] .
+  eq ([ store((6 |-> # 1, 7 |-> # 1, STR)) CFG ]) |= bothDecided = true .
+  eq S |= bothDecided = false [owise] .
+
+  --- benchmark-global vocabulary (pre-focus observation)
+  op plainProps : -> PropList .
+  eq plainProps = varEq('arr0, 4, 1) ; varEq('arr1, 5, 1) ; varEq('decided0, 6, 1) ; varEq('decided1, 7, 1) ; allDone ; bothDecided .
+
+  --- pid-scoped vocabulary, expanded over focusIds then * by pidObs
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    assignP(NQ, 'sent0) ; assignP(NQ, 'sent1) ; assignP(NQ, 'arr0) ;
+    assignP(NQ, 'arr1) ; assignP(NQ, 'val0) ; assignP(NQ, 'val1) ;
+    assignP(NQ, 'decided0) ; assignP(NQ, 'decided1) ; locked(NQ) .
+
+  eq reward(< FV , (bothDecided : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+
+--- obs variants: plain = pre-focus vocabulary; focus = pidObs + plain
+mod MODEL-PLAIN is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, plainProps) > .
+endm
+
+mod MODEL-FOCUS is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, pidObs ; plainProps) > .
+endm
+
+
+mod OTR-PROMELA-TEST is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = bothDecided .
+
+  --- progress toward the goal: 0 .. goalMax, goalMax exactly in the goal states
+  op goalProgress : State -> Nat .
+  op goalMax : -> Nat .
+  op cnt : Bool Nat -> Nat .
+  var GP-S : State .  var GP-N : Nat .
+  eq cnt(true, GP-N) = s GP-N .
+  eq cnt(false, GP-N) = GP-N .
+  eq goalMax = 2 .
+  eq goalProgress(GP-S) = cnt(GP-S |= varEq('decided0, 6, 1), cnt(GP-S |= varEq('decided1, 7, 1), 0)) .
+
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('val0, 0) |-> loc(0)), (lval('val1, 0) |-> loc(1)),
+             (lval('sent0, 0) |-> loc(2)), (lval('sent1, 0) |-> loc(3)),
+             (lval('arr0, 0) |-> loc(4)), (lval('arr1, 0) |-> loc(5)),
+             (lval('decided0, 0) |-> loc(6)), (lval('decided1, 0) |-> loc(7))) .
+  eq env1 = env0 .
+
+  op body0 : -> Seq .
+  op body1 : -> Seq .
+  eq body0 = ( ('sent0 = 'val0) ; ('arr0 = # 1) ;
+               (('arr0 == # 1) && ('arr1 == # 1)) ;
+               (if (:: ('sent0 <= 'sent1) ; ('val0 = 'sent0) ; .Decls)
+                   (:: ('sent1 < 'sent0) ; ('val0 = 'sent1) ; .Decls) fi) ;
+               ('decided0 = # 1) ; .Decls ) .
+  eq body1 = ( ('sent1 = 'val1) ; ('arr1 = # 1) ;
+               (('arr0 == # 1) && ('arr1 == # 1)) ;
+               (if (:: ('sent0 <= 'sent1) ; ('val1 = 'sent0) ; .Decls)
+                   (:: ('sent1 < 'sent0) ; ('val1 = 'sent1) ; .Decls) fi) ;
+               ('decided1 = # 1) ; .Decls ) .
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+      proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+      proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)) )
+    store(((0 |-> # 0), (1 |-> # 1), (2 |-> # 0), (3 |-> # 0),
+           (4 |-> # 0), (5 |-> # 0), (6 |-> # 0), (7 |-> # 0)))
+    network(empty) lock(#none) active(0 1)
+    nextLoc(8) nextPid(2) nextBCid(0) nextHCid(0) ] .
+endm
+
+--- default run: parameterized obs, focusIds = mt, action-binding hook on
+mod OTR-PROMELA-RUN is
+  inc OTR-PROMELA-TEST .
+  inc MODEL-FOCUS .
+  inc FOCUS-MT .
+  inc PROMELA-OBS-GEN .
+endm

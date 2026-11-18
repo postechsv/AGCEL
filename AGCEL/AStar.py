@@ -29,9 +29,6 @@ class Node():
         return obs
 
     def get_score(self, V): # V: Value function (State -> Score)
-        # obs = self.m.parseTerm('obs(' + self.t.prettyPrint(0) + ')')
-        # obs.reduce()
-        # return V(obs, self.t)
         if getattr(V, 'needs_obs', True) is False:
             return V(None, self.t)
         if self._obs is None:
@@ -98,8 +95,8 @@ class Search():
         vis.add(init_node)
 
         while True:
-            cnt += 1
             if que.is_empty(): return (False, cnt)
+            cnt += 1
             _, d, curr_node = que.pop()
 
             for next_node in curr_node.get_next():
@@ -112,8 +109,8 @@ class Search():
                     hit_cnt += 1
                 if next_node.is_goal():
                     if hit_cnt == 0:
-                        print(f'[SEARCH] lookup cnt: {state_cnt}')
+                        print(f'  Heuristic hits  : 0/{state_cnt} (no guidance)')
                     else:
-                        print(f'[SEARCH] hit ratio: {hit_cnt}/{state_cnt} = {hit_cnt/state_cnt:.4f}')
+                        print(f'  Heuristic hits  : {hit_cnt}/{state_cnt} ({hit_cnt/state_cnt:.1%})')
                     return (True, next_node, cnt)
                 que.push(score, d + 1, next_node)

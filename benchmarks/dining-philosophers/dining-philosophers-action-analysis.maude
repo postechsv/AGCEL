@@ -1,0 +1,62 @@
+load ../../tool2 .
+load dining-philosophers .
+load dining-philosophers-analysis .
+
+--- shared action-recording base: State = Top = Conf x Action. Enabled predicates
+--- are delegated through the {_|_} wrapper; execP observes the recorded action.
+--- No obs here; the two obs variants (enabled-only / enabled+execP) live in the
+--- ACTION-ENABLED and ACTION-EXECP modules for the E2 comparison.
+mod ACTION-BASE is
+  pr N-DINING-PHILOSOPHERS2 .
+  pr DP-PREDS .
+  inc OBSERVATION .
+
+  var C : Conf . var ACT : Action . var RL : RuleLabel .
+  var I : Nat . var NQ : Nat? . var NS : NatSet . var S : State .
+  var P : Prop . var B : Bool . vars FV FV' : FeatVec .
+
+  subsort Top < State .
+
+  --- delegate enabled predicates + deadlock to the inner configuration
+  eq {C | ACT} |= thLHS(NQ) = C |= thLHS(NQ) .
+  eq {C | ACT} |= hsLHS(NQ) = C |= hsLHS(NQ) .
+  eq {C | ACT} |= seLHS(NQ) = C |= seLHS(NQ) .
+  eq {C | ACT} |= etLHS(NQ) = C |= etLHS(NQ) .
+  eq {C | ACT} |= deadlock = C |= deadlock .
+
+  --- action predicate (same focus pattern as the enabled predicates)
+  op execP : RuleLabel Nat? -> Prop [ctor] .
+  ceq {C | exec(RL,I)} |= execP(RL,I) = true if I in focusIds .
+  ceq {C | exec(RL,I)} |= execP(RL,*) = true if not (I in focusIds) .
+  eq S |= execP(RL,NQ) = false [owise] .
+
+  op execIdProps : Nat? -> PropList .
+  eq execIdProps(NQ) = execP(th,NQ) ; execP(hs,NQ) ; execP(se,NQ) ; execP(et,NQ) .
+  op execProps : NatSet -> PropList .
+  eq execProps(mt) = nil .
+  eq execProps((I , NS)) = execIdProps(I) ; execProps(NS) .
+
+  op enabledProps : -> PropList .
+  eq enabledProps = focusProps(focusIds) ; idProps(*) ; deadlock .
+
+  eq reward(< FV , (deadlock : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+  eq < FV , (P : B) , FV' > |= P = B .
+endm
+
+--- E2 arm A: enabled predicates only (action recorded but not observed)
+mod ACTION-ENABLED is
+  pr ACTION-BASE .
+  var S : State .
+  eq obs(S) = < obsUpto(S, enabledProps) > .
+endm
+
+--- E2 arm B: enabled predicates + execP action propositions
+mod ACTION-EXECP is
+  pr ACTION-BASE .
+  var S : State .
+  op obsPropsX : -> PropList .
+  eq obsPropsX = focusProps(focusIds) ; idProps(*)
+               ; execProps(focusIds) ; execIdProps(*) ; deadlock .
+  eq obs(S) = < obsUpto(S, obsPropsX) > .
+endm

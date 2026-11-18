@@ -1,0 +1,159 @@
+*** RL analysis layer for the 2-proc PROMELA dining model.
+*** Bridges the PROMELA backend to the AGCEL/tool2 framework: defines Prop / _|=_ /
+*** obs / reward / goal over the existing dining benchmark so MaudeEnv can load,
+*** observe, and reward it. Goal = deadlock (reachable). obs = 8 Prop:Bool features.
+*** Loc layout follows the existing dining-philosophers-2 benchmark:
+***   fork0=loc 0, fork1=loc 1, eat0=loc 2, eat1=loc 3.
+
+load ../semantics/promela-agcel.maude .
+load ../semantics/promela-obs-generated.maude .
+load focus-mt.maude .
+
+mod MODEL is
+  protecting PROMELA-AGCEL .
+
+  --- GlobalState is the PROMELA top state; lift it into tool2's State
+  subsort GlobalState < State .
+
+  var S : State .
+  var GS : GlobalState .
+  vars CFG PR INNER-REST : KConfig .
+  vars ST STR : Map{Nat, PROMELA-Value} .
+  var NET : Map{Nat, PROMELA-Queue} .
+  var E : Map{PROMELA-LVal, PROMELA-Ref} .
+  var G : BasicStmt .
+  vars KL KG : K .
+  var BR : BranchSet .
+  vars FV FV' : FeatVec .
+
+  --- Benchmark-specific observation vocabulary
+  op deadlock : -> Prop [ctor] .
+  ops p0Done p1Done p0Blocked p1Blocked lockFree eat0 eat1 : -> Prop [ctor] .
+
+  --- Termination predicates: process I finished when its <k> is empty (item 5)
+  --- NB: the GlobalState [_] pattern is parenthesized so `eq [` is not read as a label
+  eq ([ procs(proc(pid(0) INNER-REST k(.K)) PR) CFG ]) |= p0Done = true .
+  eq S |= p0Done = false [owise] .
+
+  eq ([ procs(proc(pid(1) INNER-REST k(.K)) PR) CFG ]) |= p1Done = true .
+  eq S |= p1Done = false [owise] .
+
+  --- Lock predicate: no process holds the atomic lock (item 5)
+  eq ([ lock(#none) CFG ]) |= lockFree = true .
+  eq S |= lockFree = false [owise] .
+
+  --- Store predicates: eat flags (eat0 = loc 2, eat1 = loc 3) (item 5)
+  eq ([ store((2 |-> # 1, STR)) CFG ]) |= eat0 = true .
+  eq S |= eat0 = false [owise] .
+
+  eq ([ store((3 |-> # 1, STR)) CFG ]) |= eat1 = true .
+  eq S |= eat1 = false [owise] .
+
+  --- Blocked predicates (item 6): process I is stuck on a loaded branch whose
+  --- head guard G is a non-executable Expr. The loaded form mirrors [fire]'s
+  --- k((@[ BS ~> KLOCAL ] BREST) ~> KGLOBAL); isExec verified in promela-functions.
+  ceq ([ procs(proc(pid(0) INNER-REST k((@[ G ~> KL ] BR) ~> KG) env(E)) PR)
+         store(ST) network(NET) CFG ]) |= p0Blocked = true
+    if G :: Expr /\ isExec(G, E, ST, NET, 0) = false .
+  eq S |= p0Blocked = false [owise] .
+
+  ceq ([ procs(proc(pid(1) INNER-REST k((@[ G ~> KL ] BR) ~> KG) env(E)) PR)
+         store(ST) network(NET) CFG ]) |= p1Blocked = true
+    if G :: Expr /\ isExec(G, E, ST, NET, 1) = false .
+  eq S |= p1Blocked = false [owise] .
+
+  --- Deadlock (item 6): no process can progress. For the 2-proc model this is
+  --- both processes blocked; MaudeEnv.is_done()'s no-neighbor check is the
+  --- aligned terminal signal for any residual cases.
+  op canProgress : GlobalState -> Bool .
+  ceq canProgress(GS) = false
+    if (GS |= p0Blocked) = true /\ (GS |= p1Blocked) = true .
+  eq canProgress(GS) = true [owise] .
+
+  ceq S |= deadlock = true if canProgress(S) = false .
+  eq S |= deadlock = false [owise] .
+
+  --- benchmark-global vocabulary (pre-focus observation)
+  op plainProps : -> PropList .
+  eq plainProps = p0Blocked ; p1Blocked ; p0Done ; p1Done ; lockFree ; eat0 ; eat1 ; deadlock .
+
+  --- pid-scoped vocabulary, expanded over focusIds then * by pidObs
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    assignP(NQ, 'fork0) ; assignP(NQ, 'fork1) ; assignP(NQ, 'eat0) ;
+    assignP(NQ, 'eat1) ; locked(NQ) .
+
+  eq reward(< FV , (deadlock : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+
+--- obs variants: plain = pre-focus vocabulary; focus = pidObs + plain
+mod MODEL-PLAIN is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, plainProps) > .
+endm
+
+mod MODEL-FOCUS is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, pidObs ; plainProps) > .
+endm
+
+
+mod DINING-PROMELA-TEST is
+  pr MODEL .
+
+  op goal : -> Prop .
+  eq goal = deadlock .
+
+  --- progress toward the goal: 0 .. goalMax, goalMax exactly in the goal states
+  op goalProgress : State -> Nat .
+  op goalMax : -> Nat .
+  op cnt : Bool Nat -> Nat .
+  var GP-S : State .  var GP-N : Nat .
+  eq cnt(true, GP-N) = s GP-N .
+  eq cnt(false, GP-N) = GP-N .
+  eq goalMax = 2 .
+  eq goalProgress(GP-S) = cnt(GP-S |= p0Blocked, cnt(GP-S |= p1Blocked, 0)) .
+
+  op #N : -> Nat .
+  eq #N = 2 .
+
+  --- Reused exactly from benchmarks-promela/dining-philosophers-2.maude ---
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('fork0, 0) |-> loc(0)), (lval('fork1, 0) |-> loc(1)),
+             (lval('eat0, 0) |-> loc(2)), (lval('eat1, 0) |-> loc(3))) .
+  eq env1 = ((lval('fork0, 0) |-> loc(0)), (lval('fork1, 0) |-> loc(1)),
+             (lval('eat0, 0) |-> loc(2)), (lval('eat1, 0) |-> loc(3))) .
+
+  op body0 : -> Seq .
+  op body1 : -> Seq .
+  eq body0 = ( atomic{ ('fork0 == # 0) ; ('fork0 = # 1) ; .Decls } ;
+               atomic{ ('fork1 == # 0) ; ('fork1 = # 1) ; .Decls } ;
+               ('eat0 = # 1) ; ('eat0 = # 0) ;
+               ('fork0 = # 0) ; ('fork1 = # 0) ; .Decls ) .
+  eq body1 = ( atomic{ ('fork1 == # 0) ; ('fork1 = # 1) ; .Decls } ;
+               atomic{ ('fork0 == # 0) ; ('fork0 = # 1) ; .Decls } ;
+               ('eat1 = # 1) ; ('eat1 = # 0) ;
+               ('fork1 = # 0) ; ('fork0 = # 0) ; .Decls ) .
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+      proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+      proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)) )
+    store(((0 |-> # 0), (1 |-> # 0), (2 |-> # 0), (3 |-> # 0)))
+    network(empty) lock(#none) active(0 1)
+    nextLoc(4) nextPid(2) nextBCid(0) nextHCid(0) ] .
+endm
+
+--- default run: parameterized obs, focusIds = mt, action-binding hook on
+mod DINING-PROMELA-RUN is
+  inc DINING-PROMELA-TEST .
+  inc MODEL-FOCUS .
+  inc FOCUS-MT .
+  inc PROMELA-OBS-GEN .
+endm

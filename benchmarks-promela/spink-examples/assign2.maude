@@ -1,0 +1,32 @@
+*** assign2.pml: shared assign race, 2 procs (hand-built post-INIT [...]).
+*** Non-deterministic final x (last writer wins).
+*** Expected: xIs42 => solution ; xIs43 => solution (both reachable).
+*** Constructs: shared var, write-write race.
+
+load ../../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-ASSIGN2 is
+  protecting PROMELA-CONFIG . protecting BOOL .
+  op xIs42 : GlobalState -> Bool .   op xIs43 : GlobalState -> Bool .
+  eq xIs42([store((0 |-> # 42, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq xIs42(C:GlobalState) = false [owise] .
+  eq xIs43([store((0 |-> # 43, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq xIs43(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-ASSIGN2 is
+  protecting PROMELA-SEMANTICS . protecting BENCH-PROPS-ASSIGN2 .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = (lval('x, 0) |-> loc(0)) .  eq env1 = env0 .
+  op body0 : -> Seq .  op body1 : -> Seq .
+  eq body0 = ( ('x = # 42) ; .Decls ) .   eq body1 = ( ('x = # 43) ; .Decls ) .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+          proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)))
+    store(0 |-> # 0) network(empty) lock(#none) active(0 1)
+    nextLoc(1) nextPid(2) nextBCid(0) nextHCid(0) ] .
+endm
+
+search init =>* C:GlobalState such that xIs42(C:GlobalState) .
+search init =>* C:GlobalState such that xIs43(C:GlobalState) .

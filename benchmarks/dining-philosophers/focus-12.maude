@@ -1,0 +1,7 @@
+load dining-philosophers-analysis .
+
+--- focus on ids 1,2 (rest collapse to *)
+mod DINING-PHILOSOPHERS-FOCUS-12 is
+  including DINING-PHILOSOPHERS-TEST .
+  eq focusIds = 1, 2 .
+endm

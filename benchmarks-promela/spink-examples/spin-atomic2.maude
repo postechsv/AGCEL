@@ -1,0 +1,34 @@
+*** spin-atomic2.pml: atomic + if, 2 procs (hand-built post-INIT [...]).
+*** p1 atomically sets a then b (both nonzero after); p2 sets flag if exactly one is nonzero.
+*** Safety flagSet: No solution (a and b are set in one atomic block). While [loose] could fire
+*** at any time, the block could be interleaved between a and b and flag=1 had spurious solutions.
+*** Constructs: atomic{}, nested if, && / || guard.
+
+load ../../semantics/promela-semantics.maude .
+
+fmod BENCH-PROPS-SPIN-ATOMIC2 is
+  protecting PROMELA-CONFIG . protecting BOOL .
+  op flagSet : GlobalState -> Bool .
+  eq flagSet([store((2 |-> # 1, STR:Map{Nat, PROMELA-Value})) CFG:KConfig]) = true .
+  eq flagSet(C:GlobalState) = false [owise] .
+endfm
+
+mod BENCH-SPIN-ATOMIC2 is
+  protecting PROMELA-SEMANTICS . protecting BENCH-PROPS-SPIN-ATOMIC2 .
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('a, 0) |-> loc(0)), (lval('b, 0) |-> loc(1)), (lval('flag, 0) |-> loc(2))) .
+  eq env1 = env0 .
+  op body0 : -> Seq .  op body1 : -> Seq .
+  eq body0 = ( atomic { if (:: ('a = # 1) ; .Decls) (:: ('a = # 2) ; .Decls) fi ;
+                        if (:: ('b = # 1) ; .Decls) (:: ('b = # 2) ; .Decls) fi ; .Decls } ) ; .Decls .
+  eq body1 = ( ((('a != # 0) && ('b == # 0)) || (('a == # 0) && ('b != # 0))) ; ('flag = # 1) ; .Decls ) .
+  op init : -> GlobalState .
+  eq init = [ proctypes(none)
+    procs(proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+          proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)))
+    store(((0 |-> # 0), (1 |-> # 0), (2 |-> # 0)))
+    network(empty) lock(#none) active(0 1)
+    nextLoc(3) nextPid(2) nextBCid(0) nextHCid(0) ] .
+endm
+
+search init =>* C:GlobalState such that flagSet(C:GlobalState) .

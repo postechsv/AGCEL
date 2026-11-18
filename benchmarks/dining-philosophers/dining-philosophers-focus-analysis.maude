@@ -1,3 +1,9 @@
+--- DEPRECATED: superseded by dining-philosophers-analysis.maude (parameterized
+--- thLHS/hsLHS/seLHS/etLHS : Nat? -> Prop) + dining-philosophers-focus-mt.maude
+--- / -focus-12.maude. The F1/F2/Star triplication here requires rewriting every
+--- predicate and a new module per focus config; the parameterized form removes
+--- both needs. Kept until the parameterized modules reproduce these numbers.
+
 load ../../tool2 .
 load dining-philosophers .
 

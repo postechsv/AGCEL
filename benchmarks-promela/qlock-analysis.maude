@@ -1,0 +1,100 @@
+*** RL analysis layer for the 2-proc PROMELA qlock (FIFO mutex) model.
+*** Goal = someInCS (reachable: a process enters its critical section).
+*** Loc layout (from qlock-2procs): in0=0, in1=1; queue on channel 0.
+
+load ../semantics/promela-agcel.maude .
+load ../semantics/promela-obs-generated.maude .
+load focus-mt.maude .
+
+mod MODEL is
+  protecting PROMELA-AGCEL .
+  subsort GlobalState < State .
+
+  var S : State .
+  var CFG : KConfig .
+  var STR : Map{Nat, PROMELA-Value} .
+  vars FV FV' : FeatVec .
+
+  --- goal: at least one process is in its critical section (in0 or in1 set)
+  op someInCS : -> Prop [ctor] .
+  eq ([ store((0 |-> # 1, STR)) CFG ]) |= someInCS = true .
+  eq ([ store((1 |-> # 1, STR)) CFG ]) |= someInCS = true .
+  eq S |= someInCS = false [owise] .
+
+  --- benchmark-global vocabulary (pre-focus observation)
+  op plainProps : -> PropList .
+  eq plainProps = varEq('in0, 0, 1) ; varEq('in1, 1, 1) ; allDone ; someInCS .
+
+  --- pid-scoped vocabulary, expanded over focusIds then * by pidObs
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    assignP(NQ, 'in0) ; assignP(NQ, 'in1) ; sendP(NQ, 0) ; recvP(NQ, 0) ; locked(NQ) .
+
+  eq reward(< FV , (someInCS : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+
+--- obs variants: plain = pre-focus vocabulary; focus = pidObs + plain
+mod MODEL-PLAIN is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, plainProps) > .
+endm
+
+mod MODEL-FOCUS is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, pidObs ; plainProps) > .
+endm
+
+
+mod QLOCK-PROMELA-TEST is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = someInCS .
+
+  --- progress toward the goal: 0 .. goalMax, goalMax exactly in the goal states
+  op goalProgress : State -> Nat .
+  op goalMax : -> Nat .
+  op cnt : Bool Nat -> Nat .
+  var GP-S : State .  var GP-N : Nat .
+  eq cnt(true, GP-N) = s GP-N .
+  eq cnt(false, GP-N) = GP-N .
+  op queued : State -> Bool .
+  eq queued([ network((0 |-> mq(GP-I:Int, (GP-M:Msg, GP-ML:MsgList)), GP-NET:Map{Nat, PROMELA-Queue})) GP-CFG:KConfig ]) = true .
+  eq queued(GP-S) = false [owise] .
+  eq goalMax = 2 .
+  eq goalProgress(GP-S) = if GP-S |= someInCS then 2 else if queued(GP-S) then 1 else 0 fi fi .
+
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = ((lval('q, 0) |-> ch(0)),
+             (lval('in0, 0) |-> loc(0)), (lval('in1, 0) |-> loc(1))) .
+  eq env1 = env0 .
+
+  op body0 : -> Seq .
+  op body1 : -> Seq .
+  eq body0 = ( ('q ! # 0) ; ('q ?[ # 0 ]) ;
+               ('in0 = # 1) ; ('in0 = # 0) ; ('q ? # 0) ; .Decls ) .
+  eq body1 = ( ('q ! # 1) ; ('q ?[ # 1 ]) ;
+               ('in1 = # 1) ; ('in1 = # 0) ; ('q ? # 1) ; .Decls ) .
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+      proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+      proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)) )
+    store(((0 |-> # 0), (1 |-> # 0)))
+    network((0 |-> mq(2, nil)))
+    lock(#none) active(0 1)
+    nextLoc(2) nextPid(2) nextBCid(1) nextHCid(0) ] .
+endm
+
+--- default run: parameterized obs, focusIds = mt, action-binding hook on
+mod QLOCK-PROMELA-RUN is
+  inc QLOCK-PROMELA-TEST .
+  inc MODEL-FOCUS .
+  inc FOCUS-MT .
+  inc PROMELA-OBS-GEN .
+endm

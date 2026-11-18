@@ -1,0 +1,101 @@
+*** RL analysis layer for the buffered-channel harness (2 procs, cap-2 queue).
+*** Goal = qDequeued (reachable: poll+recv pops the head, leaving one message).
+*** State lives in the network (channel 0); store is empty, so vocab is queue-based.
+
+load ../semantics/promela-agcel.maude .
+load ../semantics/promela-obs-generated.maude .
+load focus-mt.maude .
+
+mod MODEL is
+  protecting PROMELA-AGCEL .
+  subsort GlobalState < State .
+
+  var S : State .
+  var CFG : KConfig .
+  var NETR : Map{Nat, PROMELA-Queue} .
+  vars FV FV' : FeatVec .
+
+  --- queue-state predicates on channel 0 (cap 2)
+  op qFull : -> Prop [ctor] .
+  eq ([ network((0 |-> mq(2, (m(# 0), m(# 1))), NETR)) CFG ]) |= qFull = true .
+  eq S |= qFull = false [owise] .
+
+  --- goal: head dequeued, one message (# 1) left in FIFO order
+  op qDequeued : -> Prop [ctor] .
+  eq ([ network((0 |-> mq(2, m(# 1)), NETR)) CFG ]) |= qDequeued = true .
+  eq S |= qDequeued = false [owise] .
+
+  --- benchmark-global vocabulary (pre-focus observation)
+  op plainProps : -> PropList .
+  eq plainProps = qFull ; qDequeued ; allDone .
+
+  --- pid-scoped vocabulary, expanded over focusIds then * by pidObs
+  var NQ : Nat? .
+  eq pidProps(NQ) =
+    sendP(NQ, 0) ; recvP(NQ, 0) ; locked(NQ) .
+
+  eq reward(< FV , (qDequeued : true) , FV' >) = 1.0 .
+  eq reward(MS:MDPState) = 0.0 [owise] .
+endm
+
+--- obs variants: plain = pre-focus vocabulary; focus = pidObs + plain
+mod MODEL-PLAIN is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, plainProps) > .
+endm
+
+mod MODEL-FOCUS is
+  pr MODEL .
+  var S : State .
+  eq obs(S) = < obsUpto(S, pidObs ; plainProps) > .
+endm
+
+
+mod CHANBUF-PROMELA-TEST is
+  pr MODEL .
+  op goal : -> Prop .
+  eq goal = qDequeued .
+
+  --- progress toward the goal: 0 .. goalMax, goalMax exactly in the goal states
+  op goalProgress : State -> Nat .
+  op goalMax : -> Nat .
+  op cnt : Bool Nat -> Nat .
+  var GP-S : State .  var GP-N : Nat .
+  eq cnt(true, GP-N) = s GP-N .
+  eq cnt(false, GP-N) = GP-N .
+  op queued : State -> Bool .
+  eq queued([ network((0 |-> mq(GP-I:Int, (GP-M:Msg, GP-ML:MsgList)), GP-NET:Map{Nat, PROMELA-Queue})) GP-CFG:KConfig ]) = true .
+  eq queued(GP-S) = false [owise] .
+  eq goalMax = 2 .
+  eq goalProgress(GP-S) = if GP-S |= qDequeued then 2 else if queued(GP-S) then 1 else 0 fi fi .
+
+  op env0 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  op env1 : -> Map{PROMELA-LVal, PROMELA-Ref} .
+  eq env0 = (lval('q, 0) |-> ch(0)) .
+  eq env1 = env0 .
+
+  op body0 : -> Seq .
+  op body1 : -> Seq .
+  eq body0 = ( ('q ! # 0) ; ('q ! # 1) ; .Decls ) .
+  eq body1 = ( ('q ?[ # 0 ]) ; ('q ? # 0) ; .Decls ) .
+
+  op init : -> GlobalState .
+  eq init = [
+    proctypes(none)
+    procs(
+      proc(pid(0) name('P0) k( body0 ~> .K ) local(nil) env(env0))
+      proc(pid(1) name('P1) k( body1 ~> .K ) local(nil) env(env1)) )
+    store(empty)
+    network((0 |-> mq(2, nil)))
+    lock(#none) active(0 1)
+    nextLoc(0) nextPid(2) nextBCid(1) nextHCid(0) ] .
+endm
+
+--- default run: parameterized obs, focusIds = mt, action-binding hook on
+mod CHANBUF-PROMELA-RUN is
+  inc CHANBUF-PROMELA-TEST .
+  inc MODEL-FOCUS .
+  inc FOCUS-MT .
+  inc PROMELA-OBS-GEN .
+endm

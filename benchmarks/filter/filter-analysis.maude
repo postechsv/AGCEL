@@ -1,4 +1,4 @@
-load ../tool2 .
+load ../../tool2 .
 load filter .
 
 mod MODEL is

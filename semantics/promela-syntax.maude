@@ -1,0 +1,282 @@
+*** Syntax translation rules
+***   syntax A ::= ...           -> sort A
+***   syntax A ::= B             -> subsort B < A
+***   syntax A ::= c(...)        -> op c : ... -> A
+***   syntax A ::= "c"           -> op c : -> A [ctor]
+***   syntax A ::= List{X,"sep"} -> op _sep_ : X X -> X [ctor]
+***   syntax A ::= Int/Bool      -> wrap (e.g., #_ : Int|Bool -> Value, @_ : Int -> Lock)
+
+
+--- Id is the DOMAINS-SYNTAX builtin; no promela.k production, Qid used as carrier
+fmod PROMELA-ID is
+  protecting QID .
+  protecting INT .
+
+  sort Id .
+  subsort Qid < Id .
+endfm
+
+
+--- syntax Value ::= Int | Bool                                (line 64)
+fmod PROMELA-VALUE is
+  protecting INT .
+  protecting BOOL .
+
+  sort Value .
+  op #_ : Int -> Value [ctor] .
+  op #_ : Bool -> Value [ctor] .
+endfm
+
+
+--- syntax Chan ::= ch(Int) | hs(Int) | "uch"                  (line 74)
+fmod PROMELA-CHAN is
+  protecting INT .
+
+  sort Chan .
+  op ch : Int -> Chan [ctor] .
+  op hs : Int -> Chan [ctor] .
+  op uch : -> Chan [ctor] .
+endfm
+
+
+--- syntax Value ::= Chan                                      (line 71)
+fmod PROMELA-VALUE-CHAN is
+  protecting PROMELA-VALUE .
+  protecting PROMELA-CHAN .
+
+  op #_ : Chan -> Value [ctor] .
+endfm
+
+
+--- syntax Loc ::= loc(Int)                                    (line 75)
+fmod PROMELA-LOC is
+  protecting PROMELA-VALUE .
+
+  sort Loc .
+  op loc : Int -> Loc [ctor] .
+endfm
+
+
+fmod PROMELA-MSG is
+  protecting PROMELA-VALUE-CHAN .
+
+  --- EmptyList/MsgList/ValueList encode K's builtin List; no promela.k production
+  sort EmptyList .
+  op nil : -> EmptyList [ctor] .
+  op _,_ : EmptyList EmptyList -> EmptyList [ctor assoc id: nil prec 70] .
+
+  sorts Msg MsgList .
+  subsorts EmptyList Msg < MsgList .
+  op _,_ : MsgList MsgList -> MsgList [ctor ditto] .
+
+  sort ValueList .
+  subsorts EmptyList Value < ValueList .
+  op _,_ : ValueList ValueList -> ValueList [ctor ditto] .
+
+  --- syntax Msg ::= m(List) // list of values
+  --- | "noMsg"                                                (lines 78-79)
+  op m : ValueList -> Msg [ctor] .
+  op noMsg : -> Msg [ctor] .
+endfm
+
+
+--- syntax Queue ::= mq(Int, List) // capacity, list of messages   (line 77)
+fmod PROMELA-QUEUE is
+  protecting PROMELA-MSG .
+
+  sort Queue .
+  op mq : Int MsgList -> Queue [ctor] .
+endfm
+
+
+--- syntax Lock ::= Int | "#none" | "#frozen" // frozen is added for #freeze   (line 81)
+fmod PROMELA-LOCK is
+  protecting INT .
+
+  sort Lock .
+  op @_ : Int -> Lock [ctor] .
+  op #none : -> Lock [ctor] .
+  op #frozen : -> Lock [ctor] .
+endfm
+
+
+--- syntax KItem ::= "null"
+--- | lval(Id, Int) // vref                                    (lines 83-84)
+fmod PROMELA-LVAL is
+  protecting PROMELA-ID .
+  protecting INT .
+
+  sort LVal .
+  op lval : Id Int -> LVal [ctor] .
+endfm
+
+
+--- syntax Ref ::= Vref | Chan | Loc                           (line 86)
+fmod PROMELA-REF is
+  protecting PROMELA-CHAN .
+  protecting PROMELA-LOC .
+
+  sort Ref .
+  subsorts Chan Loc < Ref .
+endfm
+
+
+fmod PROMELA-EXP is
+  protecting PROMELA-ID .
+  protecting PROMELA-VALUE-CHAN .
+  protecting PROMELA-LOC .
+  protecting PROMELA-MSG .
+  protecting PROMELA-QUEUE .
+  protecting PROMELA-LVAL .
+  protecting PROMELA-REF .
+
+  --- syntax PType ::= "int" | "bool"                          (line 19)
+  --- syntax CType ::= "chan"                                  (line 20)
+  --- syntax Type ::= PType | CType                            (line 21)
+  sorts PType CType Type .
+  subsorts PType CType < Type .
+  op int : -> PType [ctor] .
+  op bool : -> PType [ctor] .
+  op chan : -> CType [ctor] .
+
+  --- syntax Types ::= List{Type, ","}                         (line 22)
+  sort Types .
+  subsort Type < Types .
+  op _,_ : Types Types -> Types [ctor assoc] .
+
+  --- syntax Vref ::= Id | Id "[" Expr "]"                     (line 60)
+  sort Vref .
+  subsort Id < Vref .
+  op _[_] : Id Expr -> Vref [ctor prec 1] .
+
+  --- syntax Const ::= Value                                   (line 62)
+  sort Const .
+  subsort Value < Const .
+
+  --- syntax Expr ::= Const | Vref
+  --- | "(" Expr ")" [bracket]
+  --- | "-" Expr | "!" Expr
+  --- | Expr "+" Expr | Expr "-" Expr | Expr "*" Expr | Expr "/" Expr
+  --- | Expr "<" Expr | Expr "<=" Expr | Expr ">" Expr | Expr ">=" Expr
+  --- | Expr "&&" Expr | Expr "||" Expr | Expr "==" Expr | Expr "!=" Expr
+  --- | full(Vref) | empty(Vref) | nfull(Vref) | nempty(Vref)
+  --- | Vref "?" "[" Exprs "]" // Recv Poll (only for buf chans)
+  --- | "run" Id "(" Exprs ")"                                 (lines 40-48)
+  sorts Expr Exprs .
+  subsorts Const Vref < Expr .
+  op -_ : Expr -> Expr [ctor prec 15 gather (E)] .
+  op _+_ : Expr Expr -> Expr [ctor prec 33 gather (e E)] .
+  op _-_ : Expr Expr -> Expr [ctor prec 33 gather (E e)] .
+  op _*_ : Expr Expr -> Expr [ctor prec 31 gather (e E)] .
+  op _/_ : Expr Expr -> Expr [ctor prec 31 gather (E e)] .
+
+  op _<_ : Expr Expr -> Expr [ctor prec 37 gather (E E)] .
+  op _<=_ : Expr Expr -> Expr [ctor prec 37 gather (E E)] .
+  op _>_ : Expr Expr -> Expr [ctor prec 37 gather (E E)] .
+  op _>=_ : Expr Expr -> Expr [ctor prec 37 gather (E E)] .
+  op _==_ : Expr Expr -> Expr [ctor prec 51 gather (E E)] .
+  op _!=_ : Expr Expr -> Expr [ctor prec 51 gather (E E)] .
+
+  op !_ : Expr -> Expr [ctor prec 53 gather (E)] .
+  op _&&_ : Expr Expr -> Expr [ctor prec 55 gather (e E)] .
+  op _||_ : Expr Expr -> Expr [ctor prec 59 gather (e E)] .
+
+  op full : Vref -> Expr [ctor] .
+  op empty : Vref -> Expr [ctor] .
+  op nfull : Vref -> Expr [ctor] .
+  op nempty : Vref -> Expr [ctor] .
+  op _?[_] : Vref Exprs -> Expr [ctor] .
+
+  op run_(_) : Id Exprs -> Expr [ctor] .
+
+  --- syntax Exprs ::= List{Expr, ","}                         (line 50)
+  subsorts EmptyList Expr ValueList < Exprs .
+  op _,_ : Exprs Exprs -> Exprs [ctor ditto] .
+endfm
+
+
+fmod PROMELA-STMT-DECL is
+  protecting PROMELA-EXP .
+
+  --- syntax Decl ::= Type Ivar                                (line 15)
+  --- syntax Decls ::= List{Decl, ";"} // this often causes ambiguity w/ Seq   (line 16)
+  sorts Decl Decls .
+  subsort Decl < Decls .
+  op .Decls : -> Decls [ctor] .
+  op _;_ : Decls Decls -> Decls [ctor assoc id: .Decls prec 60] .
+
+  --- syntax Ivar ::= Ivar "," Ivar | Vref
+  --- | Vref "=" Expr
+  --- | Vref "=" "[" Const "]" "of" "{" Types "}"              (lines 56-58)
+  op __ : Type Vref -> Decl [ctor] .
+  op __=_ : Type Vref Expr -> Decl [ctor] .
+  op __=[_]of{_} : Type Vref Int Types -> Decl [ctor] .
+
+  --- syntax BasicStmt ::= Decl | Expr
+  --- | Vref "=" Expr [prefer] // Assign
+  --- | Vref "!" Exprs // Send
+  --- | Vref "?" Exprs // Recv
+  --- | "skip"                                                 (lines 24-28)
+  --- syntax GotoStmt ::= "goto" Id | "break"                  (line 29)
+  --- syntax DeclStmt ::= Decl // originally corresponds to decl "step"   (line 30)
+  --- syntax Stmt ::= BasicStmt
+  --- | DeclStmt
+  --- | GotoStmt
+  --- | "atomic" "{" Seq "}"
+  --- | "if" Optns "fi"
+  --- | "do" Optns "od"                                        (lines 31-36)
+  sorts BasicStmt GotoStmt DeclStmt Stmt .
+  subsort Decl < BasicStmt .
+  subsort Decl < DeclStmt .
+  subsort BasicStmt DeclStmt GotoStmt < Stmt .
+
+  subsort Expr < BasicStmt .
+
+  op skip : -> BasicStmt [ctor] .
+  op _=_ : Vref Expr -> BasicStmt [ctor prec 45] .
+  op _!_ : Vref Exprs -> BasicStmt [ctor prec 45] .
+  op _?_ : Vref Exprs -> BasicStmt [ctor prec 45] .
+
+  op goto_ : Id -> GotoStmt [ctor] .
+  op break : -> GotoStmt [ctor] .
+  op atomic{_} : Seq -> Stmt [ctor] .
+  op if_fi : Optns -> Stmt [ctor] .
+  op do_od : Optns -> Stmt [ctor] .
+
+  --- syntax Seq ::= List{Stmt, ";"} [prefer]                  (line 38)
+  sort Seq .
+  subsort Stmt < Seq .
+  subsort Decls < Seq .
+  op _;_ : Seq Seq -> Seq [ctor assoc id: .Decls prec 60] .
+
+  --- syntax Optn ::= "::" Seq                                 (line 52)
+  --- syntax Optns ::= List{Optn, ""}                          (line 54)
+  sorts Optn Optns .
+  subsort Optn < Optns .
+  op .Optns : -> Optns [ctor] .
+  op __ : Optns Optns -> Optns [ctor assoc id: .Optns] .
+  op ::_ : Seq -> Optn [ctor prec 61] .
+endfm
+
+
+fmod PROMELA-PROGRAM is
+  protecting PROMELA-STMT-DECL .
+
+  --- syntax Active ::= "active" | "active" "[" Int "]"        (line 13)
+  sort Active .
+  op active : -> Active [ctor] .
+  op active[_] : Int -> Active [ctor] .
+
+  --- syntax Proc ::= Active "proctype" Id "(" Decls ")" "{" Seq "}"
+  --- | "proctype" Id "(" Decls ")" "{" Seq "}"                (lines 10-11)
+  sort Proc .
+  op _proctype_(_){_} : Active Id Decls Seq -> Proc [ctor prec 20] .
+  op proctype_(_){_} : Id Decls Seq -> Proc [ctor prec 20] .
+
+  --- syntax Spec ::= Proc
+  --- | Decl
+  --- | Spec Spec [left]                                       (lines 6-8)
+  sort Spec .
+  subsorts Proc Decl < Spec .
+  op __ : Spec Spec -> Spec [ctor assoc prec 30 gather (E e)] .
+endfm

@@ -1,0 +1,5 @@
+--- focus on pids 0, 1. Requires PROMELA-AGCEL loaded.
+mod FOCUS-01 is
+  inc PROMELA-AGCEL .
+  eq focusIds = 0, 1 .
+endm
